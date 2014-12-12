@@ -52,6 +52,39 @@ class SimpleConsumer(object):
         offset, kafka_message = self.kafka_consumer.get_message(block, timeout)
         return KeyAndMessage(kafka_message.key, kafka_message.value)
 
+    def _validate_offsets(self, latest_offset):
+        """ python-kafka api does not check for offsets validity.
+        When either a group does not exist yet or the saved offset
+        is older than the tail of the queue the fetch request fails.
+        We check the offsets and reset them if necessary.
+        """
+
+        # Disable autocommit to avoid committing offsets during seek
+        self.kafka_consumer.auto_commit = False
+
+        group_offsets = self.kafka_consumer.fetch_offsets
+        # Fetch the earliest available offset (the older message)
+        self.kafka_consumer.seek(0, 0)
+        available = self.kafka_consumer.fetch_offsets
+
+        # Validate the group offsets checking that they are > than the earliest
+        # available offset
+        if any([offset < available[k]
+                for k, offset in group_offsets.iteritems()]):
+            self.log.info("Group offset for %s is too old fetching"
+                          " a new valid one", self.topic)
+            if latest_offset is True:
+                # Fetch the latest available offset (the newest message)
+                self.kafka_consumer.seek(-1, 2)
+        else:
+            # self.fetch_offsets is used for the kafka fetch request,
+            # while self.offsets is used to store the last processed message
+            # offsets. When we bootstrap the kafka consumer we need these two
+            # dicts to be in sync with one other.
+            self.kafka_consumer.offsets = group_offsets.copy()
+            self.kafka_consumer.fetch_offsets = group_offsets.copy()
+        self.kafka_consumer.auto_commit = True
+
 
 class Consumer(object):
 
@@ -102,36 +135,3 @@ class Consumer(object):
         self.kafka_consumer.commit()
         self.client.close()
         self.dispose()
-
-    def _validate_offsets(self, latest_offset):
-        """ python-kafka api does not check for offsets validity.
-        When either a group does not exist yet or the saved offset
-        is older than the tail of the queue the fetch request fails.
-        We check the offsets and reset them if necessary.
-        """
-
-        # Disable autocommit to avoid committing offsets during seek
-        self.kafka_consumer.auto_commit = False
-
-        group_offsets = self.kafka_consumer.fetch_offsets
-        # Fetch the earliest available offset (the older message)
-        self.kafka_consumer.seek(0, 0)
-        available = self.kafka_consumer.fetch_offsets
-
-        # Validate the group offsets checking that they are > than the earliest
-        # available offset
-        if any([offset < available[k]
-                for k, offset in group_offsets.iteritems()]):
-            self.log.info("Group offset for %s is too old fetching"
-                          " a new valid one", self.topic)
-            if latest_offset is True:
-                # Fetch the latest available offset (the newest message)
-                self.kafka_consumer.seek(-1, 2)
-        else:
-            # self.fetch_offsets is used for the kafka fetch request,
-            # while self.offsets is used to store the last processed message
-            # offsets. When we bootstrap the kafka consumer we need these two
-            # dicts to be in sync with one other.
-            self.kafka_consumer.offsets = group_offsets.copy()
-            self.kafka_consumer.fetch_offsets = group_offsets.copy()
-        self.kafka_consumer.auto_commit = True
