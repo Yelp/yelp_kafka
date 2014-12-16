@@ -1,4 +1,4 @@
 # -*- coding: utf-8 -*-
 
-version = "0.0.1"
-version_info = tuple(map(int, version.split('.')))
+__version__ = "0.0.1"
+version_info = tuple(map(int, __version__.split('.')))

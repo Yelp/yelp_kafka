@@ -30,7 +30,7 @@ class Coverage(Tox):
 
 setup(
     name='yelp_kafka',
-    version=yelp_kafka.version,
+    version=yelp_kafka.__version__,
     author='Tools-Infra Team',
     author_email='tools-infra@yelp.com',
     license='Copyright Yelp 2014, All Rights Reserved',
@@ -41,6 +41,7 @@ setup(
     install_requires=[
         'kafka-python',
         'kazoo',
+        'python-snappy',
     ],
     cmdclass={
         'test': Tox,
