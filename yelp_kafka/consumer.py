@@ -2,55 +2,56 @@ from collections import namedtuple
 from multiprocessing import Event
 
 from kafka import KafkaClient
-from kafka import SimpleConsumer as KafkaSimpleConsumer
-from kafka.consumer import AUTO_COMMIT_MSG_COUNT
-from kafka.consumer import AUTO_COMMIT_INTERVAL
+from kafka import SimpleConsumer
 
-# This is fixed to 1 MB for making a fetch call more efficient when dealing
-# with ranger messages can be more than 100KB in size
-KAFKA_BUFFER_SIZE = 1024 * 1024
+from yelp_kafka.config import load_config_or_default
+from yelp_kafka.config import CONSUMER_CONFIG_KEYS
 
-KeyAndMessage = namedtuple("KeyAndMessage", ["key", "message"])
+Message = namedtuple("Message", ["partition", "offset", "key", "value"])
 
 
-class SimpleConsumer(object):
+class KafkaSimpleConsumer(object):
 
-    def __init__(self, topic, partitions=None):
+    def __init__(self, topic, config, partitions=None):
         if not isinstance(topic, str):
             raise TypeError("Topic is not a string")
         self.topic = topic
 
-        if not isinstance(partitions, list):
+        if partitions and not isinstance(partitions, list):
             raise TypeError("Partitions is not a list")
         self.partitions = partitions
+        self.kafka_consumer = None
+        self._config = load_config_or_default(config)
 
-    def connect(self, brokers, client_id, group_id,
-                latest_offset=True,
-                auto_commit_every_n=AUTO_COMMIT_MSG_COUNT,
-                auto_commit_every_t=AUTO_COMMIT_INTERVAL):
-
+    def connect(self):
+        """ Connect to kafka and validate the offsets for a topic """
         # Instantiate a kafka client connected to kafka.
-        client = KafkaClient(brokers, client_id=client_id)
+        client = KafkaClient(self._config['brokers'],
+                             client_id=self._config['client_id'])
 
         # Create a kafka SimpleConsumer.
-        self.kafka_consumer = KafkaSimpleConsumer(
-            client, group_id, self.topic, partitions=self.partitions,
-            max_buffer_size=None, buffer_size=KAFKA_BUFFER_SIZE,
-            auto_commit_every_n=auto_commit_every_n,
-            auto_commit_every_t=auto_commit_every_t
+        self.kafka_consumer = SimpleConsumer(
+            client, self._config['group_id'], self.topic, partitions=self.partitions,
+            **dict([(k, self._config[k]) for k in CONSUMER_CONFIG_KEYS])
         )
-
-        self._validate_offsets(latest_offset)
+        self.kafka_consumer.provide_partition_info()
+        self._validate_offsets(self._config['latest_offset'])
 
     def __iter__(self):
-        for offset, kafka_message in self.kafka_consumer:
-            # TODO: We probably don't want to have the magic and attributes in
-            # the message. According with
-            yield KeyAndMessage(kafka_message.key, kafka_message.value)
+        for partition, kafka_message in self.kafka_consumer:
+            yield Message(partition=partition, offset=kafka_message[0],
+                          key=kafka_message[1].key, value=kafka_message[1].value)
 
     def get_message(self, block=True, timeout=0.1):
-        offset, kafka_message = self.kafka_consumer.get_message(block, timeout)
-        return KeyAndMessage(kafka_message.key, kafka_message.value)
+        """ Get a message from kafka. It has the same arguments of get_message
+        in kafka-python SimpleConsumer.
+
+        :returns: a Kafka message
+        :rtype: KeyAndMessage
+        """
+        partition, kafka_message = self.kafka_consumer.get_message(block, timeout)
+        return Message(partition=partition, offset=kafka_message[0],
+                       key=kafka_message[1].key, value=kafka_message[1].value)
 
     def _validate_offsets(self, latest_offset):
         """ python-kafka api does not check for offsets validity.
@@ -86,10 +87,10 @@ class SimpleConsumer(object):
         self.kafka_consumer.auto_commit = True
 
 
-class Consumer(object):
+class KafkaConsumer(KafkaSimpleConsumer):
 
-    def __init__(self, topic, partitions=None):
-        super(Consumer, self).__init__(topic, partitions)
+    def __init__(self, topic, config, partitions=None, latest_offset=True):
+        super(KafkaConsumer, self).__init__(topic, config, partitions)
         self.termination_flag = Event()
 
     def initialize(self):
@@ -104,28 +105,25 @@ class Consumer(object):
         """
         pass
 
-    def process(self, key, value):
-        """ Should implement the application logic """
+    def process(self, message):
+        """ Should implement the application logic.
+        :param message: message to process
+        :type message: Message
+        """
         pass
 
     def terminate(self):
         """ Terminate the consumer """
         self.termination_flag.set()
 
-    def run(self, brokers, client_id, group_id,
-            latest_offset=True,
-            auto_commit_every_n=AUTO_COMMIT_MSG_COUNT,
-            auto_commit_every_t=AUTO_COMMIT_INTERVAL):
+    def run(self):
         """ Fetch and process messages from kafka """
 
         self.initialize()
+        self.connect()
 
-        self.connect(brokers, client_id, group_id,
-                     latest_offset, auto_commit_every_n,
-                     auto_commit_every_t)
-
-        for key, message in self:
-            self.process(key, message)
+        for message in self:
+            self.process(message)
             if self.termination_flag.is_set():
                 self._terminate()
                 break

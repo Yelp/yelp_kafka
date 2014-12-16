@@ -11,80 +11,83 @@ from kazoo.client import KazooClient
 from kafka import KafkaClient
 from kafka.common import KafkaUnavailableError
 
-
-ZOOKEEPER_BASE_PATH = '/python-kakfa/'
-TIME_BOUNDARY = 30
-MAX_WAITING_TIME = 10
+from yelp_kafka.config import load_config_or_default
 
 
 class ConsumerGroup(object):
+    """ Base class to implement a consumer group """
 
-    def __init__(self, zookeeper_hosts, brokers,
-                 client_id, topics, group_id):
-        self.brokers = brokers
-        self.client_id = client_id
+    def __init__(self, zookeeper_hosts, topics, config):
+        self._config = load_config_or_default(config)
         self.topics = topics
-        self.group_id = group_id
         self.kazooclient = KazooClient(zookeeper_hosts)
         self.termination_flag = Event()
         self.consumers_lock = Lock()
         self._acquired_partitions = None
         self.consumer_procs = None
         self.log = logging.getLogger(__name__)
+        self.partitioner = None
 
     def start_group(self):
 
         self.kazooclient.start()
-        self.kafkaclient = KafkaClient(self.brokers, client_id=self.client_id)
-
-        # TODO: We load the partitions only once. We should do this
-        # periodically and restart the partitioner if partitions changed
-        all_partitions = self.get_all_partitions(self.topics)
-        group_path = ZOOKEEPER_BASE_PATH + self.group_id
-
-        partitioner = self.kazooclient.SetPartitioner(
-            group_path, all_partitions, time_boundary=TIME_BOUNDARY
+        self.kafkaclient = KafkaClient(
+            self._config['brokers'],
+            client_id=self._config['client_id']
         )
 
-        self.handle_partitions(partitioner)
+        # TODO: We load the partitions only once. We should do this
+        # periodically and restart the partitioner if partitions changed.
+        # Actually kazoo partitioner seems to have some issues if we change the
+        # partition set on the fly. From my tests I saw partitions not being
+        # allocated after recreating the partitioner. Need to investigate more.
+        all_partitions = self.get_all_partitions(self.topics)
+        group_path = self._config['zookeper_base'] + self._config['group_id']
+
+        while True:
+            if not self.partitioner:
+                self.partitioner = self.kazooclient.SetPartitioner(
+                    path=group_path, set=all_partitions,
+                    time_boundary=self._config['time_boundary']
+                )
+            self._handle_partitions()
+            if self.termination_flag.wait(1):
+                self._release()
+                break
 
     def stop_group(self):
         """ Set the termination flag to stop the group """
         self.termination_flag.set()
 
-    def handle_partitions(self, partitioner):
-        while True:
-            if self.termination_flag.wait(1):
-                self._release(partitioner)
-                break
-            if partitioner.failed:
-                self._fail(partitioner)
-            elif partitioner.release:
-                self._release(partitioner)
-            elif partitioner.acquired:
-                if not self._acquired_partitions:
-                    self._acquire(partitioner)
-            elif partitioner.allocating:
-                self.log.info("Allocating partitions")
-                partitioner.wait_for_acquire()
+    def _handle_partitions(self):
+        if self.partitioner.failed:
+            self._fail()
+        elif self.partitioner.release:
+            self._release()
+        elif self.partitioner.acquired:
+            if not self._acquired_partitions:
+                self._acquire()
             self.monitor()
+        elif self.partitioner.allocating:
+            self.log.info("Allocating partitions")
+            self.partitioner.wait_for_acquire()
 
-    def _release(self, partitioner):
+    def _release(self):
         self.log.info("Releasing partitions")
-        self.release(self._acquired_partitions.copy())
+        self.release(self._acquired_partitions)
         self._acquired_partitions.clear()
-        partitioner.release_set()
+        self.partitioner.release_set()
 
-    def _fail(self, partitioner):
+    def _fail(self):
         self.log.error("Lost or unable to acquire partitions")
         self._acquired_partitions.clear()
 
-    def _acquire(self, partitioner):
+    def _acquire(self):
         self.log.info("Partitions acquired")
-        self._acquired_partitions = self._get_acquired_partitions(partitioner)
+        self._acquired_partitions = self._get_acquired_partitions(self.partitioner)
         with self.consumers_lock:
             self.allocated_consumers = self.start(
-                self._acquired_partitions.copy()
+                self._acquired_partitions
             )
 
     def get_consumers(self):
@@ -123,7 +126,8 @@ class ConsumerGroup(object):
 
     def start(self, acquired_partitions):
         """ Implement the logic to start all the consumers.
-        the acquired partitions can be accessed through
+
+        Must return a list of the allocated consumers (subclass of Consumer)
         """
         pass
 
@@ -142,10 +146,10 @@ class ConsumerGroup(object):
 
 class MultiprocessingConsumerGroup(ConsumerGroup):
 
-    def __init__(self, zookeeper_hosts, brokers,
-                 client_id, topics, group_id, consumer_factory):
+    def __init__(self, zookeeper_hosts, topics,
+                 config, consumer_factory):
         super(MultiprocessingConsumerGroup, self).__init__(
-            zookeeper_hosts, brokers, client_id, topics, group_id
+            zookeeper_hosts, topics, config
         )
         self.consumer_factory = consumer_factory
 
@@ -157,27 +161,23 @@ class MultiprocessingConsumerGroup(ConsumerGroup):
         # how many processes/partitions allocate.
         for topic, partitions in acquired_partitions.iteritems():
             for p in partitions:
-                consumer = self.consumer_factory(topic, [p])
+                consumer = self.consumer_factory(topic, self._config, [p])
                 self.consumer_procs[self._start_consumer(consumer)] = consumer
+        return self.consumer_procs.values()
 
     def _start_consumer(self, consumer):
         # Create a new consumer process
-        proc = Process(target=consumer.run,
-                       args=(
-                           self.brokers,
-                           self.client_id,
-                           self.group_id,
-                       ))
+        proc = Process(target=consumer.run)
         proc.start()
         return proc
 
-    def release(self):
+    def release(self, acquired_partitions):
         # terminate all the consumer processes
         self.log.info("Terminating consumer group")
         for consumer in self.consumer_procs.itervalues():
             consumer.terminate()
 
-        timeout = time.time() + MAX_WAITING_TIME
+        timeout = time.time() + self._config['max_waiting_time']
         while (time.time() <= timeout and
                any([proc.is_alive() for proc in self.consumer_procs.iterkeys()])):
             continue
