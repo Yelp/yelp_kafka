@@ -3,6 +3,7 @@ from kafka.consumer import AUTO_COMMIT_INTERVAL
 from kafka.consumer import FETCH_MIN_BYTES
 from kafka.consumer import MAX_FETCH_BUFFER_SIZE_BYTES
 
+from yelp_kafka.error import ConsumerConfigurationError
 
 # This is fixed to 1 MB for making a fetch call more efficient when dealing
 # with ranger messages can be more than 100KB in size
@@ -14,6 +15,7 @@ MAX_WAITING_TIME = 10
 
 
 DEFAULT_CONFIG = {
+    'brokers': None,
     'client_id': 'yelp-kafka',
     'group_id': None,
     'buffer_size': KAFKA_BUFFER_SIZE,
@@ -42,7 +44,11 @@ CONSUMER_CONFIG_KEYS = (
 
 
 def load_config_or_default(config):
+    if 'group_id' not in config:
+        raise ConsumerConfigurationError('group_id missing in config')
+    if 'brokers' not in config:
+        raise ConsumerConfigurationError('brokers missing in config')
     _config = {}
     for key in DEFAULT_CONFIG:
-        _config = config.pop(key, DEFAULT_CONFIG[key])
+        _config[key] = config.pop(key, DEFAULT_CONFIG[key])
     return _config

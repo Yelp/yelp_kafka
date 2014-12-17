@@ -81,6 +81,7 @@ class ConsumerGroup(object):
     def _fail(self):
         self.log.error("Lost or unable to acquire partitions")
         self._acquired_partitions.clear()
+        self.partitioner = None
 
     def _acquire(self):
         self.log.info("Partitions acquired")
