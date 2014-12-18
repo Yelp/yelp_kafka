@@ -40,9 +40,14 @@ class KafkaSimpleConsumer(object):
         self._validate_offsets(self._config['latest_offset'])
 
     def __iter__(self):
-        for partition, kafka_message in self.kafka_consumer:
-            yield Message(partition=partition, offset=kafka_message[0],
-                          key=kafka_message[1].key, value=kafka_message[1].value)
+        while True:
+            for partition, kafka_message in self.kafka_consumer:
+                yield Message(
+                    partition=partition,
+                    offset=kafka_message[0],
+                    key=kafka_message[1].key,
+                    value=kafka_message[1].value
+                )
 
     def get_message(self, block=True, timeout=0.1):
         """ Get a message from kafka. It has the same arguments of get_message

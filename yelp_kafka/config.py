@@ -1,7 +1,6 @@
 from kafka.consumer import AUTO_COMMIT_MSG_COUNT
 from kafka.consumer import AUTO_COMMIT_INTERVAL
 from kafka.consumer import FETCH_MIN_BYTES
-from kafka.consumer import MAX_FETCH_BUFFER_SIZE_BYTES
 
 from yelp_kafka.error import ConsumerConfigurationError
 
@@ -12,6 +11,7 @@ KAFKA_BUFFER_SIZE = 1024 * 1024
 ZOOKEEPER_BASE_PATH = '/python-kakfa'
 TIME_BOUNDARY = 30
 MAX_WAITING_TIME = 10
+MAX_ITERATOR_TIMEOUT_SECS = 0.1
 
 
 DEFAULT_CONFIG = {
@@ -23,8 +23,8 @@ DEFAULT_CONFIG = {
     'auto_commit_every_t': AUTO_COMMIT_INTERVAL,
     'auto_commit': True,
     'fetch_size_bytes': FETCH_MIN_BYTES,
-    'max_buffer_size': MAX_FETCH_BUFFER_SIZE_BYTES,
-    'iter_timeout': None,
+    'max_buffer_size': None,
+    'iter_timeout': MAX_ITERATOR_TIMEOUT_SECS,
     'zookeeper_base': ZOOKEEPER_BASE_PATH,
     'time_boundary': TIME_BOUNDARY,
     'max_waiting_time': MAX_WAITING_TIME,

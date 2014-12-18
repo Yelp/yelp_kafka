@@ -19,20 +19,21 @@ class ConsumerGroup(object):
     """ Base class to implement a consumer group """
 
     def __init__(self, zookeeper_hosts, topics, config):
-        self._config = load_config_or_default(config)
+        self.log = logging.getLogger(__name__)
+        self.config = load_config_or_default(config)
+        self.log.info("Loaded config %s", self.config)
         self.topics = topics
         self.kazooclient = KazooClient(zookeeper_hosts)
         self.termination_flag = None
         self.consumers_lock = Lock()
         self._acquired_partitions = defaultdict(list)
         self.consumer_procs = {}
-        self.log = logging.getLogger(__name__)
         self.partitioner = None
         self.allocated_consumers = None
 
     def get_group_path(self):
-        return '/'.join([self._config['zookeeper_base'],
-                        self._config['group_id']])
+        return '/'.join([self.config['zookeeper_base'],
+                        self.config['group_id']])
 
     def start_group(self):
         # TODO: We load the partitions only once. We should do this
@@ -45,14 +46,15 @@ class ConsumerGroup(object):
         # Create the terminatio flag
         self.termination_flag = Event()
 
-        while not self.termination_flag.wait(1):
+        while not self.termination_flag.is_set():
             if not self.partitioner:
                 self.partitioner = self.kazooclient.SetPartitioner(
                     path=self.get_group_path(),
-                    set=self.get_all_partitions(self.topics),
-                    time_boundary=self._config['time_boundary']
+                    set=self.get_all_partitions(),
+                    time_boundary=self.config['time_boundary']
                 )
             self._handle_partitions()
+            time.sleep(1)
         # Release the group for termination
         self._release()
 
@@ -69,6 +71,7 @@ class ConsumerGroup(object):
             self._release()
         elif self.partitioner.acquired:
             if not self._acquired_partitions:
+                self.log.info("Allocation done!")
                 self._acquire()
             self.monitor()
         elif self.partitioner.allocating:
@@ -95,10 +98,12 @@ class ConsumerGroup(object):
     def _acquire(self):
         self.log.info("Partitions acquired")
         self._acquired_partitions = self._get_acquired_partitions(self.partitioner)
+        self.log.info("Acquired partitions: %s", self._acquired_partitions)
         with self.consumers_lock:
             self.allocated_consumers = self.start(
                 self._acquired_partitions
             )
+            self.log.info("Allocated consumers %s", self.allocated_consumers)
 
     def get_consumers(self):
         with self.consumers_lock:
@@ -119,8 +124,8 @@ class ConsumerGroup(object):
         """
 
         kafkaclient = KafkaClient(
-            self._config['brokers'],
-            client_id=self._config['client_id']
+            self.config['brokers'],
+            client_id=self.config['client_id']
         )
         try:
             kafkaclient.load_metadata_for_topics()
@@ -132,9 +137,14 @@ class ConsumerGroup(object):
                              " Trying again.")
             kafkaclient.load_metadata_for_topics()
 
-        return set(["{0}-{1}".format(topic, p)
-                    for topic in self.topics
-                    for p in kafkaclient.topic_partitions[topic]])
+        partitions = []
+        for topic in self.topics:
+            if topic not in kafkaclient.topic_partitions:
+                self.log.warning("Topic %s does not exist in kafka", topic)
+            else:
+                partitions += ["{0}-{1}".format(topic, p)
+                               for p in kafkaclient.topic_partitions[topic]]
+        return set(partitions)
 
     def start(self, acquired_partitions):
         """ Implement the logic to start all the consumers.
@@ -173,7 +183,11 @@ class MultiprocessingConsumerGroup(ConsumerGroup):
         # how many processes/partitions allocate.
         for topic, partitions in acquired_partitions.iteritems():
             for p in partitions:
-                consumer = self.consumer_factory(topic, self._config, [p])
+                self.log.info(
+                    "Creating consumer topic = %s, config = %s,"
+                    " partition = %s", topic, self.config, p
+                )
+                consumer = self.consumer_factory(topic, self.config.copy(), [p])
                 self.consumer_procs[self._start_consumer(consumer)] = consumer
         return self.consumer_procs.values()
 
@@ -189,7 +203,7 @@ class MultiprocessingConsumerGroup(ConsumerGroup):
         for consumer in self.consumer_procs.itervalues():
             consumer.terminate()
 
-        timeout = time.time() + self._config['max_waiting_time']
+        timeout = time.time() + self.config['max_waiting_time']
         while (time.time() <= timeout and
                any([proc.is_alive() for proc in self.consumer_procs.iterkeys()])):
             continue
