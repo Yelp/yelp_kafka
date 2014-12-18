@@ -50,5 +50,5 @@ def load_config_or_default(config):
         raise ConsumerConfigurationError('brokers missing in config')
     _config = {}
     for key in DEFAULT_CONFIG:
-        _config[key] = config.pop(key, DEFAULT_CONFIG[key])
+        _config[key] = config.get(key, DEFAULT_CONFIG[key])
     return _config
