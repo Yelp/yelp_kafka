@@ -27,7 +27,7 @@ pip-log.txt
 .tox
 
 # Project
-.project
+.ropeproject
 .pydevproject
 
 # Editors

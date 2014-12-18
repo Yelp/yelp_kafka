@@ -25,7 +25,7 @@ class ConsumerGroup(object):
         self.termination_flag = None
         self.consumers_lock = Lock()
         self._acquired_partitions = defaultdict(list)
-        self.consumer_procs = None
+        self.consumer_procs = {}
         self.log = logging.getLogger(__name__)
         self.partitioner = None
         self.allocated_consumers = None

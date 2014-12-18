@@ -1,4 +1,6 @@
 import mock
+from multiprocessing import Process
+import os
 import pytest
 
 from yelp_kafka.consumer_group import ConsumerGroup
@@ -145,13 +147,87 @@ class TestConsumerGroup(object):
         assert actual == group.allocated_consumers
 
 
+@mock.patch('yelp_kafka.consumer_group.KazooClient', autospec=True)
 class TestMultiprocessingConsumerGroup(object):
 
-    def test_start(self):
-        pass
+    topics = ['topic1', 'topic2']
 
-    def test_release(self):
-        pass
+    def test_start(self, _, config):
+        consumer_factory = mock.Mock()
+        mock_consumer = mock.Mock()
+        consumer_factory.return_value = mock_consumer
+        group = MultiprocessingConsumerGroup(
+            'zookeeper_uri:2181', self.topics,
+            config, consumer_factory
+        )
+        acquired_partitions = {
+            'topic1': [0, 1, 2],
+            'topic2': [3]
+        }
+        with mock.patch('yelp_kafka.consumer_group.Process',
+                        autospec=True) as mock_process:
+            actual_consumers = group.start(acquired_partitions)
+            assert all(consumer is mock_consumer
+                       for consumer in actual_consumers)
+            assert consumer_factory.call_count == 4
+            assert mock_process.call_count == 4
+            assert mock_process.return_value.start.call_count == 4
 
-    def test_monitor(self):
-        pass
+    def test_release(self, _, config):
+        group = MultiprocessingConsumerGroup(
+            'zookeeper_uri:2181', self.topics,
+            config, mock.Mock()
+        )
+        consumer = mock.Mock()
+        args = {'is_alive.return_value': False}
+        group.consumer_procs = {
+            mock.Mock(spec=Process, **args): consumer,
+            mock.Mock(spec=Process, **args): consumer
+        }
+        with mock.patch.object(os, 'kill', autospec=True) as mock_kill:
+            # Release takes acquired_partitions but in this case it is not used
+            # so we pass None
+            group.release(None)
+        assert not mock_kill.called
+        assert consumer.terminate.call_count == 2
+
+    def test_release_and_kill_unresponsive_consumer(self, _, config):
+        # Change default waiting time to not slow down the test
+        config['max_waiting_time'] = 0.1
+        group = MultiprocessingConsumerGroup(
+            'zookeeper_uri:2181', self.topics,
+            config, mock.Mock()
+        )
+        consumer = mock.Mock()
+        args = {'is_alive.return_value': True}
+        group.consumer_procs = {
+            mock.Mock(spec=Process, **args): consumer,
+            mock.Mock(spec=Process, **args): consumer
+        }
+        with mock.patch.object(os, 'kill', autospec=True) as mock_kill:
+            # Release takes acquired_partitions but in this case it is not used
+            # so we pass None
+            group.release(None)
+        assert mock_kill.call_count == 2
+        assert consumer.terminate.call_count == 2
+
+    def test_monitor(self, _, config):
+        group = MultiprocessingConsumerGroup(
+            'zookeeper_uri:2181', self.topics,
+            config, mock.Mock()
+        )
+        consumer1 = mock.Mock()
+        consumer2 = mock.Mock()
+        args1 = {'is_alive.return_value': False}
+        args2 = {'is_alive.return_value': True}
+        group.consumer_procs = {
+            mock.Mock(spec=Process, **args1): consumer1,
+            mock.Mock(spec=Process, **args2): consumer2
+        }
+        with mock.patch.object(
+            MultiprocessingConsumerGroup, '_start_consumer', autospec=True
+        ) as mock_start:
+            mock_start.return_value = mock.sentinel.proc
+            group.monitor()
+        assert mock.sentinel.proc in group.consumer_procs
+        mock_start.assert_called_once_with(group, consumer1)
