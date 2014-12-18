@@ -12,6 +12,7 @@ from kafka import KafkaClient
 from kafka.common import KafkaUnavailableError
 
 from yelp_kafka.config import load_config_or_default
+from yelp_kafka.error import ConsumerGroupError
 
 
 class ConsumerGroup(object):
@@ -21,42 +22,41 @@ class ConsumerGroup(object):
         self._config = load_config_or_default(config)
         self.topics = topics
         self.kazooclient = KazooClient(zookeeper_hosts)
-        self.termination_flag = Event()
+        self.termination_flag = None
         self.consumers_lock = Lock()
-        self._acquired_partitions = None
+        self._acquired_partitions = defaultdict(list)
         self.consumer_procs = None
         self.log = logging.getLogger(__name__)
         self.partitioner = None
+        self.allocated_consumers = None
 
     def start_group(self):
 
         self.kazooclient.start()
-        self.kafkaclient = KafkaClient(
-            self._config['brokers'],
-            client_id=self._config['client_id']
-        )
-
         # TODO: We load the partitions only once. We should do this
         # periodically and restart the partitioner if partitions changed.
         # Actually kazoo partitioner seems to have some issues if we change the
         # partition set on the fly. From my tests I saw partitions not being
         # allocated after recreating the partitioner. Need to investigate more.
-        all_partitions = self.get_all_partitions(self.topics)
         group_path = self._config['zookeper_base'] + self._config['group_id']
 
-        while True:
+        # Create the terminatio flag
+        self.termination_flag = Event()
+
+        while not self.termination_flag.wait(1):
             if not self.partitioner:
                 self.partitioner = self.kazooclient.SetPartitioner(
-                    path=group_path, set=all_partitions,
+                    path=group_path, set=self.get_all_partitions(self.topics),
                     time_boundary=self._config['time_boundary']
                 )
             self._handle_partitions()
-            if self.termination_flag.wait(1):
-                self._release()
-                break
+        # Release the group for termination
+        self._release()
 
     def stop_group(self):
         """ Set the termination flag to stop the group """
+        if not self.termination_flag:
+            raise ConsumerGroupError("Group not running")
         self.termination_flag.set()
 
     def _handle_partitions(self):
@@ -76,11 +76,17 @@ class ConsumerGroup(object):
         self.log.info("Releasing partitions")
         self.release(self._acquired_partitions)
         self._acquired_partitions.clear()
+        with self.consumers_lock:
+            self.allocated_consumers = None
         self.partitioner.release_set()
 
     def _fail(self):
         self.log.error("Lost or unable to acquire partitions")
-        self._acquired_partitions.clear()
+        if self._acquired_partitions:
+            self.release(self._acquired_partitions)
+            self._acquired_partitions.clear()
+            with self.consumers_lock:
+                self.allocated_consumers = None
         self.partitioner = None
 
     def _acquire(self):
@@ -93,37 +99,39 @@ class ConsumerGroup(object):
 
     def get_consumers(self):
         with self.consumers_lock:
-            return self.allocated_consumers[:]
-
-    def __iter__(self):
-        with self.consumers_lock:
-            for consumer in self.allocated_consumers:
-                yield consumer
+            if self.allocated_consumers is not None:
+                return self.allocated_consumers[:]
+            return None
 
     def _get_acquired_partitions(self, partitioner):
         acquired_partitions = defaultdict(list)
         for partition in partitioner:
             topic, partition_id = partition.split('-')
-            acquired_partitions[topic].append(partition_id)
+            acquired_partitions[topic].append(int(partition_id))
         return acquired_partitions
 
     def get_all_partitions(self):
         """ Load partitions metadata from kafka and create
         a set containing <topic>-<partition_id>
         """
+
+        kafkaclient = KafkaClient(
+            self._config['brokers'],
+            client_id=self._config['client_id']
+        )
         try:
-            self.kafkaclient.load_metadata_for_topics()
+            kafkaclient.load_metadata_for_topics()
         except KafkaUnavailableError:
             # Sometimes the kakfa server closes the connection for inactivity
             # in this case the second call should succeed otherwise the kafka
             # server is down and we should exit
             self.log.warning("First call to kafka for loading metadata failed."
                              " Trying again.")
-            self.kafkaclient.load_metadata_for_topics()
+            kafkaclient.load_metadata_for_topics()
 
         return set(["{0}-{1}".format(topic, p)
-                    for topic, partitions in self.kafkaclient.topic_partitions.iteritems()
-                    for p in partitions])
+                    for topic in self.topics
+                    for p in kafkaclient.topic_partitions[topic]])
 
     def start(self, acquired_partitions):
         """ Implement the logic to start all the consumers.

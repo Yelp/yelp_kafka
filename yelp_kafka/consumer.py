@@ -1,4 +1,5 @@
 from collections import namedtuple
+import logging
 from multiprocessing import Event
 
 from kafka import KafkaClient
@@ -21,17 +22,18 @@ class KafkaSimpleConsumer(object):
             raise TypeError("Partitions is not a list")
         self.partitions = partitions
         self.kafka_consumer = None
+        self.log = logging.getLogger(__name__)
         self._config = load_config_or_default(config)
 
     def connect(self):
         """ Connect to kafka and validate the offsets for a topic """
         # Instantiate a kafka client connected to kafka.
-        client = KafkaClient(self._config['brokers'],
-                             client_id=self._config['client_id'])
+        self.client = KafkaClient(self._config['brokers'],
+                                  client_id=self._config['client_id'])
 
         # Create a kafka SimpleConsumer.
         self.kafka_consumer = SimpleConsumer(
-            client, self._config['group_id'], self.topic, partitions=self.partitions,
+            self.client, self._config['group_id'], self.topic, partitions=self.partitions,
             **dict([(k, self._config[k]) for k in CONSUMER_CONFIG_KEYS])
         )
         self.kafka_consumer.provide_partition_info()
@@ -89,7 +91,7 @@ class KafkaSimpleConsumer(object):
 
 class KafkaConsumer(KafkaSimpleConsumer):
 
-    def __init__(self, topic, config, partitions=None, latest_offset=True):
+    def __init__(self, topic, config, partitions=None):
         super(KafkaConsumer, self).__init__(topic, config, partitions)
         self.termination_flag = Event()
 

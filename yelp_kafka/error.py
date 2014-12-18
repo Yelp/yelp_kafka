@@ -4,3 +4,7 @@ class YelpKafkaError(Exception):
 
 class ConsumerConfigurationError(YelpKafkaError):
     pass
+
+
+class ConsumerGroupError(YelpKafkaError):
+    pass
