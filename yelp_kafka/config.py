@@ -9,7 +9,7 @@ from yelp_kafka.error import ConsumerConfigurationError
 # with ranger messages can be more than 100KB in size
 KAFKA_BUFFER_SIZE = 1024 * 1024
 
-ZOOKEEPER_BASE_PATH = '/python-kakfa/'
+ZOOKEEPER_BASE_PATH = '/python-kakfa'
 TIME_BOUNDARY = 30
 MAX_WAITING_TIME = 10
 

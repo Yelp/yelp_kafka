@@ -30,23 +30,26 @@ class ConsumerGroup(object):
         self.partitioner = None
         self.allocated_consumers = None
 
-    def start_group(self):
+    def get_group_path(self):
+        return '/'.join([self._config['zookeeper_base'],
+                        self._config['group_id']])
 
-        self.kazooclient.start()
+    def start_group(self):
         # TODO: We load the partitions only once. We should do this
         # periodically and restart the partitioner if partitions changed.
         # Actually kazoo partitioner seems to have some issues if we change the
         # partition set on the fly. From my tests I saw partitions not being
         # allocated after recreating the partitioner. Need to investigate more.
-        group_path = self._config['zookeper_base'] + self._config['group_id']
 
+        self.kazooclient.start()
         # Create the terminatio flag
         self.termination_flag = Event()
 
         while not self.termination_flag.wait(1):
             if not self.partitioner:
                 self.partitioner = self.kazooclient.SetPartitioner(
-                    path=group_path, set=self.get_all_partitions(self.topics),
+                    path=self.get_group_path(),
+                    set=self.get_all_partitions(self.topics),
                     time_boundary=self._config['time_boundary']
                 )
             self._handle_partitions()

@@ -29,6 +29,11 @@ class TestConsumerGroup(object):
 
     topics = ['topic1', 'topic2']
 
+    def test_get_group_path(self, _, config):
+        config['zookeeper_base'] = '/base_path'
+        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        assert group.get_group_path() == '/base_path/test_group_id'
+
     def test_get_all_partitions(self, mock_kazoo, config):
         group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
         with mock.patch('yelp_kafka.consumer_group.KafkaClient',
