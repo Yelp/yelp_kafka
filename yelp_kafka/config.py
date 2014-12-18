@@ -10,7 +10,7 @@ KAFKA_BUFFER_SIZE = 1024 * 1024
 
 ZOOKEEPER_BASE_PATH = '/python-kakfa'
 TIME_BOUNDARY = 30
-MAX_WAITING_TIME = 10
+MAX_TERMINATION_TIMEOUT_SECS = 10
 MAX_ITERATOR_TIMEOUT_SECS = 0.1
 
 
@@ -27,7 +27,7 @@ DEFAULT_CONFIG = {
     'iter_timeout': MAX_ITERATOR_TIMEOUT_SECS,
     'zookeeper_base': ZOOKEEPER_BASE_PATH,
     'time_boundary': TIME_BOUNDARY,
-    'max_waiting_time': MAX_WAITING_TIME,
+    'max_termination_timeout_secs': MAX_TERMINATION_TIMEOUT_SECS,
     'latest_offset': True
 }
 

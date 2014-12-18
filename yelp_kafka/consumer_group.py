@@ -27,7 +27,6 @@ class ConsumerGroup(object):
         self.termination_flag = None
         self.consumers_lock = Lock()
         self._acquired_partitions = defaultdict(list)
-        self.consumer_procs = {}
         self.partitioner = None
         self.allocated_consumers = None
 
@@ -43,7 +42,7 @@ class ConsumerGroup(object):
         # allocated after recreating the partitioner. Need to investigate more.
 
         self.kazooclient.start()
-        # Create the terminatio flag
+        # Create the termination flag
         self.termination_flag = Event()
 
         while not self.termination_flag.is_set():
@@ -78,21 +77,21 @@ class ConsumerGroup(object):
             self.log.info("Allocating partitions")
             self.partitioner.wait_for_acquire()
 
-    def _release(self):
-        self.log.info("Releasing partitions")
+    def _release_consumers(self):
         self.release(self._acquired_partitions)
         self._acquired_partitions.clear()
         with self.consumers_lock:
             self.allocated_consumers = None
+
+    def _release(self):
+        self.log.info("Releasing partitions")
+        self._release_consumers()
         self.partitioner.release_set()
 
     def _fail(self):
         self.log.error("Lost or unable to acquire partitions")
         if self._acquired_partitions:
-            self.release(self._acquired_partitions)
-            self._acquired_partitions.clear()
-            with self.consumers_lock:
-                self.allocated_consumers = None
+            self._release_consumers()
         self.partitioner = None
 
     def _acquire(self):
@@ -174,6 +173,7 @@ class MultiprocessingConsumerGroup(ConsumerGroup):
             zookeeper_hosts, topics, config
         )
         self.consumer_factory = consumer_factory
+        self.consumer_procs = {}
 
     def start(self, acquired_partitions):
         # TODO: We create a consumer process for each partition.
@@ -203,7 +203,7 @@ class MultiprocessingConsumerGroup(ConsumerGroup):
         for consumer in self.consumer_procs.itervalues():
             consumer.terminate()
 
-        timeout = time.time() + self.config['max_waiting_time']
+        timeout = time.time() + self.config['max_termination_timeout_secs']
         while (time.time() <= timeout and
                any([proc.is_alive() for proc in self.consumer_procs.iterkeys()])):
             continue

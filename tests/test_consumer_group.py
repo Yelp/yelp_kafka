@@ -198,7 +198,7 @@ class TestMultiprocessingConsumerGroup(object):
 
     def test_release_and_kill_unresponsive_consumer(self, _, config):
         # Change default waiting time to not slow down the test
-        config['max_waiting_time'] = 0.1
+        config['max_termination_timeout_secs'] = 0.1
         group = MultiprocessingConsumerGroup(
             'zookeeper_uri:2181', self.topics,
             config, mock.Mock()
