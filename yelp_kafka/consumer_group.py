@@ -53,7 +53,7 @@ class ConsumerGroup(object):
                     time_boundary=self.config['time_boundary']
                 )
             self._handle_partitions()
-            time.sleep(1)
+            self.termination_flag.wait(1)
         # Release the group for termination
         self._release()
 
