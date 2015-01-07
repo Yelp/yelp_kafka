@@ -20,10 +20,11 @@ class ConsumerGroup(object):
 
     def __init__(self, zookeeper_hosts, topics, config):
         self.log = logging.getLogger(__name__)
+        if not isinstance(zookeeper_hosts, list):
+            raise TypeError("zookeeper_hosts must be a list")
         self.config = load_config_or_default(config)
         self.log.debug("Using config: %s", self.config)
         self.topics = topics
-        assert isinstance(zookeeper_hosts, list), "zookeeper_hosts must be a list"
         self.kazooclient = KazooClient(','.join(zookeeper_hosts))
         self.termination_flag = None
         self.consumers_lock = Lock()

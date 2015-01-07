@@ -14,15 +14,14 @@ Message = namedtuple("Message", ["partition", "offset", "key", "value"])
 class KafkaSimpleConsumer(object):
 
     def __init__(self, topic, config, partitions=None):
+        self.log = logging.getLogger(__name__)
         if not isinstance(topic, str):
-            raise TypeError("Topic is not a string")
+            raise TypeError("Topic must be a string")
         self.topic = topic
-
         if partitions and not isinstance(partitions, list):
-            raise TypeError("Partitions is not a list")
+            raise TypeError("Partitions must be a list")
         self.partitions = partitions
         self.kafka_consumer = None
-        self.log = logging.getLogger(__name__)
         self._config = load_config_or_default(config)
 
     def connect(self):
