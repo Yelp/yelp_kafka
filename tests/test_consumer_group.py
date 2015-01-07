@@ -28,14 +28,15 @@ def get_partitioner_status(status):
 class TestConsumerGroup(object):
 
     topics = ['topic1', 'topic2']
+    zookeeper_hosts = ['zookeeper_uri1:2181', 'zookeeper_uri2:2181']
 
     def test_get_group_path(self, _, config):
         config['zookeeper_base'] = '/base_path'
-        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        group = ConsumerGroup(self.zookeeper_hosts, self.topics, config)
         assert group.get_group_path() == '/base_path/test_group_id'
 
     def test_get_all_partitions(self, mock_kazoo, config):
-        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        group = ConsumerGroup(self.zookeeper_hosts, self.topics, config)
         with mock.patch('yelp_kafka.consumer_group.KafkaClient',
                         autospec=True) as mock_client:
             mock_client.return_value.topic_partitions = {
@@ -50,7 +51,7 @@ class TestConsumerGroup(object):
             ])
 
     def test_get_all_partitions_kafka_away(self, mock_kazoo, config):
-        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        group = ConsumerGroup(self.zookeeper_hosts, self.topics, config)
         with mock.patch('yelp_kafka.consumer_group.KafkaClient',
                         autospec=True) as mock_client:
             mock_obj = mock_client.return_value
@@ -69,7 +70,7 @@ class TestConsumerGroup(object):
             ])
 
     def test_get_all_partitions_error(self, mock_kazoo, config):
-        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        group = ConsumerGroup(self.zookeeper_hosts, self.topics, config)
         with mock.patch('yelp_kafka.consumer_group.KafkaClient',
                         autospec=True) as mock_client:
             mock_obj = mock_client.return_value
@@ -83,7 +84,7 @@ class TestConsumerGroup(object):
                 group.get_all_partitions()
 
     def test_handle_release(self, mock_kazoo, config):
-        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        group = ConsumerGroup(self.zookeeper_hosts, self.topics, config)
         group.release = mock.Mock()
         mock_partitioner = mock.MagicMock(
             spec=SetPartitioner, **get_partitioner_status('release')
@@ -96,7 +97,7 @@ class TestConsumerGroup(object):
         assert group.get_consumers() is None
 
     def test_handle_failed(self, mock_kazoo, config):
-        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        group = ConsumerGroup(self.zookeeper_hosts, self.topics, config)
         mock_partitioner = mock.MagicMock(
             spec=SetPartitioner, **get_partitioner_status('failed')
         )
@@ -105,7 +106,7 @@ class TestConsumerGroup(object):
         assert group.partitioner is None
 
     def test_handle_failed_and_release(self, mock_kazoo, config):
-        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        group = ConsumerGroup(self.zookeeper_hosts, self.topics, config)
         group.release = mock.Mock()
         mock_partitioner = mock.MagicMock(
             spec=SetPartitioner, **get_partitioner_status('failed')
@@ -119,7 +120,7 @@ class TestConsumerGroup(object):
         assert group.get_consumers() is None
 
     def test_handle_acquired(self, mock_kazoo, config):
-        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        group = ConsumerGroup(self.zookeeper_hosts, self.topics, config)
         mock_start = mock.Mock()
         consumers = [mock.Mock(), mock.Mock()]
         mock_start.return_value = consumers
@@ -135,7 +136,7 @@ class TestConsumerGroup(object):
         assert group.get_consumers() == consumers
 
     def test_handle_allocating(self, mock_kazoo, config):
-        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        group = ConsumerGroup(self.zookeeper_hosts, self.topics, config)
         mock_partitioner = mock.MagicMock(
             spec=SetPartitioner, **get_partitioner_status('allocating')
         )
@@ -144,7 +145,7 @@ class TestConsumerGroup(object):
         mock_partitioner.wait_for_acquire.assert_called_once_with()
 
     def test_get_consumers(self, mock_kazoo, config):
-        group = ConsumerGroup('zookeeper_uri:2181', self.topics, config)
+        group = ConsumerGroup(self.zookeeper_hosts, self.topics, config)
         group.allocated_consumers = [mock.Mock(), mock.Mock]
         actual = group.get_consumers()
         # Test that get_consumers actually returns a copy
@@ -155,6 +156,7 @@ class TestConsumerGroup(object):
 @mock.patch('yelp_kafka.consumer_group.KazooClient', autospec=True)
 class TestMultiprocessingConsumerGroup(object):
 
+    zookeeper_hosts = ['zookeeper_uri1:2181', 'zookeeper_uri2:2181']
     topics = ['topic1', 'topic2']
 
     def test_start(self, _, config):
@@ -162,7 +164,7 @@ class TestMultiprocessingConsumerGroup(object):
         mock_consumer = mock.Mock()
         consumer_factory.return_value = mock_consumer
         group = MultiprocessingConsumerGroup(
-            'zookeeper_uri:2181', self.topics,
+            self.zookeeper_hosts, self.topics,
             config, consumer_factory
         )
         acquired_partitions = {
@@ -180,7 +182,7 @@ class TestMultiprocessingConsumerGroup(object):
 
     def test_release(self, _, config):
         group = MultiprocessingConsumerGroup(
-            'zookeeper_uri:2181', self.topics,
+            self.zookeeper_hosts, self.topics,
             config, mock.Mock()
         )
         consumer = mock.Mock()
@@ -200,7 +202,7 @@ class TestMultiprocessingConsumerGroup(object):
         # Change default waiting time to not slow down the test
         config['max_termination_timeout_secs'] = 0.1
         group = MultiprocessingConsumerGroup(
-            'zookeeper_uri:2181', self.topics,
+            self.zookeeper_hosts, self.topics,
             config, mock.Mock()
         )
         consumer = mock.Mock()
@@ -218,7 +220,7 @@ class TestMultiprocessingConsumerGroup(object):
 
     def test_monitor(self, _, config):
         group = MultiprocessingConsumerGroup(
-            'zookeeper_uri:2181', self.topics,
+            self.zookeeper_hosts, self.topics,
             config, mock.Mock()
         )
         consumer1 = mock.Mock()

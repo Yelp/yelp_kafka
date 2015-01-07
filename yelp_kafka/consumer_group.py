@@ -21,9 +21,10 @@ class ConsumerGroup(object):
     def __init__(self, zookeeper_hosts, topics, config):
         self.log = logging.getLogger(__name__)
         self.config = load_config_or_default(config)
-        self.log.info("Loaded config %s", self.config)
+        self.log.debug("Using config: %s", self.config)
         self.topics = topics
-        self.kazooclient = KazooClient(zookeeper_hosts)
+        assert isinstance(zookeeper_hosts, list), "zookeeper_hosts must be a list"
+        self.kazooclient = KazooClient(','.join(zookeeper_hosts))
         self.termination_flag = None
         self.consumers_lock = Lock()
         self._acquired_partitions = defaultdict(list)
