@@ -35,6 +35,10 @@ class KafkaSimpleConsumer(object):
             self.client, self._config['group_id'], self.topic, partitions=self.partitions,
             **dict([(k, self._config[k]) for k in CONSUMER_CONFIG_KEYS])
         )
+        self.log.debug("Connected to kafka. Topic %s, group %s, partitions %s, %s",
+                       self.topic, self._config['group_id'], self.partitions,
+                       ','.join(['%{0} %{1}'.format(k, self._config[k])
+                                 for k in CONSUMER_CONFIG_KEYS]))
         self.kafka_consumer.provide_partition_info()
         self._validate_offsets(self._config['latest_offset'])
 
@@ -78,11 +82,17 @@ class KafkaSimpleConsumer(object):
         # available offset
         if any([offset < available[k]
                 for k, offset in group_offsets.iteritems()]):
-            self.log.info("Group offset for %s is too old fetching"
-                          " a new valid one", self.topic)
+            self.log.warning("Group offset for %s is too old..."
+                             "Resetting offset", self.topic)
             if latest_offset is True:
                 # Fetch the latest available offset (the newest message)
+                self.log.debug("Reset to latest offsets")
                 self.kafka_consumer.seek(-1, 2)
+            else:
+                # We don't need to seek the offset again to the earliest
+                # offset. Because the first seek call already changed the
+                # offsets.
+                self.log.debug("Reset to earliest offset")
         else:
             # self.fetch_offsets is used for the kafka fetch request,
             # while self.offsets is used to store the last processed message

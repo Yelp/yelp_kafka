@@ -218,15 +218,13 @@ class MultiprocessingConsumerGroup(ConsumerGroup):
                 )
         self.consumer_procs.clear()
 
-    def respawn_consumer(self, proc):
-        self.log.info("Respawning consumer %s", proc.name)
-        consumer = self.consumer_procs[proc]
-        del self.consumer_procs[proc]
-        self.consumer_procs[self._start_consumer(consumer)] = consumer
-
     def monitor(self):
-        for proc in self.consumer_procs.keys():
+        for proc, consumer in self.consumer_procs.items():
             if not proc.is_alive():
-                self.log.error("consumer %s died exit status %s",
-                               proc.name, proc.exitcode)
-                self.respawn_consumer(proc)
+                self.log.error("consumer process %s topic %s partitions %s: "
+                               "died exit status %s", proc.name, consumer.topic,
+                               consumer.partitions, proc.exitcode)
+                # Restart consumer process
+                self.consumer_procs[self._start_consumer(consumer)] = consumer
+                # Remove dead process
+                del self.consumer_procs[proc]
