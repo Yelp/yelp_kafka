@@ -36,7 +36,7 @@ class KafkaSimpleConsumer(object):
             self.client, self._config['group_id'], self.topic, partitions=self.partitions,
             **dict([(k, self._config[k]) for k in CONSUMER_CONFIG_KEYS])
         )
-        self.log.debug("Conected to kafka. Topic %s, group %s, partitions %s, %s",
+        self.log.debug("Connected to kafka. Topic %s, group %s, partitions %s, %s",
                        self.topic, self._config['group_id'], self.partitions,
                        ','.join(['%{0} %{1}'.format(k, self._config[k])
                                  for k in CONSUMER_CONFIG_KEYS]))
@@ -90,7 +90,7 @@ class KafkaSimpleConsumer(object):
                 self.log.debug("Reset to latest offsets")
                 self.kafka_consumer.seek(-1, 2)
             else:
-                # We should not need to seek the offset again to the earliest
+                # We don't need to seek the offset again to the earliest
                 # offset. Because the first seek call already changed the
                 # offsets.
                 self.log.debug("Reset to earliest offset")
