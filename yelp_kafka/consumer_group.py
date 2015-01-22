@@ -217,7 +217,7 @@ class MultiprocessingConsumerGroup(ConsumerGroup):
         self.consumer_procs.clear()
 
     def monitor(self):
-        for proc, consumer in self.consumer_procs.iteritems():
+        for proc, consumer in self.consumer_procs.items():
             if not proc.is_alive():
                 self.log.error("consumer process %s topic %s partitions %s: "
                                "died exit status %s", proc.name, consumer.topic,
