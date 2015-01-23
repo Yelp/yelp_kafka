@@ -52,7 +52,7 @@ class ConsumerGroup(object):
                 self.partitioner = self.kazooclient.SetPartitioner(
                     path=self.get_group_path(),
                     set=self.get_all_partitions(),
-                    time_boundary=self.config['time_boundary']
+                    time_boundary=self.config['zk_partitioner_cooldown']
                 )
             self._handle_partitions()
             self.termination_flag.wait(1)

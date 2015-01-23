@@ -19,3 +19,5 @@ clean:
 	rm -rf build/ dist/ yelp_kafka.egg-info/ .tox/
 	find . -name '*.pyc' -delete
 	rm -rf docs/build/
+
+.PHONY: docs
