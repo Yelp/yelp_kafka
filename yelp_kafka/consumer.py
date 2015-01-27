@@ -77,7 +77,7 @@ class KafkaSimpleConsumer(object):
         """  message from kafka. It supports the same arguments of get_message
         in kafka-python SimpleConsumer.
 
-        :param block: If True, the API will block till some messages are fetched.
+        :param block: If True, the API will block till at least a message is fetched.
         :type block: boolean
         :param timeout: If block is True, the function will block for the specified
                         time (in seconds) ultil count messages is fetched.
@@ -193,9 +193,7 @@ class KafkaConsumer(KafkaSimpleConsumer):
         """
         self.initialize()
         try:
-            # We explicitly catch and log the exception because when using
-            # multiprocessing the backtrace is not automatically logged.
-            # NOTE: not sure if this problem is due to yelp clog.
+            # We explicitly catch and log the exception.
             self.connect()
         except:
             self.log.exception("Consumer topic %s, partition %s, config %s:"

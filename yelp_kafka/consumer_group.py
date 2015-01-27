@@ -51,7 +51,7 @@ class ConsumerGroup(object):
 
     def start_group(self):
         """Start and continuously monitor the consumer group."""
-        # TODO: We load the partitions only once. We should do this
+        # TODO (KAFKA-71): We load the partitions only once. We should do this
         # periodically and restart the partitioner if partitions changed.
         # Actually kazoo partitioner seems to have some issues if we change the
         # partition set on the fly. From my tests I saw partitions not being
