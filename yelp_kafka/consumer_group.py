@@ -8,11 +8,16 @@ import os
 import signal
 
 from kazoo.client import KazooClient
+from kazoo.protocol.states import KazooState
+from kazoo.recipe.partitioner import PartitionState
 from kafka import KafkaClient
 from kafka.common import KafkaUnavailableError
 
 from yelp_kafka.config import load_config_or_default
 from yelp_kafka.error import ConsumerGroupError
+
+
+MAX_TERMINATION_WAITING_TIME_SECS = 5
 
 
 class ConsumerGroup(object):
@@ -41,8 +46,15 @@ class ConsumerGroup(object):
         self.termination_flag = None
         self.consumers_lock = Lock()
         self._acquired_partitions = defaultdict(list)
-        self.partitioner = None
         self.allocated_consumers = None
+        self._partitioner = None
+        self.all_partitions = None
+        self.group_actions = {
+            PartitionState.ALLOCATING: self._allocating,
+            PartitionState.ACQUIRED: self._acquire,
+            PartitionState.RELEASE: self._release,
+            PartitionState.FAILURE: self._fail
+        }
 
     def get_group_path(self):
         """Get the group path in zookeeper."""
@@ -57,45 +69,67 @@ class ConsumerGroup(object):
         # partition set on the fly. From my tests I saw partitions not being
         # allocated after recreating the partitioner. Need to investigate more.
 
-        self.kazooclient.start()
         # Create the termination flag
         self.termination_flag = Event()
 
         while not self.termination_flag.is_set():
-            if not self.partitioner:
-                # FIXME: When the partitioner fails we should restart a kazooclient.
-                self.partitioner = self.kazooclient.SetPartitioner(
-                    path=self.get_group_path(),
-                    set=self.get_all_partitions(),
-                    time_boundary=self.config['zk_partitioner_cooldown']
-                )
-            self._handle_partitions()
-            self.termination_flag.wait(1)
+            self._handle_partition_status(
+                self._get_partitioner()
+            )
+            self.monitor()
+            self.termination_flag.wait(MAX_TERMINATION_WAITING_TIME_SECS)
         # Release the group for termination
-        self._release()
+        self._destroy_partitioner()
+
+    def _get_partitioner(self):
+        partitions = self.get_all_partitions()
+        if not self.all_partitions:
+            self.all_partitions = partitions
+            self._partitioner = self._create_partitioner(partitions)
+        elif partitions != self.all_partitions:
+            # If partitions changed we release the consumers, destroy the
+            # partitioner and disconnect to zookeeper.
+            self.all_partitions = None
+            self._destroy_partitioner(self._partitioner)
+            self._partitioner = None
+        return self._partitioner
+
+    def _create_partitioner(self, partitions):
+        if self.kazooclient.state != KazooState.CONNECTED:
+            self.kazooclient.start()
+        return self.kazooclient.SetPartitioner(
+            path=self.get_group_path(),
+            set=partitions,
+            time_boundary=self.config['zk_partitioner_cooldown']
+        )
+
+    def _destroy_partitioner(self, partitioner):
+        """Release consumers and terminate the partitioner"""
+        self._release(partitioner)
+        partitioner.finish()
+        self.kazooclient.stop()
 
     def stop_group(self):
-        """ Set the termination flag to stop the group """
+        """Set the termination flag to stop the group """
         if not self.termination_flag:
             raise ConsumerGroupError("Group not running")
         self.termination_flag.set()
 
-    def _handle_partitions(self):
+    def _handle_group_status(self, partitioner):
         """Handle group status changes, for example when a new
         consumer joins or leaves the group.
         """
-        if self.partitioner.failed:
-            self._fail()
-        elif self.partitioner.release:
-            self._release()
-        elif self.partitioner.acquired:
-            if not self._acquired_partitions:
-                self.log.info("Allocation done!")
-                self._acquire()
+        if partitioner:
+            try:
+                self.group_actions[partitioner.state](partitioner)
+            except KeyError:
+                self.log.exception("Unexpected partitioner state.")
+                raise
+
+    def _monitor(self):
+        if self._acquired_partitions:
+            self.log.debug("Monitor consumers status for %s", self._acquired_partitions)
             self.monitor()
-        elif self.partitioner.allocating:
-            self.log.info("Allocating partitions")
-            self.partitioner.wait_for_acquire()
 
     def _release_consumers(self):
         """Release the allocated consumers calling the release function."""
@@ -104,39 +138,44 @@ class ConsumerGroup(object):
         with self.consumers_lock:
             self.allocated_consumers = None
 
-    def _release(self):
+    def _allocating(self, partitioner):
+        """Usually we don't want to do anything but waiting in
+        allocating state.
+        """
+        partitioner.wait_for_acquire()
+
+    def _release(self, partitioner):
         """Release the consumers and acquired partitions.
         This function is executed either at termination time or
         whenever there is a group change.
         """
-        self.log.info("Releasing partitions")
+        self.log.warning("Releasing partitions")
         self._release_consumers()
-        self.partitioner.release_set()
+        partitioner.release_set()
 
-    def _fail(self):
+    def _fail(self, partitioner):
         """Release the consumers.
         This function is executed when there is a failure in zookeeper and
-        the consumer group is not able to recover the connection. In this case
-        we can't release the acquired partitions (no connection with zookeeper),
-        but we cowardly stop the running consumers.
+        the consumer group is not able to recover the connection. In this case,
+        we cowardly stop the running consumers.
         """
         self.log.error("Lost or unable to acquire partitions")
         if self._acquired_partitions:
             self._release_consumers()
-        self.partitioner = None
+            partitioner.finish()
 
-    def _acquire(self):
+    def _acquire(self, partitioner):
         """Acquire kafka topics-[partitions] and start the
         consumers for them.
         """
-        self.log.info("Partitions acquired")
-        self._acquired_partitions = self._get_acquired_partitions(self.partitioner)
-        self.log.info("Acquired partitions: %s", self._acquired_partitions)
-        with self.consumers_lock:
-            self.allocated_consumers = self.start(
-                self._acquired_partitions
-            )
-            self.log.info("Allocated consumers %s", self.allocated_consumers)
+        if not self._acquired_partitions:
+            self._acquired_partitions = self._get_acquired_partitions(partitioner)
+            self.log.debug("Acquired partitions: %s", self._acquired_partitions)
+            with self.consumers_lock:
+                self.allocated_consumers = self.start(
+                    self._acquired_partitions
+                )
+                self.log.debug("Allocated consumers %s", self.allocated_consumers)
 
     def get_consumers(self):
         """Get a copy of the allocated consumers.
@@ -194,7 +233,7 @@ class ConsumerGroup(object):
         return set(partitions)
 
     def start(self, acquired_partitions):
-        """ Start all the consumers.
+        """Start all the consumers.
 
         :param acquired_partitions: acquired topics and partitions
         :type acquired_partitions: dict {<topic>: <[partitions]>}
@@ -207,7 +246,7 @@ class ConsumerGroup(object):
         pass
 
     def release(self, acquired_partitions):
-        """ Release the consumers.
+        """Release the consumers.
 
         :param acquired_partitions: acquired topics and partitions
         :type acquired_partitions: dict {<topic>: <[partitions]>}
@@ -217,14 +256,14 @@ class ConsumerGroup(object):
         pass
 
     def monitor(self):
-        """ Periodically called to monitor the status of consumers.
+        """Periodically called to monitor the status of consumers.
         Usually, checking if consumers are alive should be fine.
         """
         pass
 
 
 class MultiprocessingConsumerGroup(ConsumerGroup):
-    """ MultiprocessingConsumerGroup class. Inherit from
+    """MultiprocessingConsumerGroup class. Inherit from
     :class:`yelp_kafka.consumer_group.ConsumerGroup`.
 
     It makes use of multiprocessing to instantiate a consumer process per topic
@@ -274,7 +313,7 @@ class MultiprocessingConsumerGroup(ConsumerGroup):
 
     def release(self, acquired_partitions):
         """Terminate all the consumer processes"""
-        self.log.info("Terminating consumer group")
+        self.log.warning("Terminating consumer group")
         for consumer in self.consumer_procs.itervalues():
             consumer.terminate()
 
