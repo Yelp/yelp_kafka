@@ -15,7 +15,7 @@ Message = namedtuple("Message", ["partition", "offset", "key", "value"])
 class KafkaSimpleConsumer(object):
     """ Base class for consuming from kafka.
     Implement the logic to connect to kafka and consume messages.
-    KafkaSimpleConsumer is a wrapper around kafka-python SimpleConsume.
+    KafkaSimpleConsumer is a wrapper around kafka-python SimpleConsumer.
     KafkaSimpleConsumer relies on it in order to consume messages from kafka.
     KafkaSimpleConsumer does not catch exceptions raised by kafka-python.
 
