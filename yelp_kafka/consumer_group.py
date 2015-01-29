@@ -290,7 +290,7 @@ class MultiprocessingConsumerGroup(ConsumerGroup):
         :param acquired_partitions: acquired topics partitions
         :type: dict {<topic>: <[partitions]>}
         """
-        # TODO: We create a consumer process for each partition.
+        # TODO KAFKA-72: We create a consumer process for each partition.
         # There can be too many consumers in case we have a lot of
         # partitions and just a worker instance.
         # We should make this smarter and allow the user to decide
