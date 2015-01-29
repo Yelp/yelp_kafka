@@ -108,31 +108,7 @@ class TestKafkaSimpleConsumer(object):
 
 class TestKafkaConsumer(object):
 
-    def test_run(self, config):
-        with mock.patch.object(KafkaSimpleConsumer,
-                               'connect') as mock_connect:
-            with mock.patch.object(
-                KafkaSimpleConsumer, '__iter__'
-            ) as mock_iter:
-                mock_iter.return_value = iter([
-                    Message(1, 12345, 'key1', 'value1'),
-                    Message(1, 12346, 'key2', 'value2'),
-                    Message(1, 12347, 'key1', 'value3'),
-                ])
-                consumer = KafkaConsumer('test_topic', config)
-                consumer.process = mock.Mock()
-                consumer.initialize = mock.Mock()
-                consumer.run()
-                mock_connect.assert_called_once()
-                consumer.initialize.called_once()
-                # process should have been called 3 times
-                assert consumer.process.call_count == 3
-                # check just last call arguments
-                consumer.process.assert_called_with(
-                    Message(1, 12347, 'key1', 'value3')
-                )
-
-    def test_terminate(self, config):
+    def test_run_and_terminate(self, config):
         message_iterator = iter([
             Message(1, 12345, 'key1', 'value1'),
             Message(1, 12346, 'key2', 'value2'),
@@ -146,16 +122,19 @@ class TestKafkaConsumer(object):
             ):
                 consumer = KafkaConsumer('test_topic', config)
                 consumer.process = mock.Mock()
+                consumer.initialize = mock.Mock()
                 consumer.dispose = mock.Mock()
-                # Terminate before starting the look
                 consumer.terminate()
                 consumer.run()
-                # process should have been called 1 times
-                assert consumer.process.call_count == 1
+                consumer.initialize.called_once()
+                # process should have been called 3 times
+                assert consumer.process.call_count == 3
                 # check just last call arguments
-                consumer.process.assert_called_with(
-                    Message(1, 12345, 'key1', 'value1')
-                )
+                consumer.process.calls_args_list([
+                    Message(1, 12347, 'key1', 'value3'),
+                    Message(1, 12345, 'key1', 'value1'),
+                    Message(1, 12346, 'key2', 'value2'),
+                ])
                 consumer.dispose.assert_called_once_with()
                 mock_consumer.return_value.commit.assert_called_once_with()
                 mock_client.return_value.close.assert_called_once_with()

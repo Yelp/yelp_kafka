@@ -64,14 +64,13 @@ class KafkaSimpleConsumer(object):
         self._validate_offsets(self._config['latest_offset'])
 
     def __iter__(self):
-        while True:
-            for partition, kafka_message in self.kafka_consumer:
-                yield Message(
-                    partition=partition,
-                    offset=kafka_message[0],
-                    key=kafka_message[1].key,
-                    value=kafka_message[1].value
-                )
+        for partition, kafka_message in self.kafka_consumer:
+            yield Message(
+                partition=partition,
+                offset=kafka_message[0],
+                key=kafka_message[1].key,
+                value=kafka_message[1].value
+            )
 
     def get_message(self, block=True, timeout=0.1):
         """  message from kafka. It supports the same arguments of get_message
@@ -198,11 +197,11 @@ class KafkaConsumer(KafkaSimpleConsumer):
         except:
             self.log.exception("Consumer topic %s, partition %s, config %s:"
                                " failed connecting to kafka", self.topic,
-                               self.partitions, self.config)
+                               self.partitions, self._config)
             raise
-
-        for message in self:
-            self.process(message)
+        while True:
+            for message in self:
+                self.process(message)
             if self.termination_flag.is_set():
                 self._terminate()
                 break

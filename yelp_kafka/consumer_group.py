@@ -71,15 +71,16 @@ class ConsumerGroup(object):
 
         # Create the termination flag
         self.termination_flag = Event()
-
+        partitioner = None
         while not self.termination_flag.is_set():
-            self._handle_partition_status(
-                self._get_partitioner()
+            partitioner = self._get_partitioner()
+            self._handle_group_status(
+                partitioner
             )
             self.monitor()
             self.termination_flag.wait(MAX_TERMINATION_WAITING_TIME_SECS)
         # Release the group for termination
-        self._destroy_partitioner()
+        self._destroy_partitioner(partitioner)
 
     def _get_partitioner(self):
         partitions = self.get_all_partitions()
@@ -106,7 +107,8 @@ class ConsumerGroup(object):
     def _destroy_partitioner(self, partitioner):
         """Release consumers and terminate the partitioner"""
         self._release(partitioner)
-        partitioner.finish()
+        if partitioner:
+            partitioner.finish()
         self.kazooclient.stop()
 
     def stop_group(self):
