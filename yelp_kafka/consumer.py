@@ -72,6 +72,10 @@ class KafkaSimpleConsumer(object):
                 value=kafka_message[1].value
             )
 
+    def close(self):
+        self.kafka_consumer.commit()
+        self.client.close()
+
     def get_message(self, block=True, timeout=0.1):
         """  message from kafka. It supports the same arguments of get_message
         in kafka-python SimpleConsumer.

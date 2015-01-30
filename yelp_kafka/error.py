@@ -8,3 +8,7 @@ class ConsumerConfigurationError(YelpKafkaError):
 
 class ConsumerGroupError(YelpKafkaError):
     pass
+
+
+class PartitionerError(YelpKafkaError):
+    pass
