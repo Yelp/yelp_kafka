@@ -29,11 +29,16 @@ class ConsumerGroup(object):
     """
 
     def __init__(self, topic, config, process_func):
-        self.log = logging.getLogger(__name__)
+        self.log = logging.getLogger(self.__class__.__name__)
         self._config = load_config_or_default(config)
         self.log.debug("Using config: %s", self._config)
-        self.topic = topic if isinstance(topic, list) else [topic]
-        self.group = Partitioner(config, topic, self._acquire, self._release)
+        self.topic = topic
+        self.group = Partitioner(
+            config,
+            topic if isinstance(topic, list) else [topic],
+            self._acquire,
+            self._release
+        )
         self.consumer = None
         self.process = process_func
 
@@ -46,12 +51,15 @@ class ConsumerGroup(object):
         """
         self.group.start()
         while True:
-            timeout = time.time() + refresh_timeout
-            for message in self.consumer:
-                self.process(message)
-                if time.time() > timeout:
-                    break
-            self.group.refresh()
+            self.consume(refresh_timeout)
+
+    def consume(self, refresh_timeout):
+        timeout = time.time() + refresh_timeout
+        for message in self.consumer:
+            self.process(message)
+            if time.time() > timeout:
+                break
+        self.group.refresh()
 
     def _acquire(self, partitions):
         """Create a consumer from the acquired partitions.
@@ -98,6 +106,7 @@ class MultiprocessingConsumerGroup(object):
         self.consumers_lock = Lock()
         self.consumer_procs = {}
         self.consumer_factory = consumer_factory
+        self.log = logging.getLogger(self.__class__.__name__)
 
     def start_group(self):
         """Start and continuously monitor the consumer group."""

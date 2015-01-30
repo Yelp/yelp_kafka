@@ -105,6 +105,16 @@ class TestKafkaSimpleConsumer(object):
             consumer.connect()
             mock_obj.seek.assert_called_once_with(0, 0)
 
+    def test_close(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            with mock.patch.object(KafkaSimpleConsumer,
+                                   '_validate_offsets'):
+                consumer = KafkaSimpleConsumer('test_topic', config)
+                consumer.connect()
+                consumer.close()
+                mock_consumer.return_value.commit.assert_called_once_with()
+                mock_client.return_value.close.assert_called_once_with()
+
 
 class TestKafkaConsumer(object):
 

@@ -23,7 +23,6 @@ class Partitioner(object):
         self.release = release
         self._config = config
         self._partitioner = None
-        self.partition_set
         self.log = logging.getLogger(self.__class__.__name__)
         self.group_actions = {
             PartitionState.ALLOCATING: self._allocating,
