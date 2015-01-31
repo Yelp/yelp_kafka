@@ -131,7 +131,7 @@ class TestMultiprocessingConsumerGroup(object):
             mock.Mock(spec=Process, **args2): consumer2
         }
         with mock.patch.object(
-            MultiprocessingConsumerGroup, '_start_consumer', autospec=True
+            MultiprocessingConsumerGroup, 'start_consumer', autospec=True
         ) as mock_start:
             mock_start.return_value = mock.sentinel.proc
             group.monitor()

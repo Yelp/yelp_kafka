@@ -43,7 +43,7 @@ class Partitioner(object):
         self._refresh()
 
     def stop(self):
-        """Leave the group and release the partitiones
+        """Leave the group and release the partitions
         """
         self.log.debug("Stopping group for topics %s", self.topics)
         self._destroy_partitioner(self._partitioner)

@@ -116,7 +116,7 @@ class MultiprocessingConsumerGroup(object):
         while not self.termination_flag.is_set():
             self.termination_flag.wait(refresh_timeout)
             self.monitor()
-            self.refresh()
+            self.group.refresh()
         # Release the group for termination
         self.group.stop()
 
@@ -157,10 +157,10 @@ class MultiprocessingConsumerGroup(object):
                     " partition = %s", topic, self._config, p
                 )
                 consumer = self.consumer_factory(topic, self._config.copy(), [p])
-                self.consumer_procs[self._start_consumer(consumer)] = consumer
+                self.consumer_procs[self.start_consumer(consumer)] = consumer
         return self.consumer_procs.values()
 
-    def _start_consumer(self, consumer):
+    def start_consumer(self, consumer):
         """Create a new consumer process"""
         proc = Process(target=consumer.run, name='Consumer-{0}-{1}'.format(consumer.topic, consumer.partitions))
         proc.start()
@@ -197,7 +197,7 @@ class MultiprocessingConsumerGroup(object):
                                "died exit status %s", proc.name, consumer.topic,
                                consumer.partitions, proc.exitcode)
                 # Restart consumer process
-                self.consumer_procs[self._start_consumer(consumer)] = consumer
+                self.consumer_procs[self.start_consumer(consumer)] = consumer
                 # Remove dead process
                 del self.consumer_procs[proc]
 
