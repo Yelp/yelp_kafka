@@ -94,6 +94,7 @@ class TestMultiprocessingConsumerGroup(object):
     def test_release(self, group):
         consumer = mock.Mock()
         args = {'is_alive.return_value': False}
+        group.consumers = [consumer, consumer]
         group.consumer_procs = {
             mock.Mock(spec=Process, **args): consumer,
             mock.Mock(spec=Process, **args): consumer
@@ -104,6 +105,7 @@ class TestMultiprocessingConsumerGroup(object):
             group.release(None)
         assert not mock_kill.called
         assert consumer.terminate.call_count == 2
+        assert not group.get_consumers()
 
     def test_release_and_kill_unresponsive_consumer(self, group):
         consumer = mock.Mock()
@@ -135,3 +137,10 @@ class TestMultiprocessingConsumerGroup(object):
             group.monitor()
         assert mock.sentinel.proc in group.consumer_procs
         mock_start.assert_called_once_with(group, consumer1)
+
+    def test_get_consumers(self, group):
+        group.consumers = [mock.Mock(), mock.Mock]
+        actual = group.get_consumers()
+        # Test that get_consumers actually returns a copy
+        assert actual is not group.consumers
+        assert actual == group.consumers

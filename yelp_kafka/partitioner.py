@@ -7,6 +7,7 @@ from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
 from kazoo.recipe.partitioner import PartitionState
 
+from yelp_kafka.config import load_config_or_default
 from yelp_kafka.error import PartitionerError
 
 MAX_START_TIME_SECS = 30
@@ -19,9 +20,10 @@ class Partitioner(object):
         self.kazooclient = KazooClient(','.join(config['zk_hosts']))
         self.topics = topics
         self.acquired_partitions = defaultdict(list)
+        self.partitions_set = None
         self.acquire = acquire
         self.release = release
-        self._config = config
+        self._config = load_config_or_default(config)
         self._partitioner = None
         self.log = logging.getLogger(self.__class__.__name__)
         self.group_actions = {
@@ -58,13 +60,13 @@ class Partitioner(object):
 
     def get_group_path(self):
         """Get the group path in zookeeper."""
-        return '/'.join([self.config['zookeeper_base'],
-                        self.config['group_id']])
+        return '/'.join([self._config['zookeeper_base'],
+                        self._config['group_id']])
 
     def _refresh(self):
-        partitions = self.get_partitions_set()
-        partitioner = self._get_partitioner(partitions)
         while True:
+            partitions = self.get_partitions_set()
+            partitioner = self._get_partitioner(partitions)
             self._handle_group(self, partitioner)
             if self.acquired_partitions:
                 break
@@ -81,28 +83,29 @@ class Partitioner(object):
             self._partitioner = None
         return self._partitioner
 
-    def _create_partitioner(self, partitions, path):
+    def _create_partitioner(self, partitions):
         """Connect to zookeeper and create a partitioner"""
         if self.kazooclient.state != KazooState.CONNECTED:
             try:
                 self.kazooclient.start()
             except:
                 self.log.exception("Impossible to connect to zookeeper")
-                raise PartitionerError("zookeeper connection failure")
+                raise PartitionerError("Zookeeper connection failure")
         self.log.debug("Creating partitioner for group %s, topic %s,"
                        " partitions %s", self._config['group_id'],
                        self.topics, partitions)
         return self.kazooclient.SetPartitioner(
             path=self.get_group_path(),
             set=partitions,
-            time_boundary=self.config['zk_partitioner_cooldown']
+            time_boundary=self._config['zk_partitioner_cooldown']
         )
 
     def _destroy_partitioner(self, partitioner):
         """Release consumers and terminate the partitioner"""
+        if not partitioner:
+            raise PartitionerError("Internal error partitioner not yet started.")
         self._release(partitioner)
-        if partitioner:
-            partitioner.finish()
+        partitioner.finish()
         self.kazooclient.stop()
 
     def _handle_group(self, partitioner):
@@ -138,7 +141,7 @@ class Partitioner(object):
         whenever there is a group change.
         """
         self.log.warning("Releasing partitions")
-        self.release()
+        self.release(self.acquired_partitions)
         partitioner.release_set()
         self.acquired_partitions.clear()
 
@@ -150,7 +153,7 @@ class Partitioner(object):
         """
         self.log.error("Lost or unable to acquire partitions")
         if self.acquired_partitions:
-            self.release()
+            self.release(self.acquired_partitions)
             self.acquired_partitions.clear()
             # The partitioner is in fail state so we can get rid of it and try
             # to create a new one.
@@ -177,8 +180,8 @@ class Partitioner(object):
         """
 
         kafkaclient = KafkaClient(
-            self.config['brokers'],
-            client_id=self.config['client_id']
+            self._config['brokers'],
+            client_id=self._config['client_id']
         )
         try:
             kafkaclient.load_metadata_for_topics()

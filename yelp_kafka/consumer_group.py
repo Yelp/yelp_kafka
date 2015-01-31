@@ -12,7 +12,7 @@ from yelp_kafka.partitioner import Partitioner
 from yelp_kafka.consumer import KafkaSimpleConsumer
 
 
-MAX_TERMINATION_WAITING_TIME_SECS = 5
+DEFAULT_REFRESH_TIMEOUT_IN_SEC = 5
 
 
 class ConsumerGroup(object):
@@ -42,7 +42,7 @@ class ConsumerGroup(object):
         self.consumer = None
         self.process = process_func
 
-    def run(self, refresh_timeout=5):
+    def run(self, refresh_timeout=DEFAULT_REFRESH_TIMEOUT_IN_SEC):
         """Create the group, instantiate a consumer and consume message
         from kafka.
 
@@ -108,14 +108,14 @@ class MultiprocessingConsumerGroup(object):
         self.consumer_factory = consumer_factory
         self.log = logging.getLogger(self.__class__.__name__)
 
-    def start_group(self):
+    def start_group(self, refresh_timeout=DEFAULT_REFRESH_TIMEOUT_IN_SEC):
         """Start and continuously monitor the consumer group."""
         # Create the termination flag
         self.termination_flag = Event()
         self.group.start()
         while not self.termination_flag.is_set():
-            self.termination_flag.wait(MAX_TERMINATION_WAITING_TIME_SECS)
-            self._monitor()
+            self.termination_flag.wait(refresh_timeout)
+            self.monitor()
             self.refresh()
         # Release the group for termination
         self.group.stop()
