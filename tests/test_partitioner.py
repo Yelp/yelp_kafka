@@ -1,3 +1,4 @@
+import contextlib
 import mock
 import pytest
 
@@ -15,7 +16,8 @@ def config():
         'brokers': 'test_broker:9292',
         'group_id': 'test_group_id',
         'zookeeper_base': '/base_path',
-        'zk_hosts': ['zookeeper_uri1:2181', 'zookeeper_uri2:2181']
+        'zk_hosts': ['zookeeper_uri1:2181', 'zookeeper_uri2:2181'],
+        'zk_partitioner_cooldown': 0.5
     }
 
 
@@ -124,36 +126,37 @@ class TestPartitioner(object):
         # partitions set.
         expected_partitions = set(['top-1', 'top1-2'])
 
-        with mock.patch.object(
-            Partitioner, '_create_partitioner',
-            return_value=mock.sentinel.partitioner
-        ):
+        with contextlib.nested(
+            mock.patch.object(Partitioner, '_create_partitioner',
+                              side_effect=[mock.sentinel.partitioner1,
+                                           mock.sentinel.partitioner2]),
+            mock.patch.object(Partitioner, '_destroy_partitioner')
+        ) as (mock_create, mock_destroy):
             actual = partitioner._get_partitioner(
                 expected_partitions
             )
-            assert actual == mock.sentinel.partitioner
+            assert actual == mock.sentinel.partitioner1
             assert partitioner.partitions_set == expected_partitions
 
-        # Change the partitions and test the partitioner gets destroyed for
-        # rebalancing
-        new_expected_partitions = set(['top-1', 'top1-2', 'top1-3'])
-        with mock.patch.object(Partitioner,
-                               '_destroy_partitioner') as mock_destroy:
+            # Change the partitions and test the partitioner gets destroyed for
+            # rebalancing
+            new_expected_partitions = set(['top-1', 'top1-2', 'top1-3'])
             actual = partitioner._get_partitioner(
                 new_expected_partitions
             )
-            assert not actual
-            assert partitioner.partitions_set is None
+            assert partitioner.partitions_set is new_expected_partitions
             assert mock_destroy.called
+            assert actual == mock.sentinel.partitioner2
+            assert mock_create.call_count == 2
 
-        # Next time we call get_partitioner a new one should be created
-        with mock.patch.object(
-            Partitioner, '_create_partitioner',
-            return_value=mock.sentinel.partitioner
-        ):
-            actual = partitioner._get_partitioner(new_expected_partitions)
-            assert actual == mock.sentinel.partitioner
-            assert partitioner.partitions_set == new_expected_partitions
+            # Call the partitioner again with the same partitions set and be sure
+            # it does not create a new one
+            actual = partitioner._get_partitioner(
+                new_expected_partitions
+            )
+            assert partitioner.partitions_set is new_expected_partitions
+            assert actual == mock.sentinel.partitioner2
+            assert mock_create.call_count == 2
 
     @mock.patch('yelp_kafka.partitioner.KazooClient')
     def test__destroy_partitioner(self, mock_kazoo, config):

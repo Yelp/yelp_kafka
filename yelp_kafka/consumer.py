@@ -32,7 +32,7 @@ class KafkaSimpleConsumer(object):
     """
 
     def __init__(self, topic, config, partitions=None):
-        self.log = logging.getLogger(__name__)
+        self.log = logging.getLogger(self.__class__.__name__)
         if not isinstance(topic, str):
             raise TypeError("Topic must be a string")
         self.topic = topic
@@ -73,7 +73,11 @@ class KafkaSimpleConsumer(object):
             )
 
     def close(self):
-        self.kafka_consumer.commit()
+        """Disconnect from kafka.
+        If auto_commit is enabled commit offsets before disconnecting.
+        """
+        if self._config['auto_commit'] is True:
+            self.kafka_consumer.commit()
         self.client.close()
 
     def get_message(self, block=True, timeout=0.1):

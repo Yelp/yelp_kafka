@@ -68,7 +68,10 @@ class ConsumerGroup(object):
         allow the consumers to stay updated with the group changes.
 
         :param refresh_timeout: waiting timeout in secs to refresh
-            the consumer group. Default: 5 seconds.
+            the consumer group. It should never be greater than
+            'zk_partitioner_cooldown' to avoid wasting time resetting
+            the partitioner many times upon changes. See .. :py:mod:`yelp_kafka.config`
+            Default: 5 seconds.
         """
         self.group.start()
         while True:
@@ -78,7 +81,7 @@ class ConsumerGroup(object):
         """Consume messages from kafka and refresh the group
         upon timeout expiration.
 
-        :param refresh_timeout:
+        :param refresh_timeout: refresh period for consumer group
         """
         timeout = time.time() + refresh_timeout
         for message in self.consumer:
@@ -178,7 +181,13 @@ class MultiprocessingConsumerGroup(object):
     def start_group(self, refresh_timeout=DEFAULT_REFRESH_TIMEOUT_IN_SEC):
         """Start the consumer group.
 
-        .. note: this is a non returning function. You may want to run it in
+        :param refresh_timeout: waiting timeout in secs to refresh
+            the consumer group. It should never be greater than
+            'zk_partitioner_cooldown' to avoid wasting time resetting
+            the partitioner many times upon changes. See .. :py:mod:`yelp_kafka.config`
+            Default: 5 seconds.
+
+        .. note: this is a non returning function. You may want to run it into
         a separate thread.
         """
         # Create the termination flag

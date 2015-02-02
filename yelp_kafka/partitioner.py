@@ -1,5 +1,6 @@
 from collections import defaultdict
 import logging
+import time
 
 from kafka import KafkaClient
 from kafka.common import KafkaUnavailableError
@@ -37,14 +38,13 @@ class Partitioner(object):
         """Create a new group and wait until the partitions have been
         acquired.
 
-        .. note: This is a blocking function.
+        .. note: This is a blocking operation.
         """
         self.log.debug("Starting a new group for topics %s", self.topics)
         self._refresh()
 
     def stop(self):
-        """Leave the group and release the partitions
-        """
+        """Leave the group and release the partitions."""
         self.log.debug("Stopping group for topics %s", self.topics)
         self._destroy_partitioner(self._partitioner)
 
@@ -72,15 +72,27 @@ class Partitioner(object):
                 break
 
     def _get_partitioner(self, partitions):
-        if not self.partitions_set:
+        """Get an instance of the partitioner. When the partitions set changes
+         we need to destroy the partitioner and create another one.
+        If the partitioner does not exist yet, create a new partitioner.
+        If the partitions set changed, destroy the partitioner and create a new
+        partitioner. Different consumer will eventually use the same partitions set.
+
+        :param partitions: the partitions set to use for partitioner.
+        :type partitions: set
+        """
+        if not self.partitions_set or not self._partitioner:
             self._partitioner = self._create_partitioner(partitions)
             self.partitions_set = partitions
         elif partitions != self.partitions_set:
             # If partitions changed we release the consumers, destroy the
-            # partitioner and disconnect to zookeeper.
+            # partitioner and disconnect from zookeeper.
             self._destroy_partitioner(self._partitioner)
-            self.partitions_set = None
-            self._partitioner = None
+            # Wait for the group to settle on the new partitions set before
+            # creating a new partitioner.
+            time.sleep(self._config['zk_partitioner_cooldown'])
+            self._partitioner = self._create_partitioner(partitions)
+            self.partitions_set = partitions
         return self._partitioner
 
     def _create_partitioner(self, partitions):
@@ -92,7 +104,7 @@ class Partitioner(object):
                 self.log.exception("Impossible to connect to zookeeper")
                 raise PartitionerError("Zookeeper connection failure")
         self.log.debug("Creating partitioner for group %s, topic %s,"
-                       " partitions %s", self._config['group_id'],
+                       " partitions set %s", self._config['group_id'],
                        self.topics, partitions)
         return self.kazooclient.SetPartitioner(
             path=self.get_group_path(),
@@ -157,6 +169,7 @@ class Partitioner(object):
             self.acquired_partitions.clear()
             # The partitioner is in fail state so we can get rid of it and try
             # to create a new one.
+            self.partitions_set = None
             self._partitioner = None
 
     def _get_acquired_partitions(self, partitioner):

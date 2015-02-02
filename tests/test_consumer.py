@@ -115,6 +115,17 @@ class TestKafkaSimpleConsumer(object):
                 mock_consumer.return_value.commit.assert_called_once_with()
                 mock_client.return_value.close.assert_called_once_with()
 
+    def test_close_no_commit(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            with mock.patch.object(KafkaSimpleConsumer,
+                                   '_validate_offsets'):
+                config['auto_commit'] = False
+                consumer = KafkaSimpleConsumer('test_topic', config)
+                consumer.connect()
+                consumer.close()
+                assert not mock_consumer.return_value.commit.called
+                mock_client.return_value.close.assert_called_once_with()
+
 
 class TestKafkaConsumer(object):
 
