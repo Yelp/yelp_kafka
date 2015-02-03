@@ -13,22 +13,6 @@ ZK_PARTITIONER_COOLDOWN = 30
 MAX_TERMINATION_TIMEOUT_SECS = 10
 MAX_ITERATOR_TIMEOUT_SECS = 0.1
 
-""" yelp_kafka configuration default values:
-    .. code:: python
-        brokers=None,  # Must be specified in configuration
-        group_id=None,  # Must be specified in configuration
-        client_id='yelp-kafka',
-        buffer_size=1024 * 1024,  # 1MB
-        auto_commit_every_n=AUTO_COMMIT_MSG_COUNT,  # See kafka-python
-        auto_commit_every_t=AUTO_COMMIT_INTERVAL,  # See kafka-python
-        fetch_size_bytes=FETCH_MIN_BYTES,  # See kafka-python
-        max_buffer_size=None,  # No limit
-        iter_timeout=0.1,
-        zookeeper_base= '/python-kafka',
-        zk_partitioner_cooldown= 30,
-        max_termination_timeout_secs=10,
-        latest_offset=True
-"""
 
 DEFAULT_CONFIG = {
     'brokers': None,
@@ -46,6 +30,7 @@ DEFAULT_CONFIG = {
     'max_termination_timeout_secs': MAX_TERMINATION_TIMEOUT_SECS,
     'latest_offset': True
 }
+"""Default configuration"""
 
 
 CONSUMER_CONFIG_KEYS = (

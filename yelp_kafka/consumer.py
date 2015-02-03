@@ -10,6 +10,13 @@ from yelp_kafka.config import CONSUMER_CONFIG_KEYS
 
 
 Message = namedtuple("Message", ["partition", "offset", "key", "value"])
+"""Tuple representing a kafka message.
+
+* **partition**\(``int``): The partition number of the message
+* **offset**\(``int``): Message offset
+* **key**\(``str``): Message key
+* **value**\(``str``): Message value
+"""
 
 
 class KafkaSimpleConsumer(object):
@@ -28,7 +35,6 @@ class KafkaSimpleConsumer(object):
     :type config: dict.
     :param partitions: topic partitions to consumer from.
     :type partitions: list.
-
     """
 
     def __init__(self, topic, config, partitions=None):
@@ -151,7 +157,6 @@ class KafkaConsumer(KafkaSimpleConsumer):
     Convenient base class to implement new kafka consumers with
     message processing logic.
     .. note: This class is thread safe.
-
     """
 
     def __init__(self, topic, config, partitions=None):
@@ -181,6 +186,7 @@ class KafkaConsumer(KafkaSimpleConsumer):
         """Process a messages.
 
         .. note: implement in subclass.
+
         :param message: message to process
         :type message: Message
         """

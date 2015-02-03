@@ -15,7 +15,17 @@ MAX_START_TIME_SECS = 30
 
 
 class Partitioner(object):
+    """Partitioner is used to handle distributed a set of topics/partitions among
+    a group of consumers.
 
+    :param topics: kafka topics
+    :type topics: list
+    :param acquire: function to be called when a set of partitions has been acquired.
+        It should usually allocate the consumers.
+    :type acquire: func
+    :param release: function to be called when the acquired
+        partitions have to be release. It should usually stops the consumers.
+    """
     def __init__(self, config, topics, acquire, release):
         self.kafka_hosts = ','.join(config['brokers'])
         self.kazooclient = KazooClient(','.join(config['zk_hosts']))

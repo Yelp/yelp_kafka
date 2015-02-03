@@ -6,7 +6,13 @@
 Welcome to Yelp Kafka's documentation!
 ======================================
 
-yelp_kafka is a library to interact with Kafka at Yelp.
+yelp_kafka is a library to interact with kafka at Yelp. yelp_kafka is a wrapper around kafka-python.
+Yelp_kafka supports consumer group and multiprocessing consumer group, this API allows multiple consumer instances to coordinate with each other while consuming messages from different kafka partitions. See :ref:`consumer_group`. 
+It also provides consumer offsets validation.
+
+.. note:: 
+   
+   You need to have libsnappy1 installed in your system in order to be able to consume/produce compressed messages.
 
 Contents:
 
@@ -15,6 +21,7 @@ Contents:
 
    config
    consumer
+   partitioner
    consumer_group
 
 

@@ -16,39 +16,41 @@ DEFAULT_REFRESH_TIMEOUT_IN_SEC = 5
 
 
 class ConsumerGroup(object):
+    """Single process consumer group.
+    Support partitions distribution for a single topic
+    between many consumer instances.
+
+    If the topic consists of only one partition, only one consumer belonging
+    to the group will be able to consumer messages. The other consumers will
+    stay idle, ready to take over the active consumer in case of failures.
+    If the topic consists of many partitions and only one consumer has
+    joined the group, the consumer will consume messages from all the partitions.
+    Finally if the topic consists of many partitions and there are many consumers,
+    each consumer will pick up a subset of partitions and consume from them.
+
+    Example:
+
+    .. code-block:: python
+
+       def my_process_function(message):
+           partition, offset, key, value = message
+           print partition, offset, key, value
+
+       config = {'brokers': ['kafka_host:9092'], 'zk_hosts': ['zookeeper:2181'],
+                 'group_id': 'my_group'}
+       consumer = ConsumerGroup('test_topic', config, my_process_function)
+       consumer.run()
+
+    :param topics: topics to consume from
+    :type topics: list
+    :param config: yelp_kakfa config. See :py:mod:`yelp_kafka.config`
+    :type config: dict
+    :param process_func: The function used to process the message.
+        This function should accept a :py:data:`yelp_kafka.consumer.Message`
+        as parameter.
+    """
 
     def __init__(self, topic, config, process_func):
-        """Single process consumer group.
-        Support partitions distribution for a single topic
-        between many consumer instances.
-
-        If the topic consists of only one partition, only one consumer belonging
-        to the group will be able to consumer messages. The other consumers will
-        stay idle, ready to take over the active consumer in case of failures.
-        If the topic consists of many partitions and only one consumer has
-        joined the group, the consumer will consume messages from all the partitions.
-        Finally if the topic consists of many partitions and there are many consumers,
-        each consumer will pick up a subset of partitions and consume from them.
-
-        Example:
-        .. code-block:: python
-           def my_process_function(message):
-               partition, offset, key, value = message
-               print partition, offset, key, value
-
-           config = {'brokers': ['kafka_host:9092'], 'zk_hosts': ['zookeeper:2181'],
-                     'group_id': 'my_group'}
-           consumer = ConsumerGroup('test_topic', config, my_process_function)
-           consumer.run()
-
-        :param topics: topics to consume from
-        :type topics: list
-        :param config: yelp_kakfa config. See :py:mod:`yelp_kafka.config`
-        :type config: dict
-        :param process_func: The function used to process the message.
-            This function should accept a :py:data:`yelp_kafka.consumer.Message`
-            as parameter.
-        """
         self.log = logging.getLogger(self.__class__.__name__)
         self._config = load_config_or_default(config)
         self.log.debug("Using config: %s", self._config)
@@ -70,7 +72,7 @@ class ConsumerGroup(object):
         :param refresh_timeout: waiting timeout in secs to refresh
             the consumer group. It should never be greater than
             'zk_partitioner_cooldown' to avoid wasting time resetting
-            the partitioner many times upon changes. See .. :py:mod:`yelp_kafka.config`
+            the partitioner many times upon changes. See :py:mod:`yelp_kafka.config`
             Default: 5 seconds.
         """
         self.group.start()
@@ -120,55 +122,56 @@ class ConsumerGroup(object):
 
 
 class MultiprocessingConsumerGroup(object):
+    """Multiprocessing consumer group allows to consumer
+    from multiple topics at once. It spawns a python process
+    for each assigned partition.
+    It also implements monitoring for the running consumers and
+    is able to restart re-start these upon failures.
+    Multiprocessing consumer group periodically
+    refresh the group for changes.
 
+    .. note: This class is thread safe.
+
+    Example:
+
+    .. code-block:: python
+
+       from threading import Thread
+       from yelp_kafka.consumer import KafkaConsumer
+       from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
+
+       class MyConsumer(KafkaConsumer):
+
+           def __init__(topic, config, partitions):
+               super(MyConsumer, self).__init__(topic, config, partitions)
+
+           def initialize(self):
+               print "Initializing.. Usually you want to set the logger here"
+
+           def dispose(self):
+               print "Dying..."
+
+           def process(self, message):
+               partition, offset, key, value = message
+               print partition, offset, key, value
+
+       group = MultiprocessingConsumerGroup(['topic1', 'topic2'], config, MyConsumer)
+       group_thread = Thread(target=group.start_group)
+       group_thread.start()
+       # Do some other cool stuff here like sleep
+       time.sleep(600)
+       group.stop_group()
+
+    :param topics: a list of topics to consume from.
+    :type topics: list
+    :param config: yelp_kakfa config. See :py:mod:`yelp_kafka.config`
+    :type config: dict
+    :param consumer_factory: the function used to instantiate the consumer.
+        the consumer_factory has to have the same argument list of
+        :py:class:`yelp_kafka.consumer.KafkaConsumer`. It has to return
+        an instance of a subclass of :py:class:`yelp_kafka.consumer.KafkaConsumer`.
+    """
     def __init__(self, topics, config, consumer_factory):
-        """Multiprocessing consumer group allows to consumer
-        from multiple topics at once. It spawns a python process
-        for each assigned partition.
-        It also implements monitoring for the running consumers and
-        is able to restart re-start these upon failures.
-        Multiprocessing consumer group periodically
-        refresh the group for changes.
-
-        .. note: This class is thread safe.
-
-        Example:
-        .. code-block:: python
-           from threading import Thread
-           from yelp_kafka.consumer import KafkaConsumer
-           from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
-
-           class MyConsumer(KafkaConsumer):
-
-               def __init__(topic, config, partitions):
-                   super(MyConsumer, self).__init__(topic, config, partitions)
-
-               def initialize(self):
-                   print "Initializing.. Usually you want to set the logger here"
-
-               def dispose(self):
-                   print "Dying..."
-
-               def process(self, message):
-                   partition, offset, key, value = message
-                   print partition, offset, key, value
-
-           group = MultiprocessingConsumerGroup(['topic1', 'topic2'], config, MyConsumer)
-           group_thread = Thread(target=group.start_group)
-           group_thread.start()
-           # Do some other cool stuff here like sleep
-           time.sleep(600)
-           group.stop_group()
-
-        :param topics: a list of topics to consume from.
-        :type topics: list
-        :param config: yelp_kakfa config. See :py:mod:`yelp_kafka.config`
-        :type config: dict
-        :param consumer_factory: the function used to instantiate the consumer.
-            the consumer_factory has to have the same argument list of
-            :py:class:`yelp_kafka.consumer.KafkaConsumer`. It has to return
-            an instance of a subclass of :py:class:`yelp_kafka.consumer.KafkaConsumer`.
-        """
         self._config = load_config_or_default(config)
         self.termination_flag = None
         self.group = Partitioner(config, topics, self.acquire, self.release)
@@ -184,11 +187,12 @@ class MultiprocessingConsumerGroup(object):
         :param refresh_timeout: waiting timeout in secs to refresh
             the consumer group. It should never be greater than
             'zk_partitioner_cooldown' to avoid wasting time resetting
-            the partitioner many times upon changes. See .. :py:mod:`yelp_kafka.config`
+            the partitioner many times upon changes. See :py:mod:`yelp_kafka.config`
             Default: 5 seconds.
 
         .. note: this is a non returning function. You may want to run it into
-        a separate thread.
+            a separate thread.
+
         """
         # Create the termination flag
         self.termination_flag = Event()

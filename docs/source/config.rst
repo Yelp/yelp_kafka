@@ -4,4 +4,5 @@ yelp_kafka.config
 =================
 
 .. automodule:: yelp_kafka.config
-    :members:
+   :members:
+

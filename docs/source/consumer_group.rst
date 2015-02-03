@@ -4,4 +4,5 @@ yelp_kafka.consumer_group
 =========================
 
 .. automodule:: yelp_kafka.consumer_group
-    :members:
+   :members:
+
