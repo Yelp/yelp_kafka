@@ -5,6 +5,7 @@ import pytest
 from yelp_kafka.consumer import KafkaSimpleConsumer
 from yelp_kafka.consumer import KafkaConsumer
 from yelp_kafka.consumer import Message
+from yelp_kafka.error import ProcessMessageError
 
 
 @contextlib.contextmanager
@@ -105,34 +106,31 @@ class TestKafkaSimpleConsumer(object):
             consumer.connect()
             mock_obj.seek.assert_called_once_with(0, 0)
 
+    def test_close(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            with mock.patch.object(KafkaSimpleConsumer,
+                                   '_validate_offsets'):
+                consumer = KafkaSimpleConsumer('test_topic', config)
+                consumer.connect()
+                consumer.close()
+                mock_consumer.return_value.commit.assert_called_once_with()
+                mock_client.return_value.close.assert_called_once_with()
+
+    def test_close_no_commit(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            with mock.patch.object(KafkaSimpleConsumer,
+                                   '_validate_offsets'):
+                config['auto_commit'] = False
+                consumer = KafkaSimpleConsumer('test_topic', config)
+                consumer.connect()
+                consumer.close()
+                assert not mock_consumer.return_value.commit.called
+                mock_client.return_value.close.assert_called_once_with()
+
 
 class TestKafkaConsumer(object):
 
-    def test_run(self, config):
-        with mock.patch.object(KafkaSimpleConsumer,
-                               'connect') as mock_connect:
-            with mock.patch.object(
-                KafkaSimpleConsumer, '__iter__'
-            ) as mock_iter:
-                mock_iter.return_value = iter([
-                    Message(1, 12345, 'key1', 'value1'),
-                    Message(1, 12346, 'key2', 'value2'),
-                    Message(1, 12347, 'key1', 'value3'),
-                ])
-                consumer = KafkaConsumer('test_topic', config)
-                consumer.process = mock.Mock()
-                consumer.initialize = mock.Mock()
-                consumer.run()
-                mock_connect.assert_called_once()
-                consumer.initialize.called_once()
-                # process should have been called 3 times
-                assert consumer.process.call_count == 3
-                # check just last call arguments
-                consumer.process.assert_called_with(
-                    Message(1, 12347, 'key1', 'value3')
-                )
-
-    def test_terminate(self, config):
+    def test_run_and_terminate(self, config):
         message_iterator = iter([
             Message(1, 12345, 'key1', 'value1'),
             Message(1, 12346, 'key2', 'value2'),
@@ -146,16 +144,38 @@ class TestKafkaConsumer(object):
             ):
                 consumer = KafkaConsumer('test_topic', config)
                 consumer.process = mock.Mock()
+                consumer.initialize = mock.Mock()
                 consumer.dispose = mock.Mock()
-                # Terminate before starting the look
                 consumer.terminate()
                 consumer.run()
-                # process should have been called 1 times
-                assert consumer.process.call_count == 1
+                consumer.initialize.called_once()
+                # process should have been called 3 times
+                assert consumer.process.call_count == 3
                 # check just last call arguments
-                consumer.process.assert_called_with(
-                    Message(1, 12345, 'key1', 'value1')
-                )
+                consumer.process.calls_args_list([
+                    Message(1, 12347, 'key1', 'value3'),
+                    Message(1, 12345, 'key1', 'value1'),
+                    Message(1, 12346, 'key2', 'value2'),
+                ])
                 consumer.dispose.assert_called_once_with()
                 mock_consumer.return_value.commit.assert_called_once_with()
                 mock_client.return_value.close.assert_called_once_with()
+
+    def test_process_error(self, config):
+        message_iterator = iter([
+            Message(1, 12345, 'key1', 'value1'),
+            Message(1, 12346, 'key2', 'value2'),
+            Message(1, 12347, 'key1', 'value3'),
+        ])
+        with mock_kafka() as (mock_client, mock_consumer):
+            with contextlib.nested(
+                mock.patch.object(KafkaSimpleConsumer, '_validate_offsets'),
+                mock.patch.object(KafkaSimpleConsumer, '__iter__',
+                                  return_value=message_iterator)
+            ):
+                consumer = KafkaConsumer('test_topic', config)
+                consumer.process = mock.Mock(side_effect=Exception('Boom!'))
+                consumer.initialize = mock.Mock()
+                consumer.dispose = mock.Mock()
+                with pytest.raises(ProcessMessageError):
+                    consumer.run()
