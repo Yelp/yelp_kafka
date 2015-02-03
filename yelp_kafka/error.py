@@ -2,7 +2,15 @@ class YelpKafkaError(Exception):
     pass
 
 
-class ConsumerConfigurationError(YelpKafkaError):
+class ConsumerError(YelpKafkaError):
+    pass
+
+
+class ConsumerConfigurationError(ConsumerError):
+    pass
+
+
+class ProcessMessageError(YelpKafkaError):
     pass
 
 

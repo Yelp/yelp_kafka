@@ -8,6 +8,7 @@ import signal
 
 from yelp_kafka.config import load_config_or_default
 from yelp_kafka.error import ConsumerGroupError
+from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
 from yelp_kafka.consumer import KafkaSimpleConsumer
 
@@ -21,7 +22,7 @@ class ConsumerGroup(object):
     between many consumer instances.
 
     If the topic consists of only one partition, only one consumer belonging
-    to the group will be able to consumer messages. The other consumers will
+    to the group will be able to consume messages. The other consumers will
     stay idle, ready to take over the active consumer in case of failures.
     If the topic consists of many partitions and only one consumer has
     joined the group, the consumer will consume messages from all the partitions.
@@ -45,7 +46,7 @@ class ConsumerGroup(object):
     :type topics: list
     :param config: yelp_kakfa config. See :py:mod:`yelp_kafka.config`
     :type config: dict
-    :param process_func: The function used to process the message.
+    :param process_func: function used to process the message.
         This function should accept a :py:data:`yelp_kafka.consumer.Message`
         as parameter.
     """
@@ -55,7 +56,7 @@ class ConsumerGroup(object):
         self._config = load_config_or_default(config)
         self.log.debug("Using config: %s", self._config)
         self.topic = topic
-        self.group = Partitioner(
+        self.partitioner = Partitioner(
             config,
             topic if isinstance(topic, list) else [topic],
             self._acquire,
@@ -75,11 +76,11 @@ class ConsumerGroup(object):
             the partitioner many times upon changes. See :py:mod:`yelp_kafka.config`
             Default: 5 seconds.
         """
-        self.group.start()
+        self.partitioner.start()
         while True:
-            self.consume(refresh_timeout)
+            self._consume(refresh_timeout)
 
-    def consume(self, refresh_timeout):
+    def _consume(self, refresh_timeout):
         """Consume messages from kafka and refresh the group
         upon timeout expiration.
 
@@ -87,10 +88,14 @@ class ConsumerGroup(object):
         """
         timeout = time.time() + refresh_timeout
         for message in self.consumer:
-            self.process(message)
+            try:
+                self.process(message)
+            except:
+                self.log.exception("Error processing message: %s", message)
+                raise ProcessMessageError("Error processing message: %s", message)
             if time.time() > timeout:
                 break
-        self.group.refresh()
+        self.partitioner.refresh()
 
     def _acquire(self, partitions):
         """Create a consumer ready to consume from kafka.
@@ -122,13 +127,11 @@ class ConsumerGroup(object):
 
 
 class MultiprocessingConsumerGroup(object):
-    """Multiprocessing consumer group allows to consumer
+    """Multiprocessing consumer group allows to consume
     from multiple topics at once. It spawns a python process
     for each assigned partition.
     It also implements monitoring for the running consumers and
-    is able to restart re-start these upon failures.
-    Multiprocessing consumer group periodically
-    refresh the group for changes.
+    is able to restart restart these upon failures.
 
     .. note: This class is thread safe.
 
@@ -167,14 +170,14 @@ class MultiprocessingConsumerGroup(object):
     :param config: yelp_kakfa config. See :py:mod:`yelp_kafka.config`
     :type config: dict
     :param consumer_factory: the function used to instantiate the consumer.
-        the consumer_factory has to have the same argument list of
+        the consumer_factory must have the same argument list of
         :py:class:`yelp_kafka.consumer.KafkaConsumer`. It has to return
         an instance of a subclass of :py:class:`yelp_kafka.consumer.KafkaConsumer`.
     """
     def __init__(self, topics, config, consumer_factory):
         self._config = load_config_or_default(config)
         self.termination_flag = None
-        self.group = Partitioner(config, topics, self.acquire, self.release)
+        self.partitioner = Partitioner(config, topics, self.acquire, self.release)
         self.consumers = None
         self.consumers_lock = Lock()
         self.consumer_procs = {}
@@ -190,22 +193,25 @@ class MultiprocessingConsumerGroup(object):
             the partitioner many times upon changes. See :py:mod:`yelp_kafka.config`
             Default: 5 seconds.
 
-        .. note: this is a non returning function. You may want to run it into
+        .. note: this function does not return. You may want to run it into
             a separate thread.
 
         """
         # Create the termination flag
         self.termination_flag = Event()
-        self.group.start()
+        self.partitioner.start()
         while not self.termination_flag.is_set():
             self.termination_flag.wait(refresh_timeout)
             self.monitor()
-            self.group.refresh()
+            self.partitioner.refresh()
         # Release the group for termination
-        self.group.stop()
+        self.partitioner.stop()
 
     def stop_group(self):
-        """Set the termination flag to stop the group."""
+        """Set the termination flag to stop the group.
+
+        :raises: ConsumerGroupError is the group has not been started, yet.
+        """
         if not self.termination_flag:
             raise ConsumerGroupError("Group not running")
         self.termination_flag.set()

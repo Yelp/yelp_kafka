@@ -5,6 +5,7 @@ import pytest
 from yelp_kafka.consumer import KafkaSimpleConsumer
 from yelp_kafka.consumer import KafkaConsumer
 from yelp_kafka.consumer import Message
+from yelp_kafka.error import ProcessMessageError
 
 
 @contextlib.contextmanager
@@ -159,3 +160,22 @@ class TestKafkaConsumer(object):
                 consumer.dispose.assert_called_once_with()
                 mock_consumer.return_value.commit.assert_called_once_with()
                 mock_client.return_value.close.assert_called_once_with()
+
+    def test_process_error(self, config):
+        message_iterator = iter([
+            Message(1, 12345, 'key1', 'value1'),
+            Message(1, 12346, 'key2', 'value2'),
+            Message(1, 12347, 'key1', 'value3'),
+        ])
+        with mock_kafka() as (mock_client, mock_consumer):
+            with contextlib.nested(
+                mock.patch.object(KafkaSimpleConsumer, '_validate_offsets'),
+                mock.patch.object(KafkaSimpleConsumer, '__iter__',
+                                  return_value=message_iterator)
+            ):
+                consumer = KafkaConsumer('test_topic', config)
+                consumer.process = mock.Mock(side_effect=Exception('Boom!'))
+                consumer.initialize = mock.Mock()
+                consumer.dispose = mock.Mock()
+                with pytest.raises(ProcessMessageError):
+                    consumer.run()

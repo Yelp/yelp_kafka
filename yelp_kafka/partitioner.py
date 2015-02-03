@@ -37,7 +37,7 @@ class Partitioner(object):
         self._config = load_config_or_default(config)
         self._partitioner = None
         self.log = logging.getLogger(self.__class__.__name__)
-        self.group_actions = {
+        self.actions = {
             PartitionState.ALLOCATING: self._allocating,
             PartitionState.ACQUIRED: self._acquire,
             PartitionState.RELEASE: self._release,
@@ -47,6 +47,8 @@ class Partitioner(object):
     def start(self):
         """Create a new group and wait until the partitions have been
         acquired.
+
+        :raises: PartitionerError upon partitioner failures
 
         .. note: This is a blocking operation.
         """
@@ -64,6 +66,8 @@ class Partitioner(object):
         partitioner itself fails (connection to zookeeper lost).
         This method should be called periodically to make sure that the
         group is in sync.
+
+        :raises: PartitionerError upon partitioner failures
         """
         self.log.debug("Refresh group for topics %s", self.topics)
         self._refresh()
@@ -136,7 +140,7 @@ class Partitioner(object):
         """
         if partitioner:
             try:
-                self.group_actions[partitioner.state](partitioner)
+                self.actions[partitioner.state](partitioner)
             except KeyError:
                 self.log.exception("Unexpected partitioner state.")
                 raise PartitionerError("Invalid partitioner state %s" %

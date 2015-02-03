@@ -5,6 +5,7 @@ import pytest
 
 from yelp_kafka.consumer_group import ConsumerGroup
 from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
+from yelp_kafka.error import ProcessMessageError
 
 
 @pytest.fixture
@@ -22,19 +23,30 @@ class TestConsumerGroup(object):
     topic = 'topic1'
 
     @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
-    def test_consume(self, mock_partitioner, config):
+    def test__consume(self, mock_partitioner, config):
         group = ConsumerGroup(self.topic, config, mock.Mock())
         group.consumer = mock.MagicMock()
         group.consumer.__iter__.return_value = [
             mock.sentinel.message1,
             mock.sentinel.message2
         ]
-        group.consume(refresh_timeout=1)
+        group._consume(refresh_timeout=1)
         assert group.process.call_args_list == [
             mock.call(mock.sentinel.message1),
             mock.call(mock.sentinel.message2)
         ]
         mock_partitioner.return_value.refresh.assert_called_once_with()
+
+    @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
+    def test__consume_error(self, mock_partitioner, config):
+        group = ConsumerGroup(self.topic, config, mock.Mock(side_effect=Exception("Boom!")))
+        group.consumer = mock.MagicMock()
+        group.consumer.__iter__.return_value = [
+            mock.sentinel.message1,
+            mock.sentinel.message2
+        ]
+        with pytest.raises(ProcessMessageError):
+            group._consume(refresh_timeout=1)
 
     @mock.patch('yelp_kafka.consumer_group.KafkaSimpleConsumer', autospec=True)
     def test__acquire(self, mock_consumer, config):

@@ -7,6 +7,7 @@ from kafka import SimpleConsumer
 
 from yelp_kafka.config import load_config_or_default
 from yelp_kafka.config import CONSUMER_CONFIG_KEYS
+from yelp_kafka.error import ProcessMessageError
 
 
 Message = namedtuple("Message", ["partition", "offset", "key", "value"])
@@ -203,6 +204,8 @@ class KafkaConsumer(KafkaSimpleConsumer):
         """Fetch and process messages from kafka.
         Non returning function. It initialize the consumer, connect to kafka
         and start processing messages.
+
+        :raises: MessageProcessError when the process function fails
         """
         self.initialize()
         try:
@@ -215,7 +218,11 @@ class KafkaConsumer(KafkaSimpleConsumer):
             raise
         while True:
             for message in self:
-                self.process(message)
+                try:
+                    self.process(message)
+                except:
+                    self.log.exception("Error processing message: %s", message)
+                    raise ProcessMessageError("Error processing message: %s", message)
             if self.termination_flag.is_set():
                 self._terminate()
                 break
