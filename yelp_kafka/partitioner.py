@@ -77,7 +77,7 @@ class Partitioner(object):
         while True:
             partitions = self.get_partitions_set()
             partitioner = self._get_partitioner(partitions)
-            self._handle_group(self, partitioner)
+            self._handle_group(partitioner)
             if self.acquired_partitions:
                 break
 
