@@ -6,10 +6,17 @@
 Welcome to Yelp Kafka's documentation!
 ======================================
 
+yelp_kafka is a library to interact with Kafka at Yelp.
+
 Contents:
 
 .. toctree::
    :maxdepth: 2
+
+   config
+   consumer
+   consumer_group
+
 
 Indices and tables
 ==================
