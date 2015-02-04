@@ -17,6 +17,7 @@ MAX_ITERATOR_TIMEOUT_SECS = 0.1
 DEFAULT_CONFIG = {
     'brokers': None,
     'client_id': 'yelp-kafka',
+    'zk_hosts': None,
     'group_id': None,
     'buffer_size': KAFKA_BUFFER_SIZE,
     'auto_commit_every_n': AUTO_COMMIT_MSG_COUNT,
