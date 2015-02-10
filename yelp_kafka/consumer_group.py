@@ -13,7 +13,7 @@ from yelp_kafka.partitioner import Partitioner
 from yelp_kafka.consumer import KafkaSimpleConsumer
 
 
-DEFAULT_REFRESH_TIMEOUT_IN_SEC = 5
+DEFAULT_REFRESH_TIMEOUT_IN_SEC = 0.5
 
 
 class ConsumerGroup(object):

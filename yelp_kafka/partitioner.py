@@ -101,6 +101,12 @@ class Partitioner(object):
         elif partitions != self.partitions_set:
             # If partitions changed we release the consumers, destroy the
             # partitioner and disconnect from zookeeper.
+            self.log.warning(
+                "Partitions set changed. Rebalancing."
+                "New partitions: %s. Old partitions %s",
+                [p for p in partitions if p not in self.partitions_set],
+                [p for p in self.partitions_set if p not in partitions]
+            )
             self._destroy_partitioner(self._partitioner)
             # Wait for the group to settle on the new partitions set before
             # creating a new partitioner.

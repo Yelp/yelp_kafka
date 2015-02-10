@@ -148,7 +148,8 @@ class KafkaSimpleConsumer(object):
             # dicts to be in sync with one other.
             self.kafka_consumer.offsets = group_offsets.copy()
             self.kafka_consumer.fetch_offsets = group_offsets.copy()
-        self.kafka_consumer.auto_commit = True
+        if self._config['auto_commit']:
+            self.kafka_consumer.auto_commit = True
 
 
 class KafkaConsumer(KafkaSimpleConsumer):
