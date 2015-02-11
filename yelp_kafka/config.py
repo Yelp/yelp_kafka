@@ -1,6 +1,6 @@
-from kafka.consumer import AUTO_COMMIT_MSG_COUNT
-from kafka.consumer import AUTO_COMMIT_INTERVAL
-from kafka.consumer import FETCH_MIN_BYTES
+from kafka.consumer.base import AUTO_COMMIT_MSG_COUNT
+from kafka.consumer.base import AUTO_COMMIT_INTERVAL
+from kafka.consumer.base import FETCH_MIN_BYTES
 
 from yelp_kafka.error import ConsumerConfigurationError
 
