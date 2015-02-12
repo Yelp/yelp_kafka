@@ -1,9 +1,22 @@
 # -*- coding: utf-8 -*-
 
 import contextlib
+from collections import namedtuple
 
 import kafka
 import mock
+import yelp_kafka
+
+KafkaMocks = namedtuple(
+    'KafkaMocks',
+    [
+        'KafkaClient',
+        'SimpleProducer',
+        'KeyedProducer',
+        'SimpleConsumer',
+        'KafkaSimpleConsumer',
+    ],
+)
 
 
 class Registrar(object):
@@ -120,6 +133,83 @@ class Registrar(object):
                 old_offset = inner_self._offset
                 inner_self._offset = new_offset
                 return inner_self._topic[old_offset:new_offset]
+
+            def get_message(inner_self, block=True, timeout=0.1, get_partition_info=None):
+                return inner_self.get_messages(count=1, block=block, timeout=timeout)[0]
+
+            def commit(inner_self, partitions=None):
+                pass
+
+            def fetch_last_known_offsets(inner_self, partitions=None):
+                return [inner_self._offset]
+
+            def seek(inner_self, offset, whence):
+                pass
+
+            def __iter__(inner_self):
+                for msg in inner_self._topic[inner_self._offset:]:
+                    yield msg
+
+        return MockConsumer
+
+    def mock_yelp_consumer_with_registrar(self):
+        class MockConsumer(object):
+            def __init__(
+                inner_self,
+                topic,
+                config,
+                partitions=None,
+            ):
+                # XXX: This just snapshots the current topic. New messages produced
+                # won't make it into here.If you need this, build it :)
+                inner_self._topic = list(self.topic_registry.get(topic, []))
+                inner_self._offset = 0
+
+            def connect(self):
+                pass
+
+            def _translate_messages_to_yelp(inner_self, messages):
+                return [yelp_kafka.consumer.Message(
+                    partition=0,
+                    offset=message.offset,
+                    key=message.message.key,
+                    value=message.message.value,
+                ) for message in messages]
+
+            def get_messages(inner_self, count=1, block=True, timeout=0.10000000000000001):
+                # inner_self so we can address the parent object Registrar
+                # with self, thus accessing global test state.
+                new_offset = min(inner_self._offset + count, len(inner_self._topic))
+                old_offset = inner_self._offset
+                inner_self._offset = new_offset
+
+                return inner_self._translate_messages_to_yelp(
+                    inner_self._topic[old_offset:new_offset]
+                )
+
+            def get_message(inner_self, block=True, timeout=0.1, get_partition_info=None):
+                return inner_self.get_messages(
+                    count=1,
+                    block=block,
+                    timeout=timeout,
+                )[0]
+
+            def commit(inner_self, partitions=None):
+                pass
+
+            def fetch_last_known_offsets(inner_self, partitions=None):
+                return [inner_self._offset]
+
+            def seek(inner_self, offset, whence):
+                pass
+
+            def __iter__(inner_self):
+                translated_messages = inner_self._translate_messages_to_yelp(
+                    inner_self._topic[inner_self._offset:],
+                )
+                for msg in translated_messages:
+                    yield msg
+
         return MockConsumer
 
 
@@ -131,5 +221,12 @@ def mock_kafka_python():
         mock.patch.object(kafka, 'SimpleProducer', registrar.mock_producer_with_registry()),
         mock.patch.object(kafka, 'KeyedProducer', registrar.mock_keyed_producer_with_registry()),
         mock.patch.object(kafka, 'SimpleConsumer', registrar.mock_consumer_with_registrar()),
-    ) as mocked_stuff:
-        yield mocked_stuff
+        mock.patch.object(yelp_kafka.consumer, 'KafkaSimpleConsumer', registrar.mock_yelp_consumer_with_registrar()),
+    ) as (Client, Producer, KeyedProducer, Consumer, YelpConsumer):
+        yield KafkaMocks(
+            KafkaClient=Client,
+            SimpleProducer=Producer,
+            KeyedProducer=KeyedProducer,
+            SimpleConsumer=Consumer,
+            KafkaSimpleConsumer=YelpConsumer,
+        )
