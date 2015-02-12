@@ -2,14 +2,13 @@ from collections import defaultdict
 import logging
 import time
 
-from kafka import KafkaClient
-from kafka.common import KafkaUnavailableError
 from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
 from kazoo.recipe.partitioner import PartitionState
 
 from yelp_kafka.config import load_config_or_default
 from yelp_kafka.error import PartitionerError
+from yelp_kafka.util import get_kafka_topics
 
 MAX_START_TIME_SECS = 30
 
@@ -211,27 +210,12 @@ class Partitioner(object):
         :returns: partitions for user topics
         :rtype: set
         """
-
-        kafkaclient = KafkaClient(
-            self._config['brokers'],
-            client_id=self._config['client_id']
-        )
-        try:
-            kafkaclient.load_metadata_for_topics()
-        except KafkaUnavailableError:
-            # Sometimes the kakfa server closes the connection for inactivity
-            # in this case the second call should succeed otherwise the kafka
-            # server is down and we should fail
-            self.log.warning("First call to kafka for loading metadata failed."
-                             " Trying again.")
-            kafkaclient.load_metadata_for_topics()
-
+        topic_partitions = get_kafka_topics(self._config['brokers'])
         partitions = []
         for topic in self.topics:
-            if topic not in kafkaclient.topic_partitions:
+            if topic not in topic_partitions:
                 self.log.warning("Topic %s does not exist in kafka", topic)
             else:
                 partitions += ["{0}-{1}".format(topic, p)
-                               for p in kafkaclient.topic_partitions[topic]]
-        kafkaclient.close()
+                               for p in topic_partitions[topic]]
         return set(partitions)

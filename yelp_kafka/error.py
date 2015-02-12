@@ -2,11 +2,19 @@ class YelpKafkaError(Exception):
     pass
 
 
+class DiscoveryError(YelpKafkaError):
+    pass
+
+
 class ConsumerError(YelpKafkaError):
     pass
 
 
-class ConsumerConfigurationError(ConsumerError):
+class ConfigurationError(YelpKafkaError):
+    pass
+
+
+class ConsumerConfigurationError(ConfigurationError):
     pass
 
 
