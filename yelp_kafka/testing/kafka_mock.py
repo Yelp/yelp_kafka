@@ -194,13 +194,7 @@ class Registrar(object):
                     timeout=timeout,
                 )[0]
 
-            def commit(inner_self, partitions=None):
-                pass
-
-            def fetch_last_known_offsets(inner_self, partitions=None):
-                return [inner_self._offset]
-
-            def seek(inner_self, offset, whence):
+            def close(self):
                 pass
 
             def __iter__(inner_self):
