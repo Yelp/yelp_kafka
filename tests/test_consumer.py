@@ -48,6 +48,27 @@ class TestKafkaSimpleConsumer(object):
                 expected_args = mock.sentinel.client, 'test_group', 'test_topic'
                 assert mock_consumer.call_args[0] == expected_args
 
+    def test_get_message_same_offset(self, config):
+        with mock_kafka() as (_, mock_consumer):
+            with mock.patch.object(KafkaSimpleConsumer,
+                                   '_validate_offsets'):
+                mock_obj = mock_consumer.return_value
+                # get message should return a tuple (partition_id, (offset,
+                # Message)). Message is a namedtuple defined in kafka-python that
+                # at least contains key and value.
+                mock_message = mock.Mock()
+                mock_message.value = 'test_content'
+                mock_message.key = 'test_key'
+                kafka_message = (1, (12345, mock_message))
+                mock_obj.get_message.return_value = kafka_message
+                # Set the current offset the offset of the message
+                mock_obj.offsets = {1: 12345}
+                consumer = KafkaSimpleConsumer('test_topic', config)
+                consumer.connect()
+                assert consumer.get_message() == Message(
+                    partition=1, offset=12345, key='test_key', value='test_content'
+                )
+
     def test_get_message(self, config):
         with mock_kafka() as (_, mock_consumer):
             with mock.patch.object(KafkaSimpleConsumer,
