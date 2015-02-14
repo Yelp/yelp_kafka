@@ -39,7 +39,7 @@ setup(
     packages=find_packages(exclude=["tests"]),
     setup_requires=['setuptools'],
     install_requires=[
-        'kafka-python',
+        'kafka-python==0.9.3',
         'kazoo',
         'python-snappy',
     ],

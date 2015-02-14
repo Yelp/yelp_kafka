@@ -72,12 +72,18 @@ class KafkaSimpleConsumer(object):
 
     def __iter__(self):
         for partition, kafka_message in self.kafka_consumer:
-            yield Message(
-                partition=partition,
-                offset=kafka_message[0],
-                key=kafka_message[1].key,
-                value=kafka_message[1].value
-            )
+            # We need to filter out possible old messages.
+            # See https://github.com/mumrah/kafka-python/issues/322
+            # kafka-python increments the offsets value just before returning the
+            # message, so we need to compare the message offset with the
+            # current - 1
+            if kafka_message[0] >= self.kafka_consumer.offsets[partition] - 1:
+                yield Message(
+                    partition=partition,
+                    offset=kafka_message[0],
+                    key=kafka_message[1].key,
+                    value=kafka_message[1].value
+                )
 
     def close(self):
         """Disconnect from kafka.
@@ -101,9 +107,21 @@ class KafkaSimpleConsumer(object):
         :rtype: Message namedtuple, which consists of: partition number,
                 offset, key, and message value
         """
-        partition, kafka_message = self.kafka_consumer.get_message(block, timeout)
-        return Message(partition=partition, offset=kafka_message[0],
-                       key=kafka_message[1].key, value=kafka_message[1].value)
+        while True:
+            fetched_message = self.kafka_consumer.get_message(block, timeout)
+            if fetched_message is None:
+                # get message timed out return None
+                return None
+            else:
+                partition, kafka_message = fetched_message
+                # We need to filter out possible old messages.
+                # See https://github.com/mumrah/kafka-python/issues/322
+                # kafka-python increments the offsets value just before returning the
+                # message, so we need to compare the message offset with the
+                # current - 1
+                if kafka_message[0] >= self.kafka_consumer.offsets[partition] - 1:
+                    return Message(partition=partition, offset=kafka_message[0],
+                                   key=kafka_message[1].key, value=kafka_message[1].value)
 
     def _validate_offsets(self, latest_offset):
         """ Validate the offsets for a topics by comparing the earliest

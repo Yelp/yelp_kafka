@@ -42,11 +42,8 @@ def get_cluster_broker_list(kafka_cluster_id, region=None):
     """Return the broker list for the local cluster or the cluster in
     region if specified.
     """
-    topology = TopologyConfiguration(kafka_id=kafka_cluster_id)
-    if not region:
-        region = get_local_region()
-    clusters = topology.get_clusters_for_region(region=region)
-    return [host for cluster in clusters for host in cluster.broker_list]
+    clusters = get_clusters_config(kafka_cluster_id, region)
+    return [(name, config.broker_list) for name, config in clusters]
 
 
 def get_all_cluster_config(kafka_cluster_id):
@@ -67,12 +64,12 @@ def get_kafka_connection(kafka_cluster_id, region=None):
     connected_clusters = []
     for cluster_name, cluster_config in clusters:
         try:
-            client = KafkaClient(cluster_config.brokers_list)
+            client = KafkaClient(cluster_config.broker_list)
             connected_clusters.append((cluster_name, client))
         except:
             log.exception("Connection to kafka cluster %s using broker"
                           " list %s failed", cluster_name,
-                          cluster_config.brokers_list)
+                          cluster_config.broker_list)
             for cluster, client in connected_clusters:
                 client.close()
             raise DiscoveryError("Failed to connect to cluster {0}".format(
@@ -88,7 +85,7 @@ def search_topic(kafka_cluster_id, topic, region=None):
     matches = []
     clusters = get_clusters_config(region)
     for name, config in clusters:
-        topics = get_kafka_topics(config.brokers_list)
+        topics = get_kafka_topics(config.broker_list)
         if topic in topics.keys():
             matches.append(topic, name, config)
     return matches
@@ -102,7 +99,7 @@ def search_topic_by_regex(kafka_cluster_id, pattern, region=None):
     matches = []
     clusters = get_clusters_config(region)
     for name, config in clusters:
-        topics = get_kafka_topics(config.brokers_list)
+        topics = get_kafka_topics(config.broker_list)
         valid_topics = [topic for topic in topics.iterkeys()
                         if re.match(pattern, topic)]
         matches.append(valid_topics, name, config)

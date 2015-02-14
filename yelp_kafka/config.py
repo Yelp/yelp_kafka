@@ -2,9 +2,9 @@ import logging
 import os
 import yaml
 
-from kafka.consumer import AUTO_COMMIT_MSG_COUNT
-from kafka.consumer import AUTO_COMMIT_INTERVAL
-from kafka.consumer import FETCH_MIN_BYTES
+from kafka.consumer.base import AUTO_COMMIT_MSG_COUNT
+from kafka.consumer.base import AUTO_COMMIT_INTERVAL
+from kafka.consumer.base import FETCH_MIN_BYTES
 
 from yelp_kafka.error import ConsumerConfigurationError
 from yelp_kafka.error import ConfigurationError
@@ -46,12 +46,12 @@ class TopologyConfiguration(object):
         self.log = logging.getLogger(self.__class__.__name__)
         self.clusters = None
         self.region_to_cluster = None
-        self.get_kafka_cluster_config()
+        self.load_topology_config()
 
     def load_topology_config(self):
         """Load the topology configuration"""
         config_path = os.path.join(self.kakfa_topology_path,
-                                   '{0}.yaml'.format(self.cluster_id))
+                                   '{0}.yaml'.format(self.kafka_id))
         self.log.debug("Loading configuration from %s", config_path)
         if os.path.isfile(config_path):
             topology_config = load_yaml_config(config_path)
@@ -59,7 +59,7 @@ class TopologyConfiguration(object):
             raise ConfigurationError(
                 "Topology configuration {0} for cluster {1} "
                 "does not exist".format(
-                    config_path, self.cluster_id
+                    config_path, self.kafka_id
                 )
             )
         self.log.debug("Topology configuration %s", topology_config)
@@ -149,8 +149,9 @@ class ClusterConfig(object):
             # port)
             return [(host_port[0], host_port[1]) for host_port in zk_config]
         else:
-            raise ConfigurationError("Topology config for zookeeper cluster %s "
-                                     "does not exist", self.zookeeper_cluster)
+            raise ConfigurationError("Topology config %s for zookeeper cluster %s "
+                                     "does not exist", topology_file,
+                                     self.zookeeper_cluster)
 
     def __repr__(self):
         return ("ClusterConfig {0}, zookeeper_cluster {1}"
