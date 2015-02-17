@@ -11,7 +11,7 @@ from yelp_kafka.error import ConfigurationError
 
 
 DEFAULT_KAFKA_TOPOLOGY_BASE_PATH = '/nail/etc/kafka_discovery'
-DEFAULT_ZK_TOPOLOGY_BASE_PATH = '/nail/etc/zookeeper_topology/generic'
+DEFAULT_ZK_TOPOLOGY_BASE_PATH = '/nail/etc/zookeeper_discovery/generic'
 
 
 cluster_configuration = {}

@@ -83,11 +83,11 @@ def search_topic(kafka_cluster_id, topic, region=None):
     (topic, cluster_name, cluster_config).
     """
     matches = []
-    clusters = get_clusters_config(region)
+    clusters = get_clusters_config(kafka_cluster_id, region)
     for name, config in clusters:
         topics = get_kafka_topics(config.broker_list)
         if topic in topics.keys():
-            matches.append(topic, name, config)
+            matches.append((topic, name, config))
     return matches
 
 
@@ -97,12 +97,12 @@ def search_topic_by_regex(kafka_cluster_id, pattern, region=None):
     (topics, cluster_name, cluster_config).
     """
     matches = []
-    clusters = get_clusters_config(region)
+    clusters = get_clusters_config(kafka_cluster_id, region)
     for name, config in clusters:
         topics = get_kafka_topics(config.broker_list)
         valid_topics = [topic for topic in topics.iterkeys()
                         if re.match(pattern, topic)]
-        matches.append(valid_topics, name, config)
+        matches.append((valid_topics, name, config))
     return matches
 
 
@@ -117,7 +117,7 @@ def get_scribe_topic_in_datacenter(
 def get_scribe_topics(
     stream, kafka_cluster_id=DEFAULT_KAFKA_SCRIBE, region=None
 ):
-    pattern = '^scribe\.\w\.stream$'
+    pattern = '^scribe\.\w*\.{0}$'.format(stream)
     return search_topic_by_regex(kafka_cluster_id,
                                  pattern,
                                  region)
