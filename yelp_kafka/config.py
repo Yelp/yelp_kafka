@@ -29,18 +29,18 @@ class TopologyConfiguration(object):
 
     :param kafka_id: kafka cluster id. Ex. standard or scribe
     :type kafka_id: string
-    :param kakfa_topology_path: path of the directory containing
+    :param kafka_topology_path: path of the directory containing
         the kafka topology.yaml config
-    :type kakfa_topology_path: string
+    :type kafka_topology_path: string
     :param zk_topology_path: path of the directory containing
         the zookeeper topology.yaml
     :type zk_topology_path: string
     """
 
     def __init__(self, kafka_id,
-                 kakfa_topology_path=DEFAULT_KAFKA_TOPOLOGY_BASE_PATH,
+                 kafka_topology_path=DEFAULT_KAFKA_TOPOLOGY_BASE_PATH,
                  zk_topology_path=DEFAULT_ZK_TOPOLOGY_BASE_PATH):
-        self.kakfa_topology_path = kakfa_topology_path
+        self.kafka_topology_path = kafka_topology_path
         self.zk_topology_path = zk_topology_path
         self.kafka_id = kafka_id
         self.log = logging.getLogger(self.__class__.__name__)
@@ -50,8 +50,8 @@ class TopologyConfiguration(object):
 
     def load_topology_config(self):
         """Load the topology configuration"""
-        config_path = os.path.join(self.kakfa_topology_path,
-                                   '{0}.yaml'.format(self.kafka_id))
+        config_path = os.path.join(self.kafka_topology_path,
+                                   '{id}.yaml'.format(id=self.kafka_id))
         self.log.debug("Loading configuration from %s", config_path)
         if os.path.isfile(config_path):
             topology_config = load_yaml_config(config_path)
@@ -79,36 +79,33 @@ class TopologyConfiguration(object):
 
     def get_clusters_for_region(self, region):
         clusters = []
+        if region not in self.region_to_cluster:
+            raise ConfigurationError("Region {0} not in config".format(region))
         for cluster in self.region_to_cluster[region]:
             if cluster not in self.clusters:
                 raise ConfigurationError(
-                    "Mismatching configuration, %s in region %s is "
-                    "not a valid cluster", cluster, region
+                    "Mismatching configuration, {0} in region {1} is "
+                    "not a valid cluster".format(cluster, region)
                 )
             clusters.append((cluster, self.clusters[cluster]))
         return clusters
 
     def get_all_clusters(self):
-        return [self.get_clusters_for_region(region)
-                for region in self.region_to_cluster.iterkeys()
-                ]
+        return [(region, self.get_clusters_for_region(region))
+                for region in self.region_to_cluster.iterkeys()]
 
     def get_regions_for_cluster(self, cluster):
         """Reverse lookup from cluster to regions"""
-        if not self.clusters:
-            self.get_kafka_cluster_config()
         if cluster not in self.clusters:
             raise ConfigurationError("Cluster {0} not in configuration".format(cluster))
-        return [region for region, clusters in self.region_to_cluster.iteritems
+        return [region for region, clusters in self.region_to_cluster.iteritems()
                 if cluster in clusters]
 
     def get_clusters_for_ecosystem(self, ecosystem):
         regions = [region for region in self.region_to_cluster
                    if region.endswith(ecosystem)]
-        clusters = []
-        for region in regions:
-            clusters += self.get_clusters_for_region(region)
-        return clusters
+        return set([cluster for region in regions
+                    for cluster in self.get_clusters_for_region(region)])
 
     def __repr__(self):
         return ("TopologyConfig: kafka_id {0}, clusters: {1},"
@@ -137,21 +134,23 @@ class ClusterConfig(object):
         if self._zookeeper_hosts is None:
             # Lazy loading, most of the consumers don't need to access
             # zookeeeper directly
-            self._zookeeper_hosts = self.load_zookeeper_topology()
+            self._zookeeper_hosts = self._load_zookeeper_topology()
         return self._zookeeper_hosts
 
-    def load_zookeeper_topology(self):
+    def _load_zookeeper_topology(self):
         topology_file = os.path.join(self.zookeeper_topology_path,
-                                     "{0}.yaml".format(self.zookeeper_cluster))
+                                     "{zk}.yaml".format(zk=self.zookeeper_cluster))
         if os.path.isfile(topology_file):
             zk_config = load_yaml_config(topology_file)
             # zk_config is a list of lists we create a list of tuples(host,
             # port)
-            return [(host_port[0], host_port[1]) for host_port in zk_config]
+            return ["{host}:{port}".format(host=host_port[0], port=host_port[1])
+                    for host_port in zk_config]
         else:
-            raise ConfigurationError("Topology config %s for zookeeper cluster %s "
-                                     "does not exist", topology_file,
-                                     self.zookeeper_cluster)
+            raise ConfigurationError("Topology config {0} for zookeeper cluster {1} "
+                                     "does not exist".format(
+                                         topology_file, self.zookeeper_cluster
+                                     ))
 
     def __repr__(self):
         return ("ClusterConfig {0}, zookeeper_cluster {1}"
