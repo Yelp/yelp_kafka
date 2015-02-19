@@ -1,7 +1,6 @@
 import mock
 import pytest
 
-from tests.mock_config import mock_conf_files
 from tests.mock_config import TEST_BASE_ZK
 from tests.mock_config import TEST_BASE_KAFKA
 
@@ -35,11 +34,6 @@ from yelp_kafka.error import ConfigurationError
 #    assert config['group_id'] == 'test_group'
 #    assert config['client_id'] == 'my-client'
 #    assert all([k in config for k in DEFAULT_CONFIG.keys()])
-
-@pytest.yield_fixture
-def mock_files():
-    with mock_conf_files():
-        yield
 
 
 class TestTopologyConfig(object):

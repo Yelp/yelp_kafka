@@ -2,7 +2,6 @@ import contextlib
 import mock
 import pytest
 
-from kafka.common import KafkaUnavailableError
 from kazoo.recipe.partitioner import SetPartitioner
 from kazoo.recipe.partitioner import PartitionState
 from kazoo.protocol.states import KazooState
@@ -39,9 +38,9 @@ class TestPartitioner(object):
         assert partitioner.get_group_path() == '/base_path/test_group_id'
 
     def test_get_partitions_set(self, partitioner):
-        with mock.patch('yelp_kafka.partitioner.KafkaClient',
-                        autospec=True) as mock_client:
-            mock_client.return_value.topic_partitions = {
+        with mock.patch('yelp_kafka.partitioner.get_kafka_topics',
+                        autospec=True) as mock_topics:
+            mock_topics.return_value = {
                 'topic1': [0, 1, 2, 3],
                 'topic2': [0, 1, 2],
                 'topic3': [0, 1, 2, 3],
@@ -51,37 +50,6 @@ class TestPartitioner(object):
                 'topic1-0', 'topic1-1', 'topic1-2', 'topic1-3',
                 'topic2-0', 'topic2-1', 'topic2-2'
             ])
-
-    def test_get_partitions_set_kafka_away(self, partitioner):
-        with mock.patch('yelp_kafka.partitioner.KafkaClient',
-                        autospec=True) as mock_client:
-            mock_obj = mock_client.return_value
-            mock_obj.load_metadata_for_topics.side_effect = iter(
-                [KafkaUnavailableError, None]
-            )
-            mock_client.return_value.topic_partitions = {
-                'topic1': [0, 1, 2, 3],
-                'topic2': [0, 1, 2],
-                'topic3': [0, 1, 2, 3],
-            }
-            actual = partitioner.get_partitions_set()
-            assert actual == set([
-                'topic1-0', 'topic1-1', 'topic1-2', 'topic1-3',
-                'topic2-0', 'topic2-1', 'topic2-2'
-            ])
-
-    def test_get_partitions_set_error(self, partitioner):
-        with mock.patch('yelp_kafka.partitioner.KafkaClient',
-                        autospec=True) as mock_client:
-            mock_obj = mock_client.return_value
-            mock_obj.load_metadata_for_topics.side_effect = KafkaUnavailableError
-            mock_client.return_value.topic_partitions = {
-                'topic1': [0, 1, 2, 3],
-                'topic2': [0, 1, 2],
-                'topic3': [0, 1, 2, 3],
-            }
-            with pytest.raises(KafkaUnavailableError):
-                partitioner.get_partitions_set()
 
     def test_handle_release(self, partitioner):
         mock_kpartitioner = mock.MagicMock(

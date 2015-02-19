@@ -8,7 +8,7 @@ from kazoo.recipe.partitioner import PartitionState
 
 from yelp_kafka.config import load_config_or_default
 from yelp_kafka.error import PartitionerError
-from yelp_kafka.util import get_kafka_topics
+from yelp_kafka.utils import get_kafka_topics
 
 MAX_START_TIME_SECS = 30
 

@@ -7,8 +7,8 @@ from kafka import KafkaClient
 from yelp_kafka.config import YelpKafkaConfig
 from yelp_kafka.config import TopologyConfiguration
 from yelp_kafka.error import DiscoveryError
-from yelp_kafka.util import get_kafka_topics
-from yelp_kafka.util import make_scribe_topic
+from yelp_kafka.utils import get_kafka_topics
+from yelp_kafka.utils import make_scribe_topic
 
 
 REGION_PATH = '/nail/etc/region'
@@ -47,7 +47,7 @@ def get_cluster_broker_list(kafka_cluster_id, region=None):
 
 
 def get_all_cluster_config(kafka_cluster_id):
-    """Return a list of tuple (region, ClusterConfig)"""
+    """Return a list of tuple (region, [(cluster_name, ClusterConfig)])"""
     topology = TopologyConfiguration(kafka_id=kafka_cluster_id)
     return topology.get_all_clusters()
 
@@ -58,9 +58,10 @@ def get_kafka_connection(kafka_cluster_id, region=None):
     .. note: This function create a KafkaClient for each cluster in a region
        and tries to connect to it. If a cluster is not available it fails and
        closes all the previous connections.
+    .. warning: Connecting to a cluster in different runtime env normally fails.
     """
 
-    clusters = get_clusters_config(region)
+    clusters = get_clusters_config(kafka_cluster_id, region)
     connected_clusters = []
     for cluster_name, cluster_config in clusters:
         try:
@@ -77,6 +78,16 @@ def get_kafka_connection(kafka_cluster_id, region=None):
     return connected_clusters
 
 
+def discover_topics(cluster_config):
+    try:
+        return get_kafka_topics(cluster_config.broker_list)
+    except:
+        log.exception("Topics discovery failed for %s",
+                      cluster_config.broker_list)
+        raise DiscoveryError("Failed to get topics information from "
+                             "{0}".format(cluster_config.broker_list))
+
+
 def search_topic(kafka_cluster_id, topic, region=None):
     """Search for a certain topic. It returns a list
     of tuples
@@ -85,7 +96,7 @@ def search_topic(kafka_cluster_id, topic, region=None):
     matches = []
     clusters = get_clusters_config(kafka_cluster_id, region)
     for name, config in clusters:
-        topics = get_kafka_topics(config.broker_list)
+        topics = discover_topics(config)
         if topic in topics.keys():
             matches.append((topic, name, config))
     return matches
@@ -99,10 +110,11 @@ def search_topic_by_regex(kafka_cluster_id, pattern, region=None):
     matches = []
     clusters = get_clusters_config(kafka_cluster_id, region)
     for name, config in clusters:
-        topics = get_kafka_topics(config.broker_list)
+        topics = discover_topics(config)
         valid_topics = [topic for topic in topics.iterkeys()
                         if re.match(pattern, topic)]
-        matches.append((valid_topics, name, config))
+        if valid_topics:
+            matches.append((valid_topics, name, config))
     return matches
 
 
@@ -113,6 +125,7 @@ def get_scribe_topic_in_datacenter(
     return search_topic(kafka_cluster_id,
                         make_scribe_topic(stream, datacenter),
                         region)
+
 
 def get_scribe_topics(
     stream, kafka_cluster_id=DEFAULT_KAFKA_SCRIBE, region=None

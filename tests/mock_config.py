@@ -52,17 +52,22 @@ MOCK_ZOOKEEPER_TOPOLOGY_CLUSTER2 = """
     - 2181
 """
 
+MOCK_REGION = 'myregion'
+
 TEST_BASE_ZK = '/my/zookeeper'
 TEST_BASE_KAFKA = '/my/kafka'
 
 PATH_ZK_1 = "{0}/myzookeepercluster1.yaml".format(TEST_BASE_ZK)
 PATH_ZK_2 = "{0}/myzookeepercluster2.yaml".format(TEST_BASE_ZK)
 PATH_KAFKA = "{0}/mykafka.yaml".format(TEST_BASE_KAFKA)
+PATH_REGION = "/nail/etc/region"
+
 
 PATH_TO_MOCK = {
     PATH_ZK_1: MOCK_ZOOKEEPER_TOPOLOGY_CLUSTER1,
     PATH_ZK_2: MOCK_ZOOKEEPER_TOPOLOGY_CLUSTER2,
-    PATH_KAFKA: MOCK_TOPOLOGY_CONFIG
+    PATH_KAFKA: MOCK_TOPOLOGY_CONFIG,
+    PATH_REGION: MOCK_REGION
 }
 
 
