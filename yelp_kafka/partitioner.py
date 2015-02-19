@@ -6,7 +6,6 @@ from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
 from kazoo.recipe.partitioner import PartitionState
 
-from yelp_kafka.config import load_config_or_default
 from yelp_kafka.error import PartitionerError
 from yelp_kafka.utils import get_kafka_topics
 
@@ -26,14 +25,13 @@ class Partitioner(object):
         partitions have to be release. It should usually stops the consumers.
     """
     def __init__(self, config, topics, acquire, release):
-        self.kafka_hosts = ','.join(config['brokers'])
-        self.kazooclient = KazooClient(','.join(config['zk_hosts']))
+        self.kazooclient = KazooClient(','.join(config.cluster.zookeeper_hosts))
         self.topics = topics
         self.acquired_partitions = defaultdict(list)
         self.partitions_set = None
         self.acquire = acquire
         self.release = release
-        self._config = load_config_or_default(config)
+        self.config = config
         self._partitioner = None
         self.log = logging.getLogger(self.__class__.__name__)
         self.actions = {
@@ -73,8 +71,10 @@ class Partitioner(object):
 
     def get_group_path(self):
         """Get the group path in zookeeper."""
-        return '/'.join([self._config['zookeeper_base'],
-                        self._config['group_id']])
+        return '{zookeeper_base}/{group_id}'.format(
+            zookeeper_base=self.config.zookeeper_base,
+            group_id=self.config.group_id
+        )
 
     def _refresh(self):
         while True:
@@ -109,7 +109,7 @@ class Partitioner(object):
             self._destroy_partitioner(self._partitioner)
             # Wait for the group to settle on the new partitions set before
             # creating a new partitioner.
-            time.sleep(self._config['zk_partitioner_cooldown'])
+            time.sleep(self.config.partitioner_cooldown)
             self._partitioner = self._create_partitioner(partitions)
             self.partitions_set = partitions
         return self._partitioner
@@ -123,12 +123,12 @@ class Partitioner(object):
                 self.log.exception("Impossible to connect to zookeeper")
                 raise PartitionerError("Zookeeper connection failure")
         self.log.debug("Creating partitioner for group %s, topic %s,"
-                       " partitions set %s", self._config['group_id'],
+                       " partitions set %s", self.config.group_id,
                        self.topics, partitions)
         return self.kazooclient.SetPartitioner(
             path=self.get_group_path(),
             set=partitions,
-            time_boundary=self._config['zk_partitioner_cooldown']
+            time_boundary=self.config.partitioner_cooldown
         )
 
     def _destroy_partitioner(self, partitioner):
@@ -210,7 +210,7 @@ class Partitioner(object):
         :returns: partitions for user topics
         :rtype: set
         """
-        topic_partitions = get_kafka_topics(self._config['brokers'])
+        topic_partitions = get_kafka_topics(self.config.cluster.broker_list)
         partitions = []
         for topic in self.topics:
             if topic not in topic_partitions:

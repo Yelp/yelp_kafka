@@ -5,8 +5,6 @@ from multiprocessing import Event
 from kafka import KafkaClient
 from kafka import SimpleConsumer
 
-from yelp_kafka.config import load_config_or_default
-from yelp_kafka.config import CONSUMER_CONFIG_KEYS
 from yelp_kafka.error import ProcessMessageError
 
 
@@ -47,7 +45,7 @@ class KafkaSimpleConsumer(object):
             raise TypeError("Partitions must be a list")
         self.partitions = partitions
         self.kafka_consumer = None
-        self._config = load_config_or_default(config)
+        self.config = config
 
     def connect(self):
         """ Connect to kafka and validate the offsets for a topic.
@@ -55,20 +53,22 @@ class KafkaSimpleConsumer(object):
         KafkaClient and SimpleConsumer.
         """
         # Instantiate a kafka client connected to kafka.
-        self.client = KafkaClient(self._config['brokers'],
-                                  client_id=self._config['client_id'])
+        self.client = KafkaClient(self.config.cluster.broker_list,
+                                  client_id=self.config.client_id)
 
         # Create a kafka SimpleConsumer.
         self.kafka_consumer = SimpleConsumer(
-            self.client, self._config['group_id'], self.topic, partitions=self.partitions,
-            **dict([(k, self._config[k]) for k in CONSUMER_CONFIG_KEYS])
+            client=self.client, topic=self.topic, partitions=self.partitions,
+            **self.config.get_simple_consumer_args()
         )
-        self.log.debug("Connected to kafka. Topic %s, group %s, partitions %s, %s",
-                       self.topic, self._config['group_id'], self.partitions,
-                       ','.join(['%{0} %{1}'.format(k, self._config[k])
-                                 for k in CONSUMER_CONFIG_KEYS]))
+        self.log.debug(
+            "Connected to kafka. Topic %s, partitions %s, %s", self.topic,
+            self.partitions, ','.join(
+                ['{0} {1}'.format(k, v)
+                 for k, v in self.config.get_simple_consumer_args().iteritems()]
+            ))
         self.kafka_consumer.provide_partition_info()
-        self._validate_offsets(self._config['latest_offset'])
+        self._validate_offsets(self.config.auto_offset_reset)
 
     def __iter__(self):
         for partition, kafka_message in self.kafka_consumer:
@@ -89,12 +89,18 @@ class KafkaSimpleConsumer(object):
         """Disconnect from kafka.
         If auto_commit is enabled commit offsets before disconnecting.
         """
-        if self._config['auto_commit'] is True:
-            self.kafka_consumer.commit()
+        if self.kafka_consumer.auto_commit is True:
+            try:
+                self.kafka_consumer.commit()
+            except:
+                self.log.exception("Commit error. "
+                                   "Offsets may not have been committed")
+        # Close all the connections to kafka brokers. KafkaClient open
+        # connections to all the partition leaders.
         self.client.close()
 
     def get_message(self, block=True, timeout=0.1):
-        """  message from kafka. It supports the same arguments of get_message
+        """Get message from kafka. It supports the same arguments of get_message
         in kafka-python SimpleConsumer.
 
         :param block: If True, the API will block till at least a message is fetched.
@@ -110,7 +116,7 @@ class KafkaSimpleConsumer(object):
         while True:
             fetched_message = self.kafka_consumer.get_message(block, timeout)
             if fetched_message is None:
-                # get message timed out return None
+                # get message timed out returns None
                 return None
             else:
                 partition, kafka_message = fetched_message
@@ -123,7 +129,7 @@ class KafkaSimpleConsumer(object):
                     return Message(partition=partition, offset=kafka_message[0],
                                    key=kafka_message[1].key, value=kafka_message[1].value)
 
-    def _validate_offsets(self, latest_offset):
+    def _validate_offsets(self, auto_offset_reset):
         """ Validate the offsets for a topics by comparing the earliest
         available offsets with the consumer group offsets.
         python-kafka api does not check for offsets validity.
@@ -137,6 +143,7 @@ class KafkaSimpleConsumer(object):
         """
 
         # Disable autocommit to avoid committing offsets during seek
+        saved_auto_commit = self.kafka_consumer.auto_commit
         self.kafka_consumer.auto_commit = False
 
         group_offsets = self.kafka_consumer.fetch_offsets
@@ -150,7 +157,7 @@ class KafkaSimpleConsumer(object):
                 for k, offset in group_offsets.iteritems()]):
             self.log.warning("Group offset for %s is too old..."
                              "Resetting offset", self.topic)
-            if latest_offset is True:
+            if auto_offset_reset == 'largest':
                 # Fetch the latest available offset (the newest message)
                 self.log.debug("Reset to latest offsets")
                 self.kafka_consumer.seek(-1, 2)
@@ -166,11 +173,10 @@ class KafkaSimpleConsumer(object):
             # dicts to be in sync with one other.
             self.kafka_consumer.offsets = group_offsets.copy()
             self.kafka_consumer.fetch_offsets = group_offsets.copy()
-        if self._config['auto_commit']:
-            self.kafka_consumer.auto_commit = True
+        self.kafka_consumer.auto_commit = saved_auto_commit
 
 
-class KafkaConsumer(KafkaSimpleConsumer):
+class KafkaConsumerBase(KafkaSimpleConsumer):
     """Kafka Consumer class. Inherit from
     :class:`yelp_kafka.consumer.KafkaSimpleConsumer`.
 
@@ -180,7 +186,7 @@ class KafkaConsumer(KafkaSimpleConsumer):
     """
 
     def __init__(self, topic, config, partitions=None):
-        super(KafkaConsumer, self).__init__(topic, config, partitions)
+        super(KafkaConsumerBase, self).__init__(topic, config, partitions)
         self.termination_flag = Event()
 
     def initialize(self):
@@ -233,7 +239,7 @@ class KafkaConsumer(KafkaSimpleConsumer):
         except:
             self.log.exception("Consumer topic %s, partition %s, config %s:"
                                " failed connecting to kafka", self.topic,
-                               self.partitions, self._config)
+                               self.partitions, self.config)
             raise
         while True:
             for message in self:

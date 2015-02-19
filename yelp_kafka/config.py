@@ -7,7 +7,6 @@ from kafka.consumer.base import AUTO_COMMIT_INTERVAL
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 
-from yelp_kafka.error import ConsumerConfigurationError
 from yelp_kafka.error import ConfigurationError
 
 
@@ -162,18 +161,21 @@ class ClusterConfig(object):
 
 
 class YelpKafkaConfig(object):
+    """Config class for ConsumerGroup, MultiprocessingConsumerGroup,
+    KafkaSimpleConsumer and KakfaConsumerBase"""
 
     # This is fixed to 1 MB for making a fetch call more efficient when dealing
     # with ranger messages, that can be more than 100KB in size
     KAFKA_BUFFER_SIZE = 1024 * 1024  # 1MB
 
     ZOOKEEPER_BASE_PATH = '/python-kafka'
-    ZK_PARTITIONER_COOLDOWN = 30
+    PARTITIONER_COOLDOWN = 30
     MAX_TERMINATION_TIMEOUT_SECS = 10
     MAX_ITERATOR_TIMEOUT_SECS = 0.1
+    DEFAULT_OFFSET_RESET = 'largest'
+    DEFAULT_CLIENT_ID = 'yelp-kafka'
 
-    DEFAULT_CONFIG = {
-        'client_id': 'yelp-kafka',
+    SIMPLE_CONSUMER_DEFAULT_CONFIG = {
         'buffer_size': KAFKA_BUFFER_SIZE,
         'auto_commit_every_n': AUTO_COMMIT_MSG_COUNT,
         'auto_commit_every_t': AUTO_COMMIT_INTERVAL,
@@ -181,38 +183,56 @@ class YelpKafkaConfig(object):
         'fetch_size_bytes': FETCH_MIN_BYTES,
         'max_buffer_size': None,
         'iter_timeout': MAX_ITERATOR_TIMEOUT_SECS,
-        'zookeeper_base': ZOOKEEPER_BASE_PATH,
-        'zk_partitioner_cooldown': ZK_PARTITIONER_COOLDOWN,
-        'max_termination_timeout_secs': MAX_TERMINATION_TIMEOUT_SECS,
-        'auto_offset_reset': 'largest'
     }
-    """Default configuration"""
+    """Default SimpleConsumer configuration"""
 
-    SIMPLE_CONSUMER_CONFIG_KEYS = (
-        'buffer_size',
-        'auto_commit_every_n',
-        'auto_commit_every_t',
-        'auto_commit',
-        'fetch_size_bytes',
-        'max_buffer_size',
-        'iter_timeout'
-    )
+    def __init__(self, group_id, cluster, **config):
+        self._config = config
+        self.cluster = cluster
+        self.group_id = group_id
 
-    def __init__(self, group_id, cluster_config, **kwargs):
-        self._config = self.load_config_or_default(kwargs)
-        self.cluster = cluster_config
-        self.group_id
+    def get_simple_consumer_args(self):
+        args = {}
+        for key in self.SIMPLE_CONSUMER_DEFAULT_CONFIG.iterkeys():
+            args[key] = self._config.get(
+                key, self.SIMPLE_CONSUMER_DEFAULT_CONFIG[key]
+            )
+        args['group'] = self.group_id
+        return args
 
-    def load_config_or_default(self, config):
-        """Load configuration from dict.
-        This function is used from both KafkaSimpleConsumer and ConsumerGroup.
+    def get_kafka_consumer_config(self):
+        config = {}
+        for key in DEFAULT_CONSUMER_CONFIG.iterkeys():
+            config[key] = self._config.get(
+                key, DEFAULT_CONSUMER_CONFIG[key]
+            )
+        config['group_id'] = self.group_id
+        config['metadata_broker_list'] = self.cluster.broker_list
+        return config
 
-        :param config: user configuration dict
-        :returns: a valid configuration for either ConsuerGroup or KafkaSimpleConsumer
-        :rtype: dict
-        :raises ConsumerConfigurationError: if either group_id or brokers are not specified
-        """
-        _config = {}
-        for key in self.DEFAULT_CONFIG:
-            _config[key] = config.get(key, self.DEFAULT_CONFIG[key])
-        return _config
+    @property
+    def zookeeper_base(self):
+        return self._config.get('zookeeper_base', self.ZOOKEEPER_BASE_PATH)
+
+    @property
+    def partitioner_cooldown(self):
+        return self._config.get('partitioner_cooldown', self.PARTITIONER_COOLDOWN)
+
+    @property
+    def max_termination_timeout_secs(self):
+        return self._config.get('max_termination_timeout_secs',
+                                self.MAX_ITERATOR_TIMEOUT_SECS)
+
+    @property
+    def auto_offset_reset(self):
+        return self._config.get('auto_offset_reset', self.DEFAULT_OFFSET_RESET)
+
+    @property
+    def client_id(self):
+        return self._config.get('client_id', self.DEFAULT_CLIENT_ID)
+
+    def __repr__(self):
+        return ("YelpKafkaConfig: cluster {cluster}, group {group} "
+                "config: {config}".format(cluster=self.cluster,
+                                          group=self.group_id,
+                                          config=self._config))

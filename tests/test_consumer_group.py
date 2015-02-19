@@ -3,6 +3,8 @@ from multiprocessing import Process
 import os
 import pytest
 
+from yelp_kafka.config import YelpKafkaConfig
+from yelp_kafka.config import ClusterConfig
 from yelp_kafka.consumer_group import ConsumerGroup
 from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
 from yelp_kafka.error import ProcessMessageError
@@ -10,12 +12,14 @@ from yelp_kafka.error import ProcessMessageError
 
 @pytest.fixture
 def config():
-    return {
-        'brokers': 'test_broker:9292',
-        'group_id': 'test_group_id',
-        'zookeeper_base': '/base_path',
-        'zk_hosts': ['zookeeper_uri1:2181', 'zookeeper_uri2:2181']
-    }
+    return YelpKafkaConfig(
+        cluster=mock.Mock(spec=ClusterConfig,
+                          broker_list='test_broker:9292',
+                          zookeeper_hosts=['zookeeper_uri1:2181',
+                                           'zookeeper_uri2:2181']),
+        group_id='test_group',
+        client_id='test_client_id'
+    )
 
 
 class TestConsumerGroup(object):
@@ -74,8 +78,16 @@ class TestMultiprocessingConsumerGroup(object):
 
     @pytest.fixture
     @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
-    def group(self, _, config):
-        config['max_termination_timeout_secs'] = 0.1
+    def group(self, _):
+        config = YelpKafkaConfig(
+            cluster=mock.Mock(spec=ClusterConfig,
+                              broker_list='test_broker:9292',
+                              zookeeper_hosts=['zookeeper_uri1:2181',
+                                               'zookeeper_uri2:2181']),
+            group_id='test_group',
+            client_id='test_client_id',
+            max_termination_timeout_secs=0.1
+        )
         return MultiprocessingConsumerGroup(
             self.topics,
             config, mock.Mock()

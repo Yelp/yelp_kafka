@@ -2,8 +2,10 @@ import contextlib
 import mock
 import pytest
 
+from yelp_kafka.config import YelpKafkaConfig
+from yelp_kafka.config import ClusterConfig
 from yelp_kafka.consumer import KafkaSimpleConsumer
-from yelp_kafka.consumer import KafkaConsumer
+from yelp_kafka.consumer import KafkaConsumerBase
 from yelp_kafka.consumer import Message
 from yelp_kafka.error import ProcessMessageError
 
@@ -19,16 +21,17 @@ def mock_kafka():
 
 @pytest.fixture
 def config():
-    return {
-        'brokers': 'test_broker:9292',
-        'group_id': 'test_group',
-        'client_id': 'test_client_id'
-    }
+    return YelpKafkaConfig(
+        cluster=ClusterConfig(broker_list='test_broker:9292',
+                              zookeeper_cluster='test_cluster'),
+        group_id='test_group',
+        client_id='test_client_id'
+    )
 
 
 class TestKafkaSimpleConsumer(object):
 
-    def test_no_topic(self, config):
+    def test_topic_error(self, config):
         with pytest.raises(TypeError):
             KafkaSimpleConsumer(['test_topic'], config)
 
@@ -45,8 +48,10 @@ class TestKafkaSimpleConsumer(object):
                 consumer.connect()
                 mock_client.assert_called_once_with('test_broker:9292',
                                                     client_id='test_client_id')
-                expected_args = mock.sentinel.client, 'test_group', 'test_topic'
-                assert mock_consumer.call_args[0] == expected_args
+                assert not mock_consumer.call_args[0]
+                kwargs = mock_consumer.call_args[1]
+                assert kwargs['topic'] == 'test_topic'
+                assert kwargs['group'] == 'test_group'
 
     def test_get_message_same_offset(self, config):
         with mock_kafka() as (_, mock_consumer):
@@ -117,6 +122,7 @@ class TestKafkaSimpleConsumer(object):
                 {0: 12, 1: 12}, {0: 0, 1: 0}, None
             ]
             mock_obj = mock_consumer.return_value
+            type(mock_obj).auto_commit = True
             type(mock_obj).fetch_offsets = mock_offsets
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
@@ -131,13 +137,20 @@ class TestKafkaSimpleConsumer(object):
             ]
             mock_obj = mock_consumer.return_value
             type(mock_obj).fetch_offsets = mock_offsets
+            type(mock_obj).auto_commit = True
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
             mock_obj.seek.assert_called_with(-1, 2)
 
     def test__invalid_offsets_get_earliest(self, config):
-        # Change config to use earliest offset (default latest)
-        config['latest_offset'] = False
+        # Change config to use smallest (earliest) offset (default latest)
+        config = YelpKafkaConfig(
+            cluster=ClusterConfig(broker_list='test_broker:9292',
+                                  zookeeper_cluster='test_cluster'),
+            group_id='test_group',
+            client_id='test_client_id',
+            auto_offset_reset='smallest'
+        )
         with mock_kafka() as (_, mock_consumer):
             mock_offsets = mock.PropertyMock()
             mock_offsets.side_effect = [
@@ -145,6 +158,7 @@ class TestKafkaSimpleConsumer(object):
             ]
             mock_obj = mock_consumer.return_value
             type(mock_obj).fetch_offsets = mock_offsets
+            type(mock_obj).auto_commit = True
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
             mock_obj.seek.assert_called_once_with(0, 0)
@@ -153,6 +167,8 @@ class TestKafkaSimpleConsumer(object):
         with mock_kafka() as (mock_client, mock_consumer):
             with mock.patch.object(KafkaSimpleConsumer,
                                    '_validate_offsets'):
+                mock_obj = mock_consumer.return_value
+                type(mock_obj).auto_commit = True
                 consumer = KafkaSimpleConsumer('test_topic', config)
                 consumer.connect()
                 consumer.close()
@@ -160,10 +176,18 @@ class TestKafkaSimpleConsumer(object):
                 mock_client.return_value.close.assert_called_once_with()
 
     def test_close_no_commit(self, config):
+        config = YelpKafkaConfig(
+            cluster=ClusterConfig(broker_list='test_broker:9292',
+                                  zookeeper_cluster='test_cluster'),
+            group_id='test_group',
+            client_id='test_client_id',
+            auto_commit=False
+        )
         with mock_kafka() as (mock_client, mock_consumer):
             with mock.patch.object(KafkaSimpleConsumer,
                                    '_validate_offsets'):
-                config['auto_commit'] = False
+                mock_obj = mock_consumer.return_value
+                type(mock_obj).auto_commit = False
                 consumer = KafkaSimpleConsumer('test_topic', config)
                 consumer.connect()
                 consumer.close()
@@ -185,7 +209,7 @@ class TestKafkaConsumer(object):
                 mock.patch.object(KafkaSimpleConsumer, '__iter__',
                                   return_value=message_iterator)
             ):
-                consumer = KafkaConsumer('test_topic', config)
+                consumer = KafkaConsumerBase('test_topic', config)
                 consumer.process = mock.Mock()
                 consumer.initialize = mock.Mock()
                 consumer.dispose = mock.Mock()
@@ -216,7 +240,7 @@ class TestKafkaConsumer(object):
                 mock.patch.object(KafkaSimpleConsumer, '__iter__',
                                   return_value=message_iterator)
             ):
-                consumer = KafkaConsumer('test_topic', config)
+                consumer = KafkaConsumerBase('test_topic', config)
                 consumer.process = mock.Mock(side_effect=Exception('Boom!'))
                 consumer.initialize = mock.Mock()
                 consumer.dispose = mock.Mock()
