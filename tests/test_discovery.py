@@ -37,13 +37,13 @@ def test_get_cluster_config_region(mock_topology, mock_files):
 
 
 @mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
-def test_get_cluster_broker_list(mock_topology, mock_files):
+def test_get_clusters_broker_list(mock_topology, mock_files):
     get_cluster = mock_topology.return_value.get_clusters_for_region
     get_cluster.return_value = [
         ('cluster1', mock.Mock(broker_list=['mybroker'])),
         ('cluster2', mock.Mock(broker_list=['mybroker2']))
     ]
-    clusters = discovery.get_cluster_broker_list("mycluster")
+    clusters = discovery.get_clusters_broker_list("mycluster")
     mock_topology.assert_called_once_with(kafka_id='mycluster')
     get_cluster.assert_called_once_with(region='myregion')
     assert clusters == [('cluster1', ['mybroker']),
@@ -51,13 +51,13 @@ def test_get_cluster_broker_list(mock_topology, mock_files):
 
 
 @mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
-def test_get_cluster_broker_list_region(mock_topology, mock_files):
+def test_get_clusters_broker_list_region(mock_topology, mock_files):
     get_cluster = mock_topology.return_value.get_clusters_for_region
     get_cluster.return_value = [
         ('cluster1', mock.Mock(broker_list=['mybroker'])),
         ('cluster2', mock.Mock(broker_list=['mybroker2']))
     ]
-    clusters = discovery.get_cluster_broker_list("mycluster", "myregion2")
+    clusters = discovery.get_clusters_broker_list("mycluster", "myregion2")
     mock_topology.assert_called_once_with(kafka_id='mycluster')
     get_cluster.assert_called_once_with(region='myregion2')
     assert clusters == [('cluster1', ['mybroker']),
@@ -68,7 +68,7 @@ def test_get_cluster_broker_list_region(mock_topology, mock_files):
 def test_get_all_clusters(mock_topology, mock_files):
     get_cluster = mock_topology.return_value.get_all_clusters
     get_cluster.return_value = mock.sentinel.clusters
-    clusters = discovery.get_all_cluster_config("mycluster")
+    clusters = discovery.get_all_clusters_config("mycluster")
     mock_topology.assert_called_once_with(kafka_id='mycluster')
     get_cluster.assert_called_once_with()
     assert clusters == mock.sentinel.clusters

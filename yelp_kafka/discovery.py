@@ -38,16 +38,18 @@ def get_clusters_config(kafka_cluster_id, region=None):
     return topology.get_clusters_for_region(region=region)
 
 
-def get_cluster_broker_list(kafka_cluster_id, region=None):
-    """Return the broker list for the local cluster or the cluster in
-    region if specified.
+def get_clusters_broker_list(kafka_cluster_id, region=None):
+    """Return a list (cluster_name, [broker_list]) for the local
+    clusters or the clusters in region if specified.
     """
     clusters = get_clusters_config(kafka_cluster_id, region)
     return [(name, config.broker_list) for name, config in clusters]
 
 
-def get_all_cluster_config(kafka_cluster_id):
-    """Return a list of tuple (region, [(cluster_name, ClusterConfig)])"""
+def get_all_clusters_config(kafka_cluster_id):
+    """Return a list of tuple (region, [(cluster_name, ClusterConfig)])
+    .. note: the name cluster will likely be in many regions.
+    """
     topology = TopologyConfiguration(kafka_id=kafka_cluster_id)
     return topology.get_all_clusters()
 
@@ -58,7 +60,8 @@ def get_kafka_connection(kafka_cluster_id, region=None):
     .. note: This function create a KafkaClient for each cluster in a region
        and tries to connect to it. If a cluster is not available it fails and
        closes all the previous connections.
-    .. warning: Connecting to a cluster in different runtime env normally fails.
+    .. warning: Connecting to a cluster fails if it is not in the current
+       runtime env.
     """
 
     clusters = get_clusters_config(kafka_cluster_id, region)
@@ -79,6 +82,7 @@ def get_kafka_connection(kafka_cluster_id, region=None):
 
 
 def discover_topics(cluster_config):
+    """Return all the topics in a cluster"""
     try:
         return get_kafka_topics(cluster_config.broker_list)
     except:
@@ -92,6 +96,7 @@ def search_topic(kafka_cluster_id, topic, region=None):
     """Search for a certain topic. It returns a list
     of tuples
     (topic, cluster_name, cluster_config).
+    .. note: you can only search for topics in the current runtime env.
     """
     matches = []
     clusters = get_clusters_config(kafka_cluster_id, region)
@@ -105,7 +110,8 @@ def search_topic(kafka_cluster_id, topic, region=None):
 def search_topic_by_regex(kafka_cluster_id, pattern, region=None):
     """Search for all the topics that match pattern.
     It returns a list of tuples
-    (topics, cluster_name, cluster_config).
+    ([topics], cluster_name, cluster_config).
+    .. note: you can only search for topics in the current runtime env.
     """
     matches = []
     clusters = get_clusters_config(kafka_cluster_id, region)
@@ -122,6 +128,11 @@ def get_scribe_topic_in_datacenter(
     stream, datacenter,
     kafka_cluster_id=DEFAULT_KAFKA_SCRIBE, region=None
 ):
+    """Search for the scribe topic for a scribe stream in the specified
+    datacenter.
+    Return (topic, cluster_name, cluster_config)
+    .. note: you can only search for topics in the current runtime env.
+    """
     return search_topic(kafka_cluster_id,
                         make_scribe_topic(stream, datacenter),
                         region)
@@ -130,6 +141,9 @@ def get_scribe_topic_in_datacenter(
 def get_scribe_topics(
     stream, kafka_cluster_id=DEFAULT_KAFKA_SCRIBE, region=None
 ):
+    """Search for all the scribe topics for a scribe stream.
+    .. note: you can only search for topics in the current runtime env.
+    """
     pattern = '^scribe\.\w*\.{0}$'.format(stream)
     return search_topic_by_regex(kafka_cluster_id,
                                  pattern,

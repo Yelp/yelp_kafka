@@ -5,6 +5,7 @@ import yaml
 from kafka.consumer.base import AUTO_COMMIT_MSG_COUNT
 from kafka.consumer.base import AUTO_COMMIT_INTERVAL
 from kafka.consumer.base import FETCH_MIN_BYTES
+from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 
 from yelp_kafka.error import ConsumerConfigurationError
 from yelp_kafka.error import ConfigurationError
@@ -163,7 +164,7 @@ class ClusterConfig(object):
 class YelpKafkaConfig(object):
 
     # This is fixed to 1 MB for making a fetch call more efficient when dealing
-    # with ranger messages can be more than 100KB in size
+    # with ranger messages, that can be more than 100KB in size
     KAFKA_BUFFER_SIZE = 1024 * 1024  # 1MB
 
     ZOOKEEPER_BASE_PATH = '/python-kafka'
@@ -196,10 +197,6 @@ class YelpKafkaConfig(object):
         'max_buffer_size',
         'iter_timeout'
     )
-
-    KAFKA_CONSUMER_CONFIG_DEFAULTS = {
-
-    }
 
     def __init__(self, group_id, cluster_config, **kwargs):
         self._config = self.load_config_or_default(kwargs)
