@@ -6,18 +6,24 @@ from kazoo.recipe.partitioner import SetPartitioner
 from kazoo.recipe.partitioner import PartitionState
 from kazoo.protocol.states import KazooState
 
+from yelp_kafka.config import YelpKafkaConfig
+from yelp_kafka.config import ClusterConfig
 from yelp_kafka.partitioner import Partitioner
 
 
 @pytest.fixture
+@pytest.fixture
 def config():
-    return {
-        'brokers': 'test_broker:9292',
-        'group_id': 'test_group_id',
-        'zookeeper_base': '/base_path',
-        'zk_hosts': ['zookeeper_uri1:2181', 'zookeeper_uri2:2181'],
-        'zk_partitioner_cooldown': 0.5
-    }
+    return YelpKafkaConfig(
+        cluster=mock.Mock(spec=ClusterConfig,
+                          broker_list='test_broker:9292',
+                          zookeeper_hosts=['zookeeper_uri1:2181',
+                                           'zookeeper_uri2:2181']),
+        group_id='test_group_id',
+        client_id='test_client_id',
+        zookeeper_base='/base_path',
+        partitioner_cooldown=0.5
+    )
 
 
 def get_partitioner_state(status):
@@ -129,7 +135,6 @@ class TestPartitioner(object):
     @mock.patch('yelp_kafka.partitioner.KazooClient')
     def test__destroy_partitioner(self, mock_kazoo, config):
         mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
-        config['zk_partitioner_cooldown'] = 45
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
         partitioner._destroy_partitioner(mock_kpartitioner)
         mock_kpartitioner.finish.assert_called_once()
@@ -140,7 +145,6 @@ class TestPartitioner(object):
         mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
         mock_kazoo.return_value.SetPartitioner.return_value = mock_kpartitioner
         mock_kazoo.return_value.state = KazooState.CONNECTED
-        config['zk_partitioner_cooldown'] = 45
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
         expected_partitions = set(['top-1', 'top1-2'])
         assert mock_kpartitioner == partitioner._create_partitioner(
@@ -149,7 +153,7 @@ class TestPartitioner(object):
         mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
             path='/base_path/test_group_id',
             set=expected_partitions,
-            time_boundary=45
+            time_boundary=0.5
         )
         assert not mock_kazoo.return_value.start.called
 
@@ -158,7 +162,6 @@ class TestPartitioner(object):
         mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
         mock_kazoo.return_value.SetPartitioner.return_value = mock_kpartitioner
         mock_kazoo.return_value.state = KazooState.LOST
-        config['zk_partitioner_cooldown'] = 45
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
         expected_partitions = set(['top-1', 'top1-2'])
         assert mock_kpartitioner == partitioner._create_partitioner(
@@ -167,6 +170,6 @@ class TestPartitioner(object):
         mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
             path='/base_path/test_group_id',
             set=expected_partitions,
-            time_boundary=45
+            time_boundary=0.5
         )
         mock_kazoo.return_value.start.assert_called_once()
