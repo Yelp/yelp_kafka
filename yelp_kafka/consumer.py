@@ -136,10 +136,10 @@ class KafkaSimpleConsumer(object):
         When either a group does not exist yet or the saved offsets
         are older than the tail of the queue the fetch request fails.
 
-        :param latest_offset: If True, the latest_offsets (tail of the queue)
-                              are used as new valid offsets. Otherwise, the earliest
-                              offsets (head of the queue) are used.
-        :type latest_offset: boolean.
+        :param auto_offset_reset: If 'largest', the latest offsets (tail of the queue)
+                              are used as new valid offsets. Otherwise ('smallest'),
+                              the earliest offsets (head of the queue) are used.
+        :type auto_offset_reset: string
         """
 
         # Disable autocommit to avoid committing offsets during seek

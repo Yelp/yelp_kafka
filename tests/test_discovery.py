@@ -265,7 +265,7 @@ def test_search_by_regex_no_topic(mock_clusters):
 def test_get_scribe_topic_in_datacenter(mock_search):
     mock_search.return_value = mock.sentinel.topics
     actual = discovery.get_scribe_topic_in_datacenter(
-        'ranger', 'sfo2', kafka_cluster_id='mycluster', region='myregion'
+        'ranger', 'sfo2', cluster_type='mycluster', region='myregion'
     )
     assert actual == mock.sentinel.topics
     mock_search.assert_called_once_with('mycluster',
