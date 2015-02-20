@@ -19,6 +19,11 @@ log = logging.getLogger(__name__)
 
 
 def get_local_region():
+    """Get the region where this code is running.
+
+    :raises :py:class:`yelp_kafka.error.DiscoveryError`:
+        if /nail/etc/region is not in the filesystem.
+    """
     if os.path.exists(REGION_PATH):
         with open(REGION_PATH) as fd:
             return fd.read()
@@ -28,9 +33,16 @@ def get_local_region():
 
 
 def get_clusters_config(kafka_cluster_id, region=None):
-    """Returns a list of tuples (cluster_name, ClusterConfig)
-    for the kafka clusters in region. If no region is specified
-    returns a list of clusters in the local region.
+    """Get a list of tuples (cluster_name, :py:class:`yelp_kafka.config.ClusterConfig`)
+    for the kafka clusters in region.
+
+    :param kafka_cluster_id: the id of the kafka cluster
+        (ex.'scribe' or 'standard').
+    :type kafka_cluster_id: string
+    :param region: the name of the region where to look for the cluster.
+        Default: local region.
+    :type region: string
+    :returns: list (cluster_name, :py:class:`yelp_kafka.config.ClusterConfig`)
     """
     topology = TopologyConfiguration(kafka_id=kafka_cluster_id)
     if not region:
@@ -39,36 +51,63 @@ def get_clusters_config(kafka_cluster_id, region=None):
 
 
 def get_clusters_broker_list(kafka_cluster_id, region=None):
-    """Return a list (cluster_name, [broker_list]) for the local
-    clusters or the clusters in region if specified.
+    """Get a list (cluster_name, [broker_list]) for the kafka
+    clusters in region.
+
+    :param kafka_cluster_id: the id of the kafka cluster
+        (ex.'scribe' or 'standard').
+    :type kafka_cluster_id: string
+    :param region: the name of the region where to look for the cluster.
+        Default: local region.
+    :type region: string
+    :returns: list (cluster_name, [broker_list])
     """
     clusters = get_clusters_config(kafka_cluster_id, region)
     return [(name, config.broker_list) for name, config in clusters]
 
 
 def get_all_clusters_config(kafka_cluster_id):
-    """Return a list of tuple (region, [(cluster_name, ClusterConfig)])
+    """Get all the clusters for all the region.
+
+    :param kafka_cluster_id: the id of the kafka cluster
+        (ex.'scribe' or 'standard').
+    :type kafka_cluster_id: string
+    :returns: list
+    (region, [(cluster_name, :py:class:`yelp_kafka.config.ClusterConfig`)])
+
     .. note: the name cluster will likely be in many regions.
     """
     topology = TopologyConfiguration(kafka_id=kafka_cluster_id)
     return topology.get_all_clusters()
 
 
-def get_kafka_connection(kafka_cluster_id, region=None):
-    """Return a list of tuples (cluster_name, KafkaClient).
+def get_kafka_connection(kafka_cluster_id, client_id='yelp-kafka', region=None):
+    """Get a kafka connection for each cluster in region.
+
+    :param kafka_cluster_id: the id of the kafka cluster
+        (ex.'scribe' or 'standard').
+    :type kafka_cluster_id: string
+    :param client_id: client_id to be used to connect to kafka.
+    :type client_id: string
+    :param region: the name of the region where to look for the cluster.
+        Default: local region.
+    :type region: string
+    :returns: list (cluster, KafkaClient)
+    :raises :py:class:`yelp_kafka.error.DiscoveryError`: upon failure connecting
+        connecting to a cluster.
 
     .. note: This function create a KafkaClient for each cluster in a region
        and tries to connect to it. If a cluster is not available it fails and
        closes all the previous connections.
-    .. warning: Connecting to a cluster fails if it is not in the current
-       runtime env.
+    .. warning: Connecting to a cluster fails if the cluster is not in
+       the current runtime env.
     """
 
     clusters = get_clusters_config(kafka_cluster_id, region)
     connected_clusters = []
     for cluster_name, cluster_config in clusters:
         try:
-            client = KafkaClient(cluster_config.broker_list)
+            client = KafkaClient(cluster_config.broker_list, client_id=client_id)
             connected_clusters.append((cluster_name, client))
         except:
             log.exception("Connection to kafka cluster %s using broker"
@@ -82,7 +121,11 @@ def get_kafka_connection(kafka_cluster_id, region=None):
 
 
 def discover_topics(cluster_config):
-    """Return all the topics in a cluster"""
+    """Get all the topics in a cluster
+    :param cluster_config: config of the cluster to get topics from
+    :type cluster_config: :py:class:`yelp_kafka.config.ClusterConfig`
+    :returns: a dict <topic>: <[partitions]>
+    """
     try:
         return get_kafka_topics(cluster_config.broker_list)
     except:
@@ -93,9 +136,15 @@ def discover_topics(cluster_config):
 
 
 def search_topic(kafka_cluster_id, topic, region=None):
-    """Search for a certain topic. It returns a list
-    of tuples
-    (topic, cluster_name, cluster_config).
+    """Search for a topic in a specific cluster.
+
+    :param kafka_cluster_id: the id of the kafka cluster
+        (ex.'scribe' or 'standard').
+    :type kafka_cluster_id: string
+    :param topic: topic name
+    :type topic: string
+    :returns: (topic, cluster_name, cluster_config).
+
     .. note: you can only search for topics in the current runtime env.
     """
     matches = []
@@ -108,9 +157,17 @@ def search_topic(kafka_cluster_id, topic, region=None):
 
 
 def search_topic_by_regex(kafka_cluster_id, pattern, region=None):
-    """Search for all the topics that match pattern.
-    It returns a list of tuples
-    ([topics], cluster_name, cluster_config).
+    """Search for all the topics matching pattern.
+
+    :param kafka_cluster_id: the id of the kafka cluster
+        (ex.'scribe' or 'standard').
+    :type kafka_cluster_id: string
+    :param pattern: regex to match topics
+    :param region: the name of the region where to look for the cluster.
+        Default: local region.
+    :type region: string
+    :returns: a list of tuples ([topics], cluster_name, cluster_config).
+
     .. note: you can only search for topics in the current runtime env.
     """
     matches = []
@@ -130,7 +187,18 @@ def get_scribe_topic_in_datacenter(
 ):
     """Search for the scribe topic for a scribe stream in the specified
     datacenter.
-    Return (topic, cluster_name, cluster_config)
+
+    :param stream: scribe stream name
+    :type stream: string
+    :param datacenter: datacenter name
+    :type datacenter: string
+    :param kafka_cluster_id: the id of the kafka cluster. Default: scribe.
+    :type kafka_cluster_id: string
+    :param region: the name of the region where to look for the cluster.
+        Default: local region.
+    :type region: string
+    :returns: [(topic, cluster_name, cluster_config)]
+
     .. note: you can only search for topics in the current runtime env.
     """
     return search_topic(kafka_cluster_id,
@@ -141,7 +209,16 @@ def get_scribe_topic_in_datacenter(
 def get_scribe_topics(
     stream, kafka_cluster_id=DEFAULT_KAFKA_SCRIBE, region=None
 ):
-    """Search for all the scribe topics for a scribe stream.
+    """Search for all the topics for a scribe stream.
+
+    :param stream: scribe stream name
+    :type stream: string
+    :param kafka_cluster_id: the id of the kafka cluster. Default: scribe.
+    :type kafka_cluster_id: string
+    :param region: the name of the region where to look for the cluster.
+        Default: local region.
+    :returns: [([topics], cluster_name, cluster_config)]
+
     .. note: you can only search for topics in the current runtime env.
     """
     pattern = '^scribe\.\w*\.{0}$'.format(stream)
