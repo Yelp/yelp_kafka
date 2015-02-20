@@ -75,7 +75,30 @@ def test_get_all_clusters(mock_topology, mock_files):
 
 
 @mock.patch("yelp_kafka.discovery.get_clusters_config", autospec=True)
-def test_get_kafka_connection(mock_clusters, mock_files):
+def test_get_yelp_kafka_config(mock_clusters):
+    mock_cluster1 = mock.Mock(broker_list=['mybroker'])
+    mock_cluster2 = mock.Mock(broker_list=['mybroker2'])
+    mock_clusters.return_value = [
+        ('cluster1', mock_cluster1),
+        ('cluster2', mock_cluster2)
+    ]
+    with mock.patch("yelp_kafka.discovery.YelpKafkaConfig",
+                    autospec=True) as mock_config:
+        mock_config.return_value = mock.sentinel.kafka_config
+        actual = discovery.get_yelp_kafka_config(
+            "mycluster", group_id='mygroup', auto_offset_reset='largest')
+        assert mock_config.call_args_list == [
+            mock.call(cluster=mock_cluster1, group_id='mygroup',
+                      auto_offset_reset='largest'),
+            mock.call(cluster=mock_cluster2, group_id='mygroup',
+                      auto_offset_reset='largest'),
+        ]
+        assert actual == [('cluster1', mock.sentinel.kafka_config),
+                          ('cluster2', mock.sentinel.kafka_config)]
+
+
+@mock.patch("yelp_kafka.discovery.get_clusters_config", autospec=True)
+def test_get_kafka_connection(mock_clusters):
     mock_clusters.return_value = [
         ('cluster1', mock.Mock(broker_list=['mybroker'])),
         ('cluster2', mock.Mock(broker_list=['mybroker2']))
@@ -85,7 +108,8 @@ def test_get_kafka_connection(mock_clusters, mock_files):
         mock_kafka.return_value = mock.sentinel.kafkaclient
         actual = discovery.get_kafka_connection("mycluster")
         assert mock_kafka.call_args_list == [
-            mock.call(['mybroker']), mock.call(['mybroker2'])
+            mock.call(['mybroker'], client_id='yelp-kafka'),
+            mock.call(['mybroker2'], client_id='yelp-kafka')
         ]
         assert actual == [('cluster1', mock.sentinel.kafkaclient),
                           ('cluster2', mock.sentinel.kafkaclient)]

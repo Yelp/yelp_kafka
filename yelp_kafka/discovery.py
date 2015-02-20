@@ -50,6 +50,26 @@ def get_clusters_config(kafka_cluster_id, region=None):
     return topology.get_clusters_for_region(region=region)
 
 
+def get_yelp_kafka_config(kafka_cluster_id, group_id, region=None, **extra):
+    """Get a list of tuples (cluster_name, :py:class:`yelp_kafka.config.YelpKafkaConfig`)
+    for the kafka clusters in region.
+
+    :param kafka_cluster_id: the id of the kafka cluster
+        (ex.'scribe' or 'standard').
+    :type kafka_cluster_id: string
+    :param group_id: consumer group id
+    :type group_id: string
+    :param region: the name of the region where to look for the cluster.
+        Default: local region.
+    :type region: string
+    :param extra: extra arguments to use for creating the configuration
+    :returns: list (cluster_name, :py:class:`yelp_kafka.config.ClusterConfig`)
+    """
+    clusters = get_clusters_config(kafka_cluster_id, region=region)
+    return [(name, YelpKafkaConfig(group_id=group_id, cluster=cluster, **extra))
+            for name, cluster in clusters]
+
+
 def get_clusters_broker_list(kafka_cluster_id, region=None):
     """Get a list (cluster_name, [broker_list]) for the kafka
     clusters in region.
