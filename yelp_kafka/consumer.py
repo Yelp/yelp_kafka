@@ -63,10 +63,13 @@ class KafkaSimpleConsumer(object):
             self.client, self._config['group_id'], self.topic, partitions=self.partitions,
             **dict([(k, self._config[k]) for k in CONSUMER_CONFIG_KEYS])
         )
-        self.log.debug("Connected to kafka. Topic %s, group %s, partitions %s, %s",
-                       self.topic, self._config['group_id'], self.partitions,
-                       ','.join(['%{0} %{1}'.format(k, self._config[k])
-                                 for k in CONSUMER_CONFIG_KEYS]))
+        self.log.debug(
+            "Connected to kafka. Topic %s, group %s, partitions %s, %s",
+            self.topic,
+            self._config['group_id'],
+            self.partitions,
+            ','.join(['%{0} %{1}'.format(k, self._config[k]) for k in CONSUMER_CONFIG_KEYS])
+        )
         self.kafka_consumer.provide_partition_info()
         self._validate_offsets(self._config['latest_offset'])
 

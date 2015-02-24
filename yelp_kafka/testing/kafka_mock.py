@@ -102,8 +102,8 @@ class Registrar(object):
 
         return MockKeyedProducer
 
-    def mock_consumer_with_registrar(self):
-        class MockConsumer(object):
+    def mock_simple_consumer_with_registrar(self):
+        class MockSimpleConsumer(object):
             """I personally don't need this to be super hardcore, but anyone who
             wants to, feel free to add auto_commit and fetch_last_known_offset
             support."""
@@ -135,7 +135,11 @@ class Registrar(object):
                 return inner_self._topic[old_offset:new_offset]
 
             def get_message(inner_self, block=True, timeout=0.1, get_partition_info=None):
-                return inner_self.get_messages(count=1, block=block, timeout=timeout)[0]
+                return inner_self.get_messages(
+                    count=1,
+                    block=block,
+                    timeout=timeout
+                )[0]
 
             def commit(inner_self, partitions=None):
                 pass
@@ -150,10 +154,10 @@ class Registrar(object):
                 for msg in inner_self._topic[inner_self._offset:]:
                     yield msg
 
-        return MockConsumer
+        return MockSimpleConsumer
 
     def mock_yelp_consumer_with_registrar(self):
-        class MockConsumer(object):
+        class MockSimpleConsumer(object):
             def __init__(
                 inner_self,
                 topic,
@@ -204,7 +208,7 @@ class Registrar(object):
                 for msg in translated_messages:
                     yield msg
 
-        return MockConsumer
+        return MockSimpleConsumer
 
 
 @contextlib.contextmanager
@@ -214,7 +218,7 @@ def mock_kafka_python():
         mock.patch.object(kafka, 'KafkaClient', autospec=True),
         mock.patch.object(kafka, 'SimpleProducer', registrar.mock_producer_with_registry()),
         mock.patch.object(kafka, 'KeyedProducer', registrar.mock_keyed_producer_with_registry()),
-        mock.patch.object(kafka, 'SimpleConsumer', registrar.mock_consumer_with_registrar()),
+        mock.patch.object(kafka, 'SimpleConsumer', registrar.mock_simple_consumer_with_registrar()),
         mock.patch.object(yelp_kafka.consumer, 'KafkaSimpleConsumer', registrar.mock_yelp_consumer_with_registrar()),
     ) as (Client, Producer, KeyedProducer, Consumer, YelpConsumer):
         yield KafkaMocks(
