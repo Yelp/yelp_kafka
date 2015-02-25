@@ -105,8 +105,8 @@ class Registrar(object):
     def mock_simple_consumer_with_registrar(self):
         class MockSimpleConsumer(object):
             """I personally don't need this to be super hardcore, but anyone who
-            wants to, feel free to add auto_commit and fetch_last_known_offset
-            support."""
+            wants to, feel free to add auto_commit, fetch_last_known_offset,
+            multiple partition support."""
             def __init__(
                 inner_self,
                 client,
@@ -125,6 +125,7 @@ class Registrar(object):
                 # won't make it into here.If you need this, build it :)
                 inner_self._topic = list(self.topic_registry.get(topic, []))
                 inner_self._offset = 0
+                inner_self._partition_info = False
 
             def get_messages(inner_self, count=1, block=True, timeout=0.10000000000000001):
                 # inner_self so we can address the parent object Registrar
@@ -135,11 +136,23 @@ class Registrar(object):
                 return inner_self._topic[old_offset:new_offset]
 
             def get_message(inner_self, block=True, timeout=0.1, get_partition_info=None):
-                return inner_self.get_messages(
+                """
+                If no messages can be fetched, returns None.
+                If get_partition_info is None, it defaults to self.partition_info
+                If get_partition_info is True, returns (partition, message)
+                If get_partition_info is False, returns message
+                """
+                message = inner_self.get_messages(
                     count=1,
                     block=block,
                     timeout=timeout
                 )[0]
+
+                if get_partition_info or (get_partition_info is None and inner_self._partition_info):
+                    # 0 is a fake message partition number
+                    return 0, message
+                else:
+                    return message
 
             def commit(inner_self, partitions=None):
                 pass
@@ -149,6 +162,9 @@ class Registrar(object):
 
             def seek(inner_self, offset, whence):
                 pass
+
+            def provide_partition_info(inner_self):
+                inner_self._partition_info = True
 
             def __iter__(inner_self):
                 for msg in inner_self._topic[inner_self._offset:]:
@@ -191,7 +207,7 @@ class Registrar(object):
                     inner_self._topic[old_offset:new_offset]
                 )
 
-            def get_message(inner_self, block=True, timeout=0.1, get_partition_info=None):
+            def get_message(inner_self, block=True, timeout=0.1):
                 return inner_self.get_messages(
                     count=1,
                     block=block,
