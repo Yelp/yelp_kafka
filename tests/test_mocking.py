@@ -138,7 +138,7 @@ class TestConsumers(object):
         with mock_kafka_python() as kmocks:
             client = kmocks.KafkaClient(mock.ANY)
             producer = kmocks.SimpleProducer(client)
-            producer.send_messages(topic, *range(20))
+            producer.send_messages(topic, *range(7))
             consumer = kmocks.SimpleConsumer(
                 client=mock.ANY,
                 group='test_group_name',
@@ -153,6 +153,7 @@ class TestConsumers(object):
         assert_is_partition_message(consumer.get_message())
         assert_is_offset_and_message(consumer.get_message(get_partition_info=False))
         assert_is_partition_message(consumer.get_message(get_partition_info=None))
+        assert consumer.get_message(get_partition_info=False) is None
 
     def test_yelp_consumer(self, kafka_mocks_with_messages):
         consumer = kafka_mocks_with_messages.KafkaSimpleConsumer(

@@ -142,11 +142,12 @@ class Registrar(object):
                 If get_partition_info is True, returns (partition, message)
                 If get_partition_info is False, returns message
                 """
-                message = inner_self.get_messages(
+                messages = inner_self.get_messages(
                     count=1,
                     block=block,
                     timeout=timeout
-                )[0]
+                )
+                message = messages[0] if messages else None
 
                 if get_partition_info or (get_partition_info is None and inner_self._partition_info):
                     # 0 is a fake message partition number
