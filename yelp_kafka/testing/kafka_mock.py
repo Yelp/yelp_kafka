@@ -126,14 +126,21 @@ class Registrar(object):
                 inner_self._topic = list(self.topic_registry.get(topic, []))
                 inner_self._offset = 0
                 inner_self._partition_info = False
+                # NOTE(wting|2015-02-25): Someone else implement
+                # auto_commit_every_n and auto_commit_every_t if you want it.
+                inner_self._count_since_commit = 0
+                inner_self._auto_commit = auto_commit
 
             def get_messages(inner_self, count=1, block=True, timeout=0.10000000000000001):
-                # inner_self so we can address the parent object Registrar
-                # with self, thus accessing global test state.
-                new_offset = min(inner_self._offset + count, len(inner_self._topic))
-                old_offset = inner_self._offset
-                inner_self._offset = new_offset
-                return inner_self._topic[old_offset:new_offset]
+                old_offset = inner_self._offset + inner_self._count_since_commit
+                new_offset = min(old_offset + count, len(inner_self._topic))
+                messages = inner_self._topic[old_offset:new_offset]
+
+                inner_self._count_since_commit += len(messages)
+                if inner_self._auto_commit:
+                    inner_self.commit()
+
+                return messages
 
             def get_message(inner_self, block=True, timeout=0.1, get_partition_info=None):
                 """
@@ -150,19 +157,29 @@ class Registrar(object):
                 message = messages[0] if messages else None
 
                 if get_partition_info or (get_partition_info is None and inner_self._partition_info):
-                    # 0 is a fake message partition number
-                    return 0, message
+                    fake_partition_info = 0
+                else:
+                    fake_partition_info = None
+
+                if fake_partition_info is not None and message is not None:
+                    return fake_partition_info, message
                 else:
                     return message
 
             def commit(inner_self, partitions=None):
-                pass
+                if partitions is not None:
+                    raise NotImplementedError
+
+                inner_self._offset = min(
+                    len(inner_self._topic),
+                    inner_self._offset + inner_self._count_since_commit)
+                inner_self._count_since_commit = 0
 
             def fetch_last_known_offsets(inner_self, partitions=None):
                 return [inner_self._offset]
 
             def seek(inner_self, offset, whence):
-                pass
+                raise NotImplementedError
 
             def provide_partition_info(inner_self):
                 inner_self._partition_info = True
