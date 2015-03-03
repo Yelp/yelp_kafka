@@ -68,6 +68,7 @@ class TopologyConfiguration(object):
                                   in topology_config['clusters'].iteritems()])
             for name, config in topology_config['clusters'].iteritems():
                 self.clusters[name] = ClusterConfig(
+                    name,
                     zookeeper_topology_path=self.zk_topology_path,
                     **config
                 )
@@ -87,7 +88,7 @@ class TopologyConfiguration(object):
                     "Mismatching configuration, {0} in region {1} is "
                     "not a valid cluster".format(cluster, region)
                 )
-            clusters.append((cluster, self.clusters[cluster]))
+            clusters.append(self.clusters[cluster])
         return clusters
 
     def get_all_clusters(self):
@@ -118,12 +119,13 @@ class TopologyConfiguration(object):
 
 class ClusterConfig(object):
 
-    def __init__(self,
+    def __init__(self, name,
                  broker_list,
                  zookeeper_cluster,
                  zookeeper_topology_path=DEFAULT_ZK_TOPOLOGY_BASE_PATH,
                  ):
         self.zookeeper_cluster = zookeeper_cluster
+        self.name = name
         self.broker_list = broker_list
         self.zookeeper_topology_path = zookeeper_topology_path
         self.log = logging.getLogger(self.__class__.__name__)
