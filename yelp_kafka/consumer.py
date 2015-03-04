@@ -62,11 +62,12 @@ class KafkaSimpleConsumer(object):
             **self.config.get_simple_consumer_args()
         )
         self.log.debug(
-            "Connected to kafka. Topic %s, partitions %s, %s", self.topic,
-            self.partitions, ','.join(
-                ['{0} {1}'.format(k, v)
-                 for k, v in self.config.get_simple_consumer_args().iteritems()]
-            ))
+            "Connected to kafka. Topic %s, partitions %s, %s",
+            self.topic,
+            self.partitions,
+            ','.join(['{0} {1}'.format(k, v) for k, v in \
+                      self.config.get_simple_consumer_args().iteritems()])
+        )
         self.kafka_consumer.provide_partition_info()
         self._validate_offsets(self.config.auto_offset_reset)
 

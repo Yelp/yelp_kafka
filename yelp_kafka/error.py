@@ -32,3 +32,11 @@ class ConsumerGroupError(YelpKafkaError):
 class PartitionerError(YelpKafkaError):
     """Error in the partitioner"""
     pass
+
+
+class UnknownTopic(YelpKafkaError):
+    pass
+
+
+class UnknownPartitions(YelpKafkaError):
+    pass

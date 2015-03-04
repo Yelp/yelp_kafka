@@ -80,9 +80,9 @@ class TestPartitioner(object):
         mock_kpartitioner = mock.MagicMock(
             spec=SetPartitioner, **get_partitioner_state(PartitionState.ACQUIRED)
         )
-        mock_kpartitioner.__iter__.return_value = ['topic1-0', 'topic1-2', 'topic2-1']
+        mock_kpartitioner.__iter__.return_value = ['topic1-0', 'topic1-2', 'topic-2-1']
         partitioner._handle_group(mock_kpartitioner)
-        expected_partitions = {'topic1': [0, 2], 'topic2': [1]}
+        expected_partitions = {'topic1': [0, 2], 'topic-2': [1]}
         assert partitioner.acquired_partitions == expected_partitions
         partitioner.acquire.assert_called_once_with(expected_partitions)
 

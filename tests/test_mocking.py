@@ -1,5 +1,6 @@
 import mock
 import pytest
+from kafka.common import OffsetAndMessage
 
 from yelp_kafka.testing.kafka_mock import mock_kafka_python
 
@@ -83,6 +84,16 @@ def kafka_mocks_with_messages():
         yield kafka_mocks
 
 
+def assert_is_offset_and_message(kafka_message):
+    assert isinstance(kafka_message, OffsetAndMessage)
+
+
+def assert_is_partition_message(kafka_message):
+    message_partition, offset_and_message = kafka_message
+    assert isinstance(message_partition, int)
+    assert isinstance(offset_and_message, OffsetAndMessage)
+
+
 @pytest.mark.usefixtures('kafka_mocks_with_messages')
 class TestConsumers(object):
     def test_simple_consumer(self, kafka_mocks_with_messages):
@@ -121,6 +132,66 @@ class TestConsumers(object):
         assert [msg.offset for msg in messages] == [0, 1]
         assert [msg.message.value for msg in messages] == ['some message 5', 'some message 6']
         assert [msg.message.key for msg in messages] == [0, 0]
+
+    def test_simple_consumer_get_partition_info(self):
+        topic = 'random_topic_name'
+        with mock_kafka_python() as kmocks:
+            client = kmocks.KafkaClient(mock.ANY)
+            producer = kmocks.SimpleProducer(client)
+            producer.send_messages(topic, *range(7))
+            consumer = kmocks.SimpleConsumer(
+                client=mock.ANY,
+                group='test_group_name',
+                topic=topic,
+            )
+
+        assert_is_offset_and_message(consumer.get_message())
+        assert_is_partition_message(consumer.get_message(get_partition_info=True))
+        assert_is_offset_and_message(consumer.get_message(get_partition_info=False))
+        assert_is_offset_and_message(consumer.get_message())
+        consumer.provide_partition_info()
+        assert_is_partition_message(consumer.get_message())
+        assert_is_offset_and_message(consumer.get_message(get_partition_info=False))
+        assert_is_partition_message(consumer.get_message(get_partition_info=None))
+        assert consumer.get_message(get_partition_info=True) is None
+        assert consumer.get_message(get_partition_info=False) is None
+
+    def test_simple_consumer_auto_commit(self):
+        topic = 'random_topic_name'
+        with mock_kafka_python() as kmocks:
+            client = kmocks.KafkaClient(mock.ANY)
+            producer = kmocks.SimpleProducer(client)
+            producer.send_messages(topic, *range(1, 5))
+            consumer = kmocks.SimpleConsumer(
+                client=mock.ANY,
+                group='test_group_name',
+                topic=topic,
+            )
+
+        consumer.get_messages(count=2)
+        assert consumer.get_message().message.value == 3
+        assert consumer.get_message().message.value == 4
+        assert consumer._offset == 4
+
+    def test_simple_consumer_non_auto_commit(self):
+        topic = 'random_topic_name'
+        with mock_kafka_python() as kmocks:
+            client = kmocks.KafkaClient(mock.ANY)
+            producer = kmocks.SimpleProducer(client)
+            producer.send_messages(topic, *range(1, 5))
+            consumer = kmocks.SimpleConsumer(
+                client=mock.ANY,
+                group='test_group_name',
+                topic=topic,
+                auto_commit=False
+            )
+
+        consumer.get_messages(count=2)
+        assert consumer.get_message().message.value == 3
+        assert consumer.get_message().message.value == 4
+        assert consumer._offset == 0
+        consumer.commit()
+        assert consumer._offset == 4
 
     def test_yelp_consumer(self, kafka_mocks_with_messages):
         consumer = kafka_mocks_with_messages.KafkaSimpleConsumer(

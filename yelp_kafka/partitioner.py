@@ -199,7 +199,7 @@ class Partitioner(object):
         """
         acquired_partitions = defaultdict(list)
         for partition in partitioner:
-            topic, partition_id = partition.split('-')
+            topic, partition_id = partition.rsplit('-', 1)
             acquired_partitions[topic].append(int(partition_id))
         return acquired_partitions
 
