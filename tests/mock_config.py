@@ -52,7 +52,7 @@ MOCK_ZOOKEEPER_TOPOLOGY_CLUSTER2 = """
     - 2181
 """
 
-MOCK_REGION = 'myregion'
+MOCK_REGION = 'my-ecosystem'
 
 TEST_BASE_ZK = '/my/zookeeper'
 TEST_BASE_KAFKA = '/my/kafka'

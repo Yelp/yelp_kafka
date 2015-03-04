@@ -44,7 +44,7 @@ class TopologyConfiguration(object):
         self.zk_topology_path = zk_topology_path
         self.kafka_id = kafka_id
         self.log = logging.getLogger(self.__class__.__name__)
-        self.clusters = None
+        self.clusters = {}
         self.region_to_cluster = None
         self.load_topology_config()
 
@@ -64,13 +64,12 @@ class TopologyConfiguration(object):
             )
         self.log.debug("Topology configuration %s", topology_config)
         try:
-            self.clusters = dict([(name, ClusterConfig(**config)) for name, config
-                                  in topology_config['clusters'].iteritems()])
             for name, config in topology_config['clusters'].iteritems():
                 self.clusters[name] = ClusterConfig(
-                    name,
+                    name=name,
                     zookeeper_topology_path=self.zk_topology_path,
-                    **config
+                    zookeeper_cluster=config['zookeeper_cluster'],
+                    broker_list=config['broker_list']
                 )
             self.region_to_cluster = topology_config['region_to_cluster']
         except KeyError:
@@ -155,10 +154,12 @@ class ClusterConfig(object):
                                      ))
 
     def __repr__(self):
-        return ("ClusterConfig {0}, zookeeper_cluster {1}"
-                "zookeeper_topology_path {2}".format(
-                    self.broker_list, self.zookeeper_cluster,
-                    self.zookeeper_topology_path
+        return ("Cluster {name}, brokers {brokers}, zookeeper_cluster {zk},"
+                " zookeeper_topology_path {path}".format(
+                    name=self.name,
+                    brokers=self.broker_list,
+                    zk=self.zookeeper_cluster,
+                    path=self.zookeeper_topology_path
                 ))
 
 

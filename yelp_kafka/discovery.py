@@ -69,7 +69,7 @@ def get_clusters_config_in_ecosystem(cluster_type, ecosystem=None):
     if not ecosystem:
         region = get_local_region()
         ecosystem = region.rsplit('-', 1)[1]
-    return topology.get_clusters_for_ecosystem(ecosystem=ecosystem)
+    return topology.get_clusters_for_ecosystem(ecosystem)
 
 
 def get_yelp_kafka_config(cluster_type, group_id, region=None, **extra):
@@ -171,7 +171,7 @@ def get_kafka_connection(cluster_type, client_id='yelp-kafka', region=None):
             log.exception("Connection to kafka cluster %s using broker"
                           " list %s failed", cluster.name,
                           cluster.broker_list)
-            for cluster, client in connected_clusters:
+            for name, client in connected_clusters:
                 client.close()
             raise DiscoveryError("Failed to connect to cluster {0}".format(
                 cluster.name))
@@ -308,9 +308,9 @@ def get_scribe_topic_in_datacenter(
 
     .. note: you can only search for topics in the current runtime env.
     """
-    return search_topic(cluster_type,
-                        make_scribe_topic(stream, datacenter),
-                        region)
+    return search_topic_in_region(
+        cluster_type, make_scribe_topic(stream, datacenter), region
+    )
 
 
 def get_scribe_topics(

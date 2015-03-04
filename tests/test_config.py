@@ -13,10 +13,10 @@ class TestTopologyConfig(object):
 
     def clusters_equal(self, expected, actual):
         return (
-            expected[0] == actual[0] and
-            expected[1].broker_list == actual[1].broker_list and
-            expected[1].zookeeper_cluster == actual[1].zookeeper_cluster and
-            expected[1].zookeeper_topology_path == actual[1].zookeeper_topology_path
+            expected.name == actual.name and
+            expected.broker_list == actual.broker_list and
+            expected.zookeeper_cluster == actual.zookeeper_cluster and
+            expected.zookeeper_topology_path == actual.zookeeper_topology_path
         )
 
     def test_missing_cluster(self, mock_files):
@@ -34,21 +34,20 @@ class TestTopologyConfig(object):
             zk_topology_path=TEST_BASE_ZK
         )
         actual_clusters = topology.get_clusters_for_region('sfo12-prod')
-        expected_clusters = [(
-            'cluster1',
+        expected_clusters = [
             ClusterConfig(
+                name='cluster1',
                 broker_list=['mybrokerhost1:9092'],
                 zookeeper_cluster='myzookeepercluster1',
                 zookeeper_topology_path=TEST_BASE_ZK
-            )
-        ), (
-            'cluster3',
+            ),
             ClusterConfig(
+                name='cluster3',
                 broker_list=['mybrokerhost3:9092', 'mybrokerhost4:9092'],
                 zookeeper_cluster='myzookeepercluster1',
                 zookeeper_topology_path=TEST_BASE_ZK
             )
-        )]
+        ]
         assert all(map(self.clusters_equal, expected_clusters, actual_clusters))
 
     @mock.patch("yelp_kafka.config.os.path.isfile", lambda x: True)
@@ -103,21 +102,20 @@ class TestTopologyConfig(object):
             zk_topology_path=TEST_BASE_ZK
         )
         actual_clusters = topology.get_clusters_for_ecosystem('devc')
-        expected_clusters = [(
-            'cluster2',
+        expected_clusters = [
             ClusterConfig(
+                name='cluster2',
                 broker_list=['mybrokerhost2:9092'],
                 zookeeper_cluster='myzookeepercluster2',
                 zookeeper_topology_path=TEST_BASE_ZK
-            )
-        ), (
-            'cluster4',
+            ),
             ClusterConfig(
+                name='cluster4',
                 broker_list=['mybrokerhost5:9092'],
                 zookeeper_cluster='myzookeepercluster3',
                 zookeeper_topology_path=TEST_BASE_ZK
             )
-        )]
+        ]
         assert all(map(self.clusters_equal, expected_clusters, actual_clusters))
 
     @mock.patch("yelp_kafka.config.os.path.isfile", lambda x: True)
@@ -147,20 +145,22 @@ class TestTopologyConfig(object):
             )
             actual_clusters = topology.get_all_clusters()
             expected_clusters = [
-                ('region1',
-                 [('cluster1',
-                   ClusterConfig(
-                       broker_list=['mybroker'],
-                       zookeeper_cluster='zk_cluster',
-                       zookeeper_topology_path=TEST_BASE_ZK
-                   ))]),
-                ('region2',
-                 [('cluster2',
-                   ClusterConfig(
-                       broker_list=['mybroker2'],
-                       zookeeper_cluster='zk_cluster2',
-                       zookeeper_topology_path=TEST_BASE_ZK
-                   ))])
+                ('region1', [
+                    ClusterConfig(
+                        name='cluster1',
+                        broker_list=['mybroker'],
+                        zookeeper_cluster='zk_cluster',
+                        zookeeper_topology_path=TEST_BASE_ZK
+                    )
+                ]),
+                ('region2', [
+                    ClusterConfig(
+                        name='cluster2',
+                        broker_list=['mybroker2'],
+                        zookeeper_cluster='zk_cluster2',
+                        zookeeper_topology_path=TEST_BASE_ZK
+                    )
+                ])
             ]
             for actual, expected in zip(sorted(actual_clusters), sorted(expected_clusters)):
                 assert actual[0] == expected[0]
@@ -170,12 +170,12 @@ class TestTopologyConfig(object):
 class TestClusterConfig(object):
 
     def test_zookeeper_hosts(self, mock_files):
-        cluster = ClusterConfig(['mybroker:9092'], 'myzookeepercluster1',
+        cluster = ClusterConfig('mycluster', ['mybroker:9092'], 'myzookeepercluster1',
                                 TEST_BASE_ZK)
         assert cluster.zookeeper_hosts == ["0.1.2.3:2181", "0.2.3.4:2181"]
 
     def test_zookeeper_hosts_error(self, mock_files):
-        cluster = ClusterConfig(['mybroker:9092'], 'wrong_cluster',
+        cluster = ClusterConfig('mycluster', ['mybroker:9092'], 'wrong_cluster',
                                 TEST_BASE_ZK)
         with pytest.raises(ConfigurationError):
             cluster.zookeeper_hosts

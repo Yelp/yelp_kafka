@@ -22,7 +22,7 @@ def mock_kafka():
 @pytest.fixture
 def config():
     return YelpKafkaConfig(
-        cluster=ClusterConfig(broker_list='test_broker:9292',
+        cluster=ClusterConfig(name='mycluster', broker_list='test_broker:9292',
                               zookeeper_cluster='test_cluster'),
         group_id='test_group',
         client_id='test_client_id'
@@ -145,7 +145,7 @@ class TestKafkaSimpleConsumer(object):
     def test__invalid_offsets_get_earliest(self, config):
         # Change config to use smallest (earliest) offset (default latest)
         config = YelpKafkaConfig(
-            cluster=ClusterConfig(broker_list='test_broker:9292',
+            cluster=ClusterConfig(name='mycluster', broker_list='test_broker:9292',
                                   zookeeper_cluster='test_cluster'),
             group_id='test_group',
             client_id='test_client_id',
@@ -177,7 +177,7 @@ class TestKafkaSimpleConsumer(object):
 
     def test_close_no_commit(self, config):
         config = YelpKafkaConfig(
-            cluster=ClusterConfig(broker_list='test_broker:9292',
+            cluster=ClusterConfig(name='mycluster', broker_list='test_broker:9292',
                                   zookeeper_cluster='test_cluster'),
             group_id='test_group',
             client_id='test_client_id',
