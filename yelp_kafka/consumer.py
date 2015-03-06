@@ -53,7 +53,7 @@ class KafkaSimpleConsumer(object):
         KafkaClient and SimpleConsumer.
         """
         # Instantiate a kafka client connected to kafka.
-        self.client = KafkaClient(self.config.cluster.broker_list,
+        self.client = KafkaClient(self.config.broker_list,
                                   client_id=self.config.client_id)
 
         # Create a kafka SimpleConsumer.

@@ -25,7 +25,7 @@ class Partitioner(object):
         partitions have to be release. It should usually stops the consumers.
     """
     def __init__(self, config, topics, acquire, release):
-        self.kazooclient = KazooClient(','.join(config.cluster.zookeeper_hosts))
+        self.kazooclient = KazooClient(config.zookeeper)
         self.topics = topics
         self.acquired_partitions = defaultdict(list)
         self.partitions_set = None
@@ -68,13 +68,6 @@ class Partitioner(object):
         """
         self.log.debug("Refresh group for topics %s", self.topics)
         self._refresh()
-
-    def get_group_path(self):
-        """Get the group path in zookeeper."""
-        return '{zookeeper_base}/{group_id}'.format(
-            zookeeper_base=self.config.zookeeper_base,
-            group_id=self.config.group_id
-        )
 
     def _refresh(self):
         while True:
@@ -126,7 +119,7 @@ class Partitioner(object):
                        " partitions set %s", self.config.group_id,
                        self.topics, partitions)
         return self.kazooclient.SetPartitioner(
-            path=self.get_group_path(),
+            path=self.config.group_path,
             set=partitions,
             time_boundary=self.config.partitioner_cooldown
         )
@@ -210,7 +203,7 @@ class Partitioner(object):
         :returns: partitions for user topics
         :rtype: set
         """
-        topic_partitions = get_kafka_topics(self.config.cluster.broker_list)
+        topic_partitions = get_kafka_topics(self.config.broker_list)
         partitions = []
         for topic in self.topics:
             if topic not in topic_partitions:

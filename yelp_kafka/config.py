@@ -11,7 +11,6 @@ from yelp_kafka.error import ConfigurationError
 
 
 DEFAULT_KAFKA_TOPOLOGY_BASE_PATH = '/nail/etc/kafka_discovery'
-DEFAULT_ZK_TOPOLOGY_BASE_PATH = '/nail/etc/zookeeper_discovery/generic'
 
 
 cluster_configuration = {}
@@ -32,20 +31,16 @@ class TopologyConfiguration(object):
     :param kafka_topology_path: path of the directory containing
         the kafka topology.yaml config
     :type kafka_topology_path: string
-    :param zk_topology_path: path of the directory containing
-        the zookeeper topology.yaml
     :type zk_topology_path: string
     """
 
     def __init__(self, kafka_id,
-                 kafka_topology_path=DEFAULT_KAFKA_TOPOLOGY_BASE_PATH,
-                 zk_topology_path=DEFAULT_ZK_TOPOLOGY_BASE_PATH):
+                 kafka_topology_path=DEFAULT_KAFKA_TOPOLOGY_BASE_PATH):
         self.kafka_topology_path = kafka_topology_path
-        self.zk_topology_path = zk_topology_path
         self.kafka_id = kafka_id
         self.log = logging.getLogger(self.__class__.__name__)
         self.clusters = {}
-        self.region_to_cluster = None
+        self.local_config = None
         self.load_topology_config()
 
     def load_topology_config(self):
@@ -64,102 +59,31 @@ class TopologyConfiguration(object):
             )
         self.log.debug("Topology configuration %s", topology_config)
         try:
-            for name, config in topology_config['clusters'].iteritems():
-                self.clusters[name] = ClusterConfig(
-                    name=name,
-                    zookeeper_topology_path=self.zk_topology_path,
-                    zookeeper_cluster=config['zookeeper_cluster'],
-                    broker_list=config['broker_list']
-                )
-            self.region_to_cluster = topology_config['region_to_cluster']
+            self.clusters = topology_config['clusters']
+            self.local_config = topology_config['local_cluster']
         except KeyError:
             self.log.exception("Invalid topology file")
             raise ConfigurationError("Invalid topology file {0}".format(
                 config_path))
 
-    def get_clusters_for_region(self, region):
-        clusters = []
-        if region not in self.region_to_cluster:
-            raise ConfigurationError("Region {0} not in config".format(region))
-        for cluster in self.region_to_cluster[region]:
-            if cluster not in self.clusters:
-                raise ConfigurationError(
-                    "Mismatching configuration, {0} in region {1} is "
-                    "not a valid cluster".format(cluster, region)
-                )
-            clusters.append(self.clusters[cluster])
-        return clusters
-
-    def get_all_clusters(self):
-        return [(region, self.get_clusters_for_region(region))
-                for region in self.region_to_cluster.iterkeys()]
-
-    def get_regions_for_cluster(self, cluster):
-        """Reverse lookup from cluster to regions"""
-        if cluster not in self.clusters:
-            raise ConfigurationError("Cluster {0} not in configuration".format(cluster))
-        return [region for region, clusters in self.region_to_cluster.iteritems()
-                if cluster in clusters]
-
     def get_clusters_for_ecosystem(self, ecosystem):
-        regions = [region for region in self.region_to_cluster
-                   if region.endswith(ecosystem)]
-        return set([cluster for region in regions
-                    for cluster in self.get_clusters_for_region(region)])
+        return set([cluster for name, cluster in self.clusters.iteritems()
+                    if name.endswith(ecosystem)])
+
+    def get_local_config(self):
+        if self.local_config:
+            return self.clusters[self.local_config['cluster']]
+
+    def get_scribe_local_prefix(self):
+        """We use prefix only in the scribe cluster."""
+        return self.local_config.get('prefix')
 
     def __repr__(self):
         return ("TopologyConfig: kafka_id {0}, clusters: {1},"
-                "regions_to_cluster {2}".format(
+                "local_config {2}".format(
                     self.kafka_id,
                     self.clusters,
-                    self.region_to_cluster
-                ))
-
-
-class ClusterConfig(object):
-
-    def __init__(self, name,
-                 broker_list,
-                 zookeeper_cluster,
-                 zookeeper_topology_path=DEFAULT_ZK_TOPOLOGY_BASE_PATH,
-                 ):
-        self.zookeeper_cluster = zookeeper_cluster
-        self.name = name
-        self.broker_list = broker_list
-        self.zookeeper_topology_path = zookeeper_topology_path
-        self.log = logging.getLogger(self.__class__.__name__)
-        self._zookeeper_hosts = None
-
-    @property
-    def zookeeper_hosts(self):
-        if self._zookeeper_hosts is None:
-            # Lazy loading, most of the consumers don't need to access
-            # zookeeeper directly
-            self._zookeeper_hosts = self._load_zookeeper_topology()
-        return self._zookeeper_hosts
-
-    def _load_zookeeper_topology(self):
-        topology_file = os.path.join(self.zookeeper_topology_path,
-                                     "{zk}.yaml".format(zk=self.zookeeper_cluster))
-        if os.path.isfile(topology_file):
-            zk_config = load_yaml_config(topology_file)
-            # zk_config is a list of lists we create a list of tuples(host,
-            # port)
-            return ["{host}:{port}".format(host=host_port[0], port=host_port[1])
-                    for host_port in zk_config]
-        else:
-            raise ConfigurationError("Topology config {0} for zookeeper cluster {1} "
-                                     "does not exist".format(
-                                         topology_file, self.zookeeper_cluster
-                                     ))
-
-    def __repr__(self):
-        return ("Cluster {name}, brokers {brokers}, zookeeper_cluster {zk},"
-                " zookeeper_topology_path {path}".format(
-                    name=self.name,
-                    brokers=self.broker_list,
-                    zk=self.zookeeper_cluster,
-                    path=self.zookeeper_topology_path
+                    self.local_config
                 ))
 
 
@@ -171,7 +95,7 @@ class YelpKafkaConfig(object):
     # with ranger messages, that can be more than 100KB in size
     KAFKA_BUFFER_SIZE = 1024 * 1024  # 1MB
 
-    ZOOKEEPER_BASE_PATH = '/python-kafka'
+    ZOOKEEPER_BASE_PATH = '/yelp-kafka'
     PARTITIONER_COOLDOWN = 30
     MAX_TERMINATION_TIMEOUT_SECS = 10
     MAX_ITERATOR_TIMEOUT_SECS = 0.1
@@ -210,12 +134,23 @@ class YelpKafkaConfig(object):
                 key, DEFAULT_CONSUMER_CONFIG[key]
             )
         config['group_id'] = self.group_id
-        config['metadata_broker_list'] = self.cluster.broker_list
+        config['metadata_broker_list'] = self.cluster['broker_list']
         return config
 
     @property
-    def zookeeper_base(self):
-        return self._config.get('zookeeper_base', self.ZOOKEEPER_BASE_PATH)
+    def broker_list(self):
+        return self.cluster['broker_list']
+
+    @property
+    def zookeeper(self):
+        return self.cluster['zookeeper']
+
+    @property
+    def group_path(self):
+        return '{zk_base}/{group_id}'.format(
+            zk_base=self.ZOOKEEPER_BASE_PATH,
+            group_id=self.group_id
+        )
 
     @property
     def partitioner_cooldown(self):
