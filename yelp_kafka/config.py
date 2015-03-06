@@ -39,7 +39,7 @@ class TopologyConfiguration(object):
         self.kafka_topology_path = kafka_topology_path
         self.kafka_id = kafka_id
         self.log = logging.getLogger(self.__class__.__name__)
-        self.clusters = {}
+        self.clusters = None
         self.local_config = None
         self.load_topology_config()
 
@@ -70,7 +70,7 @@ class TopologyConfiguration(object):
         return set([cluster for name, cluster in self.clusters.iteritems()
                     if name.endswith(ecosystem)])
 
-    def get_local_config(self):
+    def get_local_cluster(self):
         if self.local_config:
             return self.clusters[self.local_config['cluster']]
 

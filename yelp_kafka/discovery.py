@@ -44,7 +44,7 @@ def get_local_cluster(cluster_type):
     :returns: list :py:class:`yelp_kafka.config.ClusterConfig`
     """
     topology = TopologyConfiguration(kafka_id=cluster_type)
-    return topology.get_local_config()
+    return topology.get_local_cluster()
 
 
 def get_clusters_in_ecosystem(cluster_type, ecosystem=None):
@@ -275,7 +275,7 @@ def search_topics_by_regex_in_ecosystem(cluster_type, pattern):
 
 def get_local_scribe_topic(stream):
     topology = TopologyConfiguration(kafka_id=DEFAULT_KAFKA_SCRIBE)
-    cluster = topology.get_local_config()
+    cluster = topology.get_local_cluster()
     prefix = topology.get_scribe_local_prefix()
     if not prefix:
         raise DiscoveryError("Scribe cluster config must contain a valid "
