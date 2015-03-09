@@ -151,17 +151,28 @@ class KafkaSimpleConsumer(object):
         # available offset
         if any([offset < available[k]
                 for k, offset in group_offsets.iteritems()]):
-            self.log.warning("Group offset for %s is too old..."
-                             "Resetting offset", self.topic)
             if latest_offset is True:
                 # Fetch the latest available offset (the newest message)
-                self.log.debug("Reset to latest offsets")
+                self.log.warning("Group offset for %s is too old..."
+                                 "Resetting to latest offsets", self.topic)
+                head = self.kafka_consumer.fetch_offsets.copy()
                 self.kafka_consumer.seek(-1, 2)
+                # We also validate the greatest offsets. If the queue is empty
+                # the greatest offsets is actually at the head of the queue and
+                # not at the tail. This is because kafka-python does tail - 1
+                # in seek. If the queue is empty tail - 1 is not a valid
+                # offset.
+                self.kafka_consumer.fetch_offsets = dict(
+                    [(part, max(offset, head[part])) for part, offset in
+                     self.kafka_consumer.fetch_offsets.iteritems()]
+                )
+                self.kafka_consumer.offsets = self.kafka_consumer.fetch_offsets.copy()
             else:
                 # We don't need to seek the offset again to the earliest
                 # offset. Because the first seek call already changed the
                 # offsets.
-                self.log.debug("Reset to earliest offset")
+                self.log.warning("Group offset for %s is too old..."
+                                 "Resetting to earliest offsets", self.topic)
         else:
             # self.fetch_offsets is used for the kafka fetch request,
             # while self.offsets is used to store the last processed message

@@ -127,13 +127,26 @@ class TestKafkaSimpleConsumer(object):
         with mock_kafka() as (_, mock_consumer):
             mock_offsets = mock.PropertyMock()
             mock_offsets.side_effect = [
-                {0: 0, 1: 0}, {0: 12, 1: 12}, None
+                {0: 0, 1: 0}, {0: 12, 1: 12},
             ]
             mock_obj = mock_consumer.return_value
             type(mock_obj).fetch_offsets = mock_offsets
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
             mock_obj.seek.assert_called_with(-1, 2)
+
+    def test__invalid_offsets_get_latest_empty_queue(self, config):
+        with mock_kafka() as (_, mock_consumer):
+            mock_offsets = mock.PropertyMock()
+            mock_offsets.side_effect = [
+                {0: 12, 1: 12}, {0: 11, 1: 11}, None
+            ]
+            mock_obj = mock_consumer.return_value
+            type(mock_obj).fetch_offsets = mock_offsets
+            consumer = KafkaSimpleConsumer('test_topic', config)
+            consumer.connect()
+            mock_obj.seek.assert_called_with(-1, 2)
+            mock_offsets.assert_called_with({0: 12, 1: 12})
 
     def test__invalid_offsets_get_earliest(self, config):
         # Change config to use earliest offset (default latest)
