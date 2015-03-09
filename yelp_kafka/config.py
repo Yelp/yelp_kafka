@@ -66,9 +66,8 @@ class TopologyConfiguration(object):
             raise ConfigurationError("Invalid topology file {0}".format(
                 config_path))
 
-    def get_clusters_for_ecosystem(self, ecosystem):
-        return set([cluster for name, cluster in self.clusters.iteritems()
-                    if name.endswith(ecosystem)])
+    def get_all_clusters(self):
+        return self.clusters
 
     def get_local_cluster(self):
         if self.local_config:
