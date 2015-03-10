@@ -12,6 +12,17 @@ from yelp_kafka.error import ConfigurationError
 
 DEFAULT_KAFKA_TOPOLOGY_BASE_PATH = '/nail/etc/kafka_discovery'
 
+# This is fixed to 1 MB for making a fetch call more efficient when dealing
+# with ranger messages, that can be more than 100KB in size
+KAFKA_BUFFER_SIZE = 1024 * 1024  # 1MB
+
+ZOOKEEPER_BASE_PATH = '/yelp-kafka'
+PARTITIONER_COOLDOWN = 30
+MAX_TERMINATION_TIMEOUT_SECS = 10
+MAX_ITERATOR_TIMEOUT_SECS = 0.1
+DEFAULT_OFFSET_RESET = 'largest'
+DEFAULT_CLIENT_ID = 'yelp-kafka'
+
 
 cluster_configuration = {}
 
@@ -86,20 +97,27 @@ class TopologyConfiguration(object):
                 ))
 
 
-class YelpKafkaConfig(object):
+class KafkaConsumerConfig(object):
     """Config class for ConsumerGroup, MultiprocessingConsumerGroup,
-    KafkaSimpleConsumer and KakfaConsumerBase"""
+    KafkaSimpleConsumer and KakfaConsumerBase.
 
-    # This is fixed to 1 MB for making a fetch call more efficient when dealing
-    # with ranger messages, that can be more than 100KB in size
-    KAFKA_BUFFER_SIZE = 1024 * 1024  # 1MB
+    :param group_id: group of the kafka consumer
+    :param cluster: cluster config from :py:mod:`yelp_kafka.discovery`
+    :param config: keyword arguments, configuration arguments from kafka-python
+        SimpleConsumer are accepted.
+        See valid keyword arguments in: http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.simple
+        yelp_kafka specific configuration arguments are:
+            auto_offset_reset: Used by KafkaSimpleConsumer for offset validation.
+                if 'largest' reset the offset to the latest available
+                message (tail). If 'smallest' uses consumes from the
+                earliest (head). Default: 'largest'.
+            client_id: client id to use on connection. Default: 'yelp-kafka'.
+            partitioner_cooldown: Waiting time for the consumer
+            to acquire the partitions. Default: 30 seconds.
+            max_termination_timeout_secs: Used by MultiprocessinConsumerGroup
+                time to wait for a consumer to terminate. Default 10 secs.
 
-    ZOOKEEPER_BASE_PATH = '/yelp-kafka'
-    PARTITIONER_COOLDOWN = 30
-    MAX_TERMINATION_TIMEOUT_SECS = 10
-    MAX_ITERATOR_TIMEOUT_SECS = 0.1
-    DEFAULT_OFFSET_RESET = 'largest'
-    DEFAULT_CLIENT_ID = 'yelp-kafka'
+    """
 
     SIMPLE_CONSUMER_DEFAULT_CONFIG = {
         'buffer_size': KAFKA_BUFFER_SIZE,
@@ -112,12 +130,16 @@ class YelpKafkaConfig(object):
     }
     """Default SimpleConsumer configuration"""
 
-    def __init__(self, group_id, cluster, **config):
+    def __init__(
+        self, group_id, cluster,
+        **config
+    ):
         self._config = config
         self.cluster = cluster
         self.group_id = group_id
 
     def get_simple_consumer_args(self):
+        """Get the configuration args for kafka-python SimpleConsumer."""
         args = {}
         for key in self.SIMPLE_CONSUMER_DEFAULT_CONFIG.iterkeys():
             args[key] = self._config.get(
@@ -127,6 +149,7 @@ class YelpKafkaConfig(object):
         return args
 
     def get_kafka_consumer_config(self):
+        """Get the configuration for kafka-python KafkaConsumer."""
         config = {}
         for key in DEFAULT_CONSUMER_CONFIG.iterkeys():
             config[key] = self._config.get(

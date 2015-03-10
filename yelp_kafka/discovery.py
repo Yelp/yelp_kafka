@@ -22,13 +22,12 @@ def make_scribe_regex(stream):
 
 
 def get_local_cluster(cluster_type):
-    """Get a :py:class:`yelp_kafka.config.ClusterConfig`
-    for the local kafka cluster.
+    """Get the local kafka cluster.
 
     :param cluster_type: the id of the kafka cluster
         (ex.'scribe' or 'standard').
     :type cluster_type: string
-    :returns: :py:class:`yelp_kafka.config.ClusterConfig`
+    :returns: dict cluster config
     """
     topology = TopologyConfiguration(kafka_id=cluster_type)
     return topology.get_local_cluster()
@@ -41,7 +40,7 @@ def get_all_clusters(cluster_type):
     :param cluster_type: the id of the kafka cluster
         (ex.'scribe' or 'standard').
     :type cluster_type: string
-    :returns: list :py:class:`yelp_kafka.config.ClusterConfig`
+    :returns: list of dict cluster config
     """
     topology = TopologyConfiguration(kafka_id=cluster_type)
     return topology.get_all_clusters()
@@ -132,7 +131,7 @@ def discover_topics(cluster_config):
     """Get all the topics in a cluster
 
     :param cluster_config: config of the cluster to get topics from
-    :type cluster_config: :py:class:`yelp_kafka.config.ClusterConfig`
+    :type cluster_config: cluster config
     :returns: a dict <topic>: <[partitions]>
     """
     try:
@@ -148,7 +147,7 @@ def search_topic(topic, clusters=None):
     """Find the topic in the list of clusters or the local cluster
 
     :param topic: topic name
-    :param clusters: list of :py:class:`yelp_kafka.config.ClusterConfig`.
+    :param clusters: list of cluster config
     :returns: (topic, cluster_config).
     """
     matches = []
@@ -191,7 +190,7 @@ def search_topics_by_regex(pattern, clusters=None):
     """Find the topics matching pattern in the list of clusters.
 
     :param pattern: regex to match topics
-    :param clusters: list of :py:class:`yelp_kafka.config.ClusterConfig`
+    :param clusters: list of cluster config
     :returns: list (topics, cluster_config).
     """
     matches = []
