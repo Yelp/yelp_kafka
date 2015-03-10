@@ -9,16 +9,6 @@ from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
 from yelp_kafka.error import ProcessMessageError
 
 
-@pytest.fixture
-def config():
-    return KafkaConsumerConfig(
-        cluster={'broker_list': ['test_broker:9292'],
-                 'zookeeper': 'zookeeper_uri1:2181,zookeeper_uri2:2181'},
-        group_id='test_group',
-        client_id='test_client_id'
-    )
-
-
 class TestConsumerGroup(object):
 
     topic = 'topic1'

@@ -5,6 +5,7 @@ from StringIO import StringIO
 
 from yelp_kafka.config import TopologyConfiguration
 from yelp_kafka.config import load_yaml_config
+from yelp_kafka.config import ClusterConfig
 from yelp_kafka.error import ConfigurationError
 
 TEST_BASE_KAFKA = '/base/kafka_discovery'
@@ -98,10 +99,9 @@ class TestTopologyConfig(object):
         )
         mock_yaml.assert_called_once_with('/base/kafka_discovery/mykafka.yaml')
         actual_cluster = topology.get_local_cluster()
-        expected_cluster = ('cluster1', {
-            'broker_list': ['mybrokerhost1:9092'],
-            'zookeeper': '0.1.2.3,0.2.3.4/kafka'
-        })
+        expected_cluster = ClusterConfig(
+            'cluster1', ['mybrokerhost1:9092'], '0.1.2.3,0.2.3.4/kafka'
+        )
         assert actual_cluster == expected_cluster
 
     def test_get_local_cluster_error(self, mock_yaml):
@@ -148,13 +148,11 @@ class TestTopologyConfig(object):
         )
         actual_clusters = topology.get_all_clusters()
         expected_clusters = [
-            ('cluster1', {
-                'broker_list': ["mybrokerhost1:9092"],
-                'zookeeper': "0.1.2.3,0.2.3.4/kafka"
-            }),
-            ('cluster2', {
-                'broker_list': ["mybrokerhost2:9092"],
-                'zookeeper': "0.3.4.5,0.4.5.6/kafka"
-            })
+            ClusterConfig(
+                'cluster1', ["mybrokerhost1:9092"], "0.1.2.3,0.2.3.4/kafka"
+            ),
+            ClusterConfig(
+                'cluster2', ["mybrokerhost2:9092"], "0.3.4.5,0.4.5.6/kafka"
+            )
         ]
         assert sorted(expected_clusters) == sorted(actual_clusters)

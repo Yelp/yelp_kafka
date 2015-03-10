@@ -6,20 +6,7 @@ from kazoo.recipe.partitioner import SetPartitioner
 from kazoo.recipe.partitioner import PartitionState
 from kazoo.protocol.states import KazooState
 
-from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.partitioner import Partitioner
-
-
-@pytest.fixture
-@pytest.fixture
-def config():
-    return KafkaConsumerConfig(
-        cluster={'broker_list': ['test_broker:9292'],
-                 'zookeeper': 'zookeeper_uri1:218,zookeeper_uri2:2181'},
-        group_id='test_group_id',
-        client_id='test_client_id',
-        partitioner_cooldown=0.5
-    )
 
 
 def get_partitioner_state(status):
@@ -143,7 +130,7 @@ class TestPartitioner(object):
             expected_partitions
         )
         mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
-            path='/yelp-kafka/test_group_id',
+            path='/yelp-kafka/test_group',
             set=expected_partitions,
             time_boundary=0.5
         )
@@ -160,7 +147,7 @@ class TestPartitioner(object):
             expected_partitions
         )
         mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
-            path='/yelp-kafka/test_group_id',
+            path='/yelp-kafka/test_group',
             set=expected_partitions,
             time_boundary=0.5
         )

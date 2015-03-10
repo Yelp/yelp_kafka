@@ -18,16 +18,6 @@ def mock_kafka():
         yield mock_client, mock_consumer
 
 
-@pytest.fixture
-def config():
-    return KafkaConsumerConfig(
-        cluster={'broker_list': ['test_broker:9292'],
-                 'zookeeper': 'test_cluster'},
-        group_id='test_group',
-        client_id='test_client_id'
-    )
-
-
 class TestKafkaSimpleConsumer(object):
 
     def test_topic_error(self, config):
@@ -141,11 +131,10 @@ class TestKafkaSimpleConsumer(object):
             consumer.connect()
             mock_obj.seek.assert_called_with(-1, 2)
 
-    def test__invalid_offsets_get_earliest(self, config):
+    def test__invalid_offsets_get_earliest(self, cluster):
         # Change config to use smallest (earliest) offset (default latest)
         config = KafkaConsumerConfig(
-            cluster={'broker_list': ['test_broker:9292'],
-                     'zookeeper': 'test_cluster'},
+            cluster=cluster,
             group_id='test_group',
             client_id='test_client_id',
             auto_offset_reset='smallest'
@@ -174,10 +163,9 @@ class TestKafkaSimpleConsumer(object):
                 mock_consumer.return_value.commit.assert_called_once_with()
                 mock_client.return_value.close.assert_called_once_with()
 
-    def test_close_no_commit(self, config):
+    def test_close_no_commit(self, cluster):
         config = KafkaConsumerConfig(
-            cluster={'broker_list': ['test_broker:9292'],
-                     'zookeeper': 'test_cluster'},
+            cluster=cluster,
             group_id='test_group',
             client_id='test_client_id',
             auto_commit=False

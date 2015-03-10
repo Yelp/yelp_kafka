@@ -58,7 +58,7 @@ def get_yelp_kafka_config(cluster_type, group_id, **extra):
     :param extra: extra arguments to use for creating the configuration
     :returns: list :py:class:`yelp_kafka.config.KafkaConsumerConfig`
     """
-    _, cluster = get_local_cluster(cluster_type)
+    cluster = get_local_cluster(cluster_type)
     return KafkaConsumerConfig(group_id=group_id, cluster=cluster, **extra)
 
 
@@ -76,7 +76,7 @@ def get_all_yelp_kafka_config(cluster_type, group_id, ecosystem=None, **extra):
     """
     clusters = get_all_clusters(cluster_type)
     return [KafkaConsumerConfig(group_id=group_id, cluster=cluster, **extra)
-            for _, cluster in clusters]
+            for cluster in clusters]
 
 
 def get_kafka_connection(cluster_type, client_id='yelp-kafka'):
@@ -89,15 +89,15 @@ def get_kafka_connection(cluster_type, client_id='yelp-kafka'):
     :returns: KafkaClient
     :raises DiscoveryError: :py:class:`yelp_kafka.error.DiscoveryError` upon failure connecting connecting to a cluster.
     """
-    name, cluster = get_local_cluster(cluster_type)
+    cluster = get_local_cluster(cluster_type)
     try:
-        return name, KafkaClient(cluster['broker_list'], client_id=client_id)
+        return cluster.name, KafkaClient(cluster.broker_list, client_id=client_id)
     except:
         log.exception("Connection to kafka cluster %s using broker"
-                      " list %s failed", name,
-                      cluster['broker_list'])
+                      " list %s failed", cluster.name,
+                      cluster.broker_list)
         raise DiscoveryError("Failed to connect to cluster {0}".format(
-            name))
+            cluster.name))
 
 
 def get_all_kafka_connections(cluster_type, client_id='yelp-kafka'):
@@ -119,35 +119,35 @@ def get_all_kafka_connections(cluster_type, client_id='yelp-kafka'):
 
     clusters = get_all_clusters(cluster_type)
     connected_clusters = []
-    for name, cluster in clusters:
+    for cluster in clusters:
         try:
-            client = KafkaClient(cluster['broker_list'], client_id=client_id)
-            connected_clusters.append((name, client))
+            client = KafkaClient(cluster.broker_list, client_id=client_id)
+            connected_clusters.append((cluster.name, client))
         except:
             log.exception("Connection to kafka cluster %s using broker"
-                          " list %s failed", name,
-                          cluster['broker_list'])
+                          " list %s failed", cluster.name,
+                          cluster.broker_list)
             for _, client in connected_clusters:
                 client.close()
             raise DiscoveryError("Failed to connect to cluster {0}".format(
-                name))
+                cluster.name))
     return connected_clusters
 
 
-def discover_topics(cluster_config):
+def discover_topics(cluster):
     """Get all the topics in a cluster
 
-    :param cluster_config: config of the cluster to get topics from
-    :type cluster_config: cluster config
+    :param cluster: config of the cluster to get topics from
+    :type cluster: ClusterConfig
     :returns: a dict <topic>: <[partitions]>
     """
     try:
-        return get_kafka_topics(cluster_config['broker_list'])
+        return get_kafka_topics(cluster.broker_list)
     except:
         log.exception("Topics discovery failed for %s",
-                      cluster_config['broker_list'])
+                      cluster.broker_list)
         raise DiscoveryError("Failed to get topics information from "
-                             "{0}".format(cluster_config['broker_list']))
+                             "{0}".format(cluster.broker_list))
 
 
 def search_topic(topic, clusters=None):
@@ -155,13 +155,13 @@ def search_topic(topic, clusters=None):
 
     :param topic: topic name
     :param clusters: list of cluster config
-    :returns: (topic, cluster_name, cluster_config).
+    :returns: (topic, cluster).
     """
     matches = []
-    for name, cluster in clusters:
+    for cluster in clusters:
         topics = discover_topics(cluster)
         if topic in topics.keys():
-            matches.append((topic, name, cluster))
+            matches.append((topic, cluster))
     return matches
 
 
@@ -173,7 +173,7 @@ def search_local_topic(cluster_type, topic):
     :type cluster_type: string
     :param topic: topic name
     :type topic: string
-    :returns: list (topic, cluster_name, cluster_config).
+    :returns: list (topic, cluster).
     """
     cluster = get_local_cluster(cluster_type)
     result = search_topic(topic, [cluster])
@@ -188,7 +188,7 @@ def search_topic_in_all_clusters(cluster_type, topic):
     :type cluster_type: string
     :param topic: topic name
     :type topic: string
-    :returns: list (topic, cluster_name, cluster_config).
+    :returns: list (topic, cluster_config).
     """
     clusters = get_all_clusters(cluster_type)
     return search_topic(topic, clusters)
@@ -199,15 +199,15 @@ def search_topics_by_regex(pattern, clusters=None):
 
     :param pattern: regex to match topics
     :param clusters: list of cluster config
-    :returns: list (topics, cluster_name, cluster_config).
+    :returns: list (topics, cluster).
     """
     matches = []
-    for name, cluster in clusters:
+    for cluster in clusters:
         topics = discover_topics(cluster)
         valid_topics = [topic for topic in topics.iterkeys()
                         if re.match(pattern, topic)]
         if valid_topics:
-            matches.append((valid_topics, name, cluster))
+            matches.append((valid_topics, cluster))
     return matches
 
 
@@ -218,7 +218,7 @@ def search_local_topics_by_regex(cluster_type, pattern):
         (ex.'scribe' or 'standard').
     :type cluster_type: string
     :param pattern: regex to match topics
-    :returns: list ([topics], cluster_name, cluster_config).
+    :returns: list ([topics], cluster).
     """
     cluster = get_local_cluster(cluster_type)
     return search_topics_by_regex(pattern, [cluster])
@@ -231,7 +231,7 @@ def search_topics_by_regex_in_all_clusters(cluster_type, pattern):
         (ex.'scribe' or 'standard').
     :type cluster_type: string
     :param pattern: regex to match topics
-    :returns: a list of tuples ([topics], cluster_name, cluster_config).
+    :returns: a list of tuples ([topics], cluster).
     """
     clusters = get_all_clusters(cluster_type)
     return search_topics_by_regex(pattern, clusters)
@@ -242,7 +242,7 @@ def get_local_scribe_topic(stream):
 
     :param stream: scribe stream name
     :type stream: string
-    :returns: (topic, cluster_name, cluster_config)
+    :returns: (topic, cluster)
     """
     topology = TopologyConfiguration(kafka_id=DEFAULT_KAFKA_SCRIBE)
     cluster = topology.get_local_cluster()
@@ -264,7 +264,7 @@ def get_scribe_topics(stream):
 
     :param stream: scribe stream name
     :type stream: string
-    :returns: [([topics],n cluster_name, cluster_config)]
+    :returns: [([topics], cluster)]
     """
     pattern = make_scribe_regex(stream)
     return search_topics_by_regex_in_all_clusters(DEFAULT_KAFKA_SCRIBE, pattern)
@@ -278,7 +278,7 @@ def get_scribe_topic_in_datacenter(stream, datacenter):
     :type stream: string
     :param datacenter: datacenter name
     :type datacenter: string
-    :returns: (topic, cluster_name, cluster_config)
+    :returns: (topic, cluster)
     """
     result = search_topic_in_all_clusters(DEFAULT_KAFKA_SCRIBE,
                                           make_scribe_topic(stream, datacenter))

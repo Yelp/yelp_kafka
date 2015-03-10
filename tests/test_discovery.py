@@ -2,16 +2,15 @@ import pytest
 import mock
 
 from yelp_kafka import discovery
+from yelp_kafka.config import ClusterConfig
 from yelp_kafka.error import DiscoveryError
 
 
 @pytest.fixture
 def mock_clusters():
     return [
-        ('cluster1',
-         {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}),
-        ('cluster2',
-         {'broker_list': ['mybroker2'], 'zookeeper': 'zk_hosts2/kafa'})
+        ClusterConfig('cluster1', ['mybroker'], 'zk_hosts/kafka'),
+        ClusterConfig('cluster2', ['mybroker2'], 'zk_hosts2/kafa')
     ]
 
 
@@ -37,10 +36,7 @@ def test_get_all_clusters(mock_topology):
 
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
 def test_get_yelp_kafka_config(mock_get_cluster):
-    my_cluster = (
-        'cluster1',
-        {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}
-    )
+    my_cluster = ClusterConfig('cluster1', ['mybroker'], 'zk_hosts/kafka')
     mock_get_cluster.return_value = my_cluster
     with mock.patch("yelp_kafka.discovery.KafkaConsumerConfig",
                     autospec=True) as mock_config:
@@ -48,7 +44,7 @@ def test_get_yelp_kafka_config(mock_get_cluster):
         actual = discovery.get_yelp_kafka_config(
             "mycluster", group_id='mygroup', auto_offset_reset='largest')
         mock_config.assert_called_once_with(
-            cluster=my_cluster[1], group_id='mygroup',
+            cluster=my_cluster, group_id='mygroup',
             auto_offset_reset='largest'
         )
         assert actual == mock.sentinel.kafka_config
@@ -63,9 +59,9 @@ def test_get_all_yelp_kafka_config(mock_get_clusters, mock_clusters):
         actual = discovery.get_all_yelp_kafka_config(
             "mycluster", group_id='mygroup', auto_offset_reset='largest')
         assert mock_config.call_args_list == [
-            mock.call(cluster=mock_clusters[0][1], group_id='mygroup',
+            mock.call(cluster=mock_clusters[0], group_id='mygroup',
                       auto_offset_reset='largest'),
-            mock.call(cluster=mock_clusters[1][1], group_id='mygroup',
+            mock.call(cluster=mock_clusters[1], group_id='mygroup',
                       auto_offset_reset='largest'),
         ]
         assert actual == [mock.sentinel.kafka_config,
@@ -74,10 +70,7 @@ def test_get_all_yelp_kafka_config(mock_get_clusters, mock_clusters):
 
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
 def test_get_kafka_connection(mock_get_cluster):
-    my_cluster = (
-        'cluster1',
-        {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}
-    )
+    my_cluster = ClusterConfig('cluster1', ['mybroker'], 'zk_hosts/kafka')
     mock_get_cluster.return_value = my_cluster
     with mock.patch("yelp_kafka.discovery.KafkaClient",
                     autospec=True) as mock_kafka:
@@ -90,10 +83,7 @@ def test_get_kafka_connection(mock_get_cluster):
 
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
 def test_get_kafka_connection_error(mock_get_cluster):
-    my_cluster = (
-        'cluster1',
-        {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}
-    )
+    my_cluster = ClusterConfig('cluster1', ['mybroker'], 'zk_hosts/kafka')
     mock_get_cluster.return_value = my_cluster
     with mock.patch("yelp_kafka.discovery.KafkaClient",
                     autospec=True) as mock_kafka:
@@ -138,10 +128,9 @@ def test_discover_topics(mock_topics):
         'topic2': [0]
     }
     mock_topics.return_value = expected
-    actual = discovery.discover_topics({
-        'broker_list': ['mybroker'],
-        'zookeeper': 'zkhosts/kakfa'
-    })
+    actual = discovery.discover_topics(ClusterConfig(
+        'mycluster', ['mybroker'], 'zkhosts/kakfa'
+    ))
     assert actual == expected
 
 
@@ -150,8 +139,7 @@ def test_discover_topics_error(mock_topics):
     mock_topics.side_effect = Exception("Boom!")
     with pytest.raises(DiscoveryError):
         discovery.discover_topics(
-            {'broker_list': ['mybroker'],
-             'zookeeper': 'mycluster'}
+            ClusterConfig('mycluster', ['mybroker'], 'zkhosts')
         )
 
 
@@ -163,7 +151,7 @@ def test_search_topic(mock_clusters):
         ])
         # topic1 is only in the first cluster
         actual = discovery.search_topic('topic1', [mock_clusters[0]])
-        expected = [('topic1', ) + mock_clusters[0]]
+        expected = [('topic1', mock_clusters[0])]
         assert expected == actual
 
 
@@ -176,8 +164,8 @@ def test_search_topic_in_2_clusters(mock_clusters):
         ])
         # topic1 is only in cluster1
         actual = discovery.search_topic('topic2', mock_clusters)
-        expected = [('topic2', ) + mock_clusters[0],
-                    ('topic2', ) + mock_clusters[1]]
+        expected = [('topic2', mock_clusters[0]),
+                    ('topic2', mock_clusters[1])]
         assert expected == actual
 
 
@@ -248,8 +236,8 @@ def test_search_by_regex(mock_clusters):
         ])
         # search for all topics starting with top
         actual = discovery.search_topics_by_regex('top.*', mock_clusters)
-        expected = [(['topic1', 'topic2'],) + mock_clusters[0],
-                    (['topic2'],) + mock_clusters[1]]
+        expected = [(['topic1', 'topic2'], mock_clusters[0]),
+                    (['topic2'], mock_clusters[1])]
         assert expected == actual
 
 
@@ -330,5 +318,5 @@ def test_get_scribe_topic(mock_get_clusters, mock_clusters):
             'scribe.dc1.non_my_scribe_stream': [0, 1]
         }])
         actual = discovery.get_scribe_topics('my_scribe_stream')
-    expected = [(['scribe.dc2.my_scribe_stream', 'scribe.dc1.my_scribe_stream'], ) + mock_clusters[0]]
+    expected = [(['scribe.dc2.my_scribe_stream', 'scribe.dc1.my_scribe_stream'], mock_clusters[0])]
     assert actual == expected

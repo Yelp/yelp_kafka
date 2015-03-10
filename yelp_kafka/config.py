@@ -1,3 +1,4 @@
+from collections import namedtuple
 import logging
 import os
 import yaml
@@ -25,6 +26,9 @@ DEFAULT_CLIENT_ID = 'yelp-kafka'
 
 
 cluster_configuration = {}
+
+
+ClusterConfig = namedtuple('ClusterConfig', ['name', 'broker_list', 'zookeeper'])
 
 
 def load_yaml_config(config_path):
@@ -78,13 +82,17 @@ class TopologyConfiguration(object):
                 config_path))
 
     def get_all_clusters(self):
-        return [(name, cluster) for name, cluster in self.clusters.iteritems()]
+        return [ClusterConfig(name, cluster['broker_list'], cluster['zookeeper'])
+                for name, cluster in self.clusters.iteritems()]
 
     def get_local_cluster(self):
         try:
             if self.local_config:
-                return (self.local_config['cluster'],
-                        self.clusters[self.local_config['cluster']])
+                local_cluster = self.clusters[self.local_config['cluster']]
+                return ClusterConfig(
+                    name=self.local_config['cluster'],
+                    broker_list=local_cluster['broker_list'],
+                    zookeeper=local_cluster['zookeeper'])
         except KeyError:
             self.log.exception("Invalid topology file")
             raise ConfigurationError("Invalid topology file.")
@@ -161,16 +169,16 @@ class KafkaConsumerConfig(object):
                 key, DEFAULT_CONSUMER_CONFIG[key]
             )
         config['group_id'] = self.group_id
-        config['metadata_broker_list'] = self.cluster['broker_list']
+        config['metadata_broker_list'] = self.cluster.broker_list
         return config
 
     @property
     def broker_list(self):
-        return self.cluster['broker_list']
+        return self.cluster.broker_list
 
     @property
     def zookeeper(self):
-        return self.cluster['zookeeper']
+        return self.cluster.zookeeper
 
     @property
     def group_path(self):
