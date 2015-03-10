@@ -1,181 +1,160 @@
+import contextlib
 import mock
 import pytest
-
-from tests.mock_config import TEST_BASE_ZK
-from tests.mock_config import TEST_BASE_KAFKA
+from StringIO import StringIO
 
 from yelp_kafka.config import TopologyConfiguration
-from yelp_kafka.config import ClusterConfig
+from yelp_kafka.config import load_yaml_config
 from yelp_kafka.error import ConfigurationError
+
+TEST_BASE_KAFKA = '/base/kafka_discovery'
+
+MOCK_TOPOLOGY_CONFIG = """
+---
+  clusters:
+    cluster1:
+      broker_list:
+        - "mybrokerhost1:9092"
+      zookeeper: "0.1.2.3,0.2.3.4/kafka"
+    cluster2:
+      broker_list:
+        - "mybrokerhost2:9092"
+      zookeeper: "0.3.4.5,0.4.5.6/kafka"
+  local_config:
+    cluster: cluster1
+    prefix: my.prefix.
+"""
+
+MOCK_SCRIBE_YAML = {
+    'clusters': {
+        'cluster1': {
+            'broker_list': ["mybrokerhost1:9092"],
+            'zookeeper': "0.1.2.3,0.2.3.4/kafka"
+        },
+        'cluster2': {
+            'broker_list': ["mybrokerhost2:9092"],
+            'zookeeper': "0.3.4.5,0.4.5.6/kafka"
+        }
+    },
+    'local_config': {
+        'cluster': 'cluster1',
+        'prefix': 'my.prefix.'
+    }
+}
+
+MOCK_NO_SCRIBE_YAML = {
+    'clusters': {
+        'cluster1': {
+            'broker_list': ["mybrokerhost1:9092"],
+            'zookeeper': "0.1.2.3,0.2.3.4/kafka"
+        },
+        'cluster2': {
+            'broker_list': ["mybrokerhost2:9092"],
+            'zookeeper': "0.3.4.5,0.4.5.6/kafka"
+        }
+    },
+    'local_config': {
+        'cluster': 'cluster1',
+    }
+}
+
+
+@pytest.yield_fixture
+def mock_yaml():
+    with contextlib.nested(
+        mock.patch('yelp_kafka.config.load_yaml_config',
+                   return_value=MOCK_SCRIBE_YAML,
+                   create=True),
+        mock.patch('os.path.isfile', return_value=True)
+    ) as (m, mock_isfile):
+        yield m
+
+
+def test_load_yaml():
+    stio = StringIO()
+    stio.write(MOCK_TOPOLOGY_CONFIG)
+    stio.seek(0)
+    with mock.patch('__builtin__.open',
+                    return_value=contextlib.closing(stio)) as mock_open:
+        actual = load_yaml_config('test')
+        mock_open.assert_called_once_with("test", "r")
+        assert actual == MOCK_SCRIBE_YAML
 
 
 class TestTopologyConfig(object):
 
-    def clusters_equal(self, expected, actual):
-        return (
-            expected.name == actual.name and
-            expected.broker_list == actual.broker_list and
-            expected.zookeeper_cluster == actual.zookeeper_cluster and
-            expected.zookeeper_topology_path == actual.zookeeper_topology_path
-        )
-
-    def test_missing_cluster(self, mock_files):
+    def test_missing_cluster(self):
         with pytest.raises(ConfigurationError):
-            TopologyConfiguration(
-                kafka_id="wrong_cluster",
-                kafka_topology_path=TEST_BASE_KAFKA,
-                zk_topology_path=TEST_BASE_ZK
-            )
+            with mock.patch("os.path.isfile", return_value=False):
+                TopologyConfiguration(
+                    kafka_id="wrong_cluster",
+                    kafka_topology_path=TEST_BASE_KAFKA
+                )
 
-    def test_get_cluster_for_region(self, mock_files):
+    def test_get_local_cluster(self, mock_yaml):
         topology = TopologyConfiguration(
             kafka_id='mykafka',
             kafka_topology_path=TEST_BASE_KAFKA,
-            zk_topology_path=TEST_BASE_ZK
         )
-        actual_clusters = topology.get_clusters_for_region('sfo12-prod')
-        expected_clusters = [
-            ClusterConfig(
-                name='cluster1',
-                broker_list=['mybrokerhost1:9092'],
-                zookeeper_cluster='myzookeepercluster1',
-                zookeeper_topology_path=TEST_BASE_ZK
-            ),
-            ClusterConfig(
-                name='cluster3',
-                broker_list=['mybrokerhost3:9092', 'mybrokerhost4:9092'],
-                zookeeper_cluster='myzookeepercluster1',
-                zookeeper_topology_path=TEST_BASE_ZK
-            )
-        ]
-        assert all(map(self.clusters_equal, expected_clusters, actual_clusters))
+        mock_yaml.assert_called_once_with('/base/kafka_discovery/mykafka.yaml')
+        actual_cluster = topology.get_local_cluster()
+        expected_cluster = ('cluster1', {
+            'broker_list': ['mybrokerhost1:9092'],
+            'zookeeper': '0.1.2.3,0.2.3.4/kafka'
+        })
+        assert actual_cluster == expected_cluster
 
-    @mock.patch("yelp_kafka.config.os.path.isfile", lambda x: True)
-    def test_get_cluster_for_region_error(self):
+    def test_get_local_cluster_error(self, mock_yaml):
         # Should raise ConfigurationError if a cluster is in region but not in
         # the cluster list
-        with mock.patch("yelp_kafka.config.load_yaml_config",
-                        autospec=True) as mock_config:
-            mock_config.return_value = {
+            mock_yaml.return_value = {
                 'clusters': {
                     'cluster1': {
                         'broker_list': ['mybroker'],
-                        'zookeeper_cluster': 'zk_cluster'
+                        'zookeeper': '0.1.2.3,0.2.3.4/kafka'
                     },
                 },
-                'region_to_cluster': {
-                    'region1': ['cluster2']
+                'local_config': {
+                    'cluster': 'cluster3'
                 }
             }
             topology = TopologyConfiguration(
                 kafka_id='mykafka',
                 kafka_topology_path=TEST_BASE_KAFKA,
-                zk_topology_path=TEST_BASE_ZK
             )
-            # Raise ConfigurationError because cluster 2 does not exist
+            # Raise ConfigurationError because cluster 3 does not exist
             with pytest.raises(ConfigurationError):
-                topology.get_clusters_for_region("region1")
+                topology.get_local_cluster()
 
-    def test_get_regions_for_cluster(self, mock_files):
+    def test_get_scribe_prefix(self, mock_yaml):
         topology = TopologyConfiguration(
             kafka_id='mykafka',
             kafka_topology_path=TEST_BASE_KAFKA,
-            zk_topology_path=TEST_BASE_ZK
         )
-        actual = topology.get_regions_for_cluster('cluster1')
-        expected = ['dc6-prod', 'sfo12-prod']
-        assert sorted(actual) == sorted(expected)
+        assert 'my.prefix.' == topology.get_scribe_local_prefix()
 
-    def test_get_regions_for_cluster_error(self, mock_files):
+    def test_get_scribe_prefix_None(self, mock_yaml):
+        mock_yaml.return_value = MOCK_NO_SCRIBE_YAML
         topology = TopologyConfiguration(
             kafka_id='mykafka',
             kafka_topology_path=TEST_BASE_KAFKA,
-            zk_topology_path=TEST_BASE_ZK
         )
-        with pytest.raises(ConfigurationError):
-            topology.get_regions_for_cluster('wrong_cluster')
+        assert not topology.get_scribe_local_prefix()
 
-    def test_get_cluster_for_ecosystem(self, mock_files):
+    def test_get_all_clusters(self, mock_yaml):
         topology = TopologyConfiguration(
             kafka_id='mykafka',
             kafka_topology_path=TEST_BASE_KAFKA,
-            zk_topology_path=TEST_BASE_ZK
         )
-        actual_clusters = topology.get_clusters_for_ecosystem('devc')
+        actual_clusters = topology.get_all_clusters()
         expected_clusters = [
-            ClusterConfig(
-                name='cluster2',
-                broker_list=['mybrokerhost2:9092'],
-                zookeeper_cluster='myzookeepercluster2',
-                zookeeper_topology_path=TEST_BASE_ZK
-            ),
-            ClusterConfig(
-                name='cluster4',
-                broker_list=['mybrokerhost5:9092'],
-                zookeeper_cluster='myzookeepercluster3',
-                zookeeper_topology_path=TEST_BASE_ZK
-            )
+            ('cluster1', {
+                'broker_list': ["mybrokerhost1:9092"],
+                'zookeeper': "0.1.2.3,0.2.3.4/kafka"
+            }),
+            ('cluster2', {
+                'broker_list': ["mybrokerhost2:9092"],
+                'zookeeper': "0.3.4.5,0.4.5.6/kafka"
+            })
         ]
-        assert all(map(self.clusters_equal, expected_clusters, actual_clusters))
-
-    @mock.patch("yelp_kafka.config.os.path.isfile", lambda x: True)
-    def test_get_all_clusters(self):
-        with mock.patch("yelp_kafka.config.load_yaml_config",
-                        autospec=True) as mock_config:
-            mock_config.return_value = {
-                'clusters': {
-                    'cluster1': {
-                        'broker_list': ['mybroker'],
-                        'zookeeper_cluster': 'zk_cluster'
-                    },
-                    'cluster2': {
-                        'broker_list': ['mybroker2'],
-                        'zookeeper_cluster': 'zk_cluster2'
-                    }
-                },
-                'region_to_cluster': {
-                    'region1': ['cluster1'],
-                    'region2': ['cluster2'],
-                }
-            }
-            topology = TopologyConfiguration(
-                kafka_id='mykafka',
-                kafka_topology_path=TEST_BASE_KAFKA,
-                zk_topology_path=TEST_BASE_ZK
-            )
-            actual_clusters = topology.get_all_clusters()
-            expected_clusters = [
-                ('region1', [
-                    ClusterConfig(
-                        name='cluster1',
-                        broker_list=['mybroker'],
-                        zookeeper_cluster='zk_cluster',
-                        zookeeper_topology_path=TEST_BASE_ZK
-                    )
-                ]),
-                ('region2', [
-                    ClusterConfig(
-                        name='cluster2',
-                        broker_list=['mybroker2'],
-                        zookeeper_cluster='zk_cluster2',
-                        zookeeper_topology_path=TEST_BASE_ZK
-                    )
-                ])
-            ]
-            for actual, expected in zip(sorted(actual_clusters), sorted(expected_clusters)):
-                assert actual[0] == expected[0]
-                assert all(map(self.clusters_equal, sorted(expected[1]), sorted(actual[1])))
-
-
-class TestClusterConfig(object):
-
-    def test_zookeeper_hosts(self, mock_files):
-        cluster = ClusterConfig('mycluster', ['mybroker:9092'], 'myzookeepercluster1',
-                                TEST_BASE_ZK)
-        assert cluster.zookeeper_hosts == ["0.1.2.3:2181", "0.2.3.4:2181"]
-
-    def test_zookeeper_hosts_error(self, mock_files):
-        cluster = ClusterConfig('mycluster', ['mybroker:9092'], 'wrong_cluster',
-                                TEST_BASE_ZK)
-        with pytest.raises(ConfigurationError):
-            cluster.zookeeper_hosts
+        assert sorted(expected_clusters) == sorted(actual_clusters)

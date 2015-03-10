@@ -6,22 +6,18 @@ from kazoo.recipe.partitioner import SetPartitioner
 from kazoo.recipe.partitioner import PartitionState
 from kazoo.protocol.states import KazooState
 
-from yelp_kafka.config import YelpKafkaConfig
-from yelp_kafka.config import ClusterConfig
+from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.partitioner import Partitioner
 
 
 @pytest.fixture
 @pytest.fixture
 def config():
-    return YelpKafkaConfig(
-        cluster=mock.Mock(spec=ClusterConfig,
-                          broker_list='test_broker:9292',
-                          zookeeper_hosts=['zookeeper_uri1:2181',
-                                           'zookeeper_uri2:2181']),
+    return KafkaConsumerConfig(
+        cluster={'broker_list': ['test_broker:9292'],
+                 'zookeeper': 'zookeeper_uri1:218,zookeeper_uri2:2181'},
         group_id='test_group_id',
         client_id='test_client_id',
-        zookeeper_base='/base_path',
         partitioner_cooldown=0.5
     )
 
@@ -38,10 +34,6 @@ class TestPartitioner(object):
     @mock.patch('yelp_kafka.partitioner.KazooClient', autospec=True)
     def partitioner(self, kazoo, config):
         return Partitioner(config, self.topics, mock.Mock(), mock.Mock())
-
-    def test_get_group_path(self, config):
-        partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
-        assert partitioner.get_group_path() == '/base_path/test_group_id'
 
     def test_get_partitions_set(self, partitioner):
         with mock.patch('yelp_kafka.partitioner.get_kafka_topics',
@@ -151,7 +143,7 @@ class TestPartitioner(object):
             expected_partitions
         )
         mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
-            path='/base_path/test_group_id',
+            path='/yelp-kafka/test_group_id',
             set=expected_partitions,
             time_boundary=0.5
         )
@@ -168,7 +160,7 @@ class TestPartitioner(object):
             expected_partitions
         )
         mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
-            path='/base_path/test_group_id',
+            path='/yelp-kafka/test_group_id',
             set=expected_partitions,
             time_boundary=0.5
         )

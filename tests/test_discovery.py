@@ -2,104 +2,115 @@ import pytest
 import mock
 
 from yelp_kafka import discovery
-from yelp_kafka.config import ClusterConfig
 from yelp_kafka.error import DiscoveryError
 
 
 @pytest.fixture
 def mock_clusters():
-    cluster1 = mock.Mock(broker_list=['mybroker'])
-    cluster1.name = 'cluster1'
-    cluster2 = mock.Mock(broker_list=['mybroker2'])
-    cluster2.name = 'cluster2'
-    return [cluster1, cluster2]
-
-
-def test_get_local_region(mock_files):
-    assert discovery.get_local_region() == 'my-ecosystem'
-
-
-@mock.patch("yelp_kafka.discovery.os.path.exists", return_value=False)
-def test_get_local_region_error(_):
-    with pytest.raises(DiscoveryError):
-        discovery.get_local_region()
+    return [
+        ('cluster1',
+         {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}),
+        ('cluster2',
+         {'broker_list': ['mybroker2'], 'zookeeper': 'zk_hosts2/kafa'})
+    ]
 
 
 @mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
-def test_get_cluster_config(mock_topology, mock_files):
-    get_cluster = mock_topology.return_value.get_clusters_for_region
-    get_cluster.return_value = mock.sentinel.clusters
-    clusters = discovery.get_clusters_config("mycluster")
-    mock_topology.assert_called_once_with(kafka_id='mycluster')
-    get_cluster.assert_called_once_with(region='my-ecosystem')
-    assert clusters == mock.sentinel.clusters
-
-
-@mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
-def test_get_cluster_config_region(mock_topology, mock_files):
-    get_cluster = mock_topology.return_value.get_clusters_for_region
-    get_cluster.return_value = mock.sentinel.clusters
-    clusters = discovery.get_clusters_config("mycluster", 'my-ecosystem2')
-    mock_topology.assert_called_once_with(kafka_id='mycluster')
-    get_cluster.assert_called_once_with(region='my-ecosystem2')
-    assert clusters == mock.sentinel.clusters
-
-
-@mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
-def test_get_cluster_config_ecosystem(mock_topology, mock_files):
-    get_cluster_eco = mock_topology.return_value.get_clusters_for_ecosystem
-    get_cluster_eco.return_value = mock.sentinel.clusters
-    clusters = discovery.get_clusters_config_in_ecosystem("mycluster")
-    mock_topology.assert_called_once_with(kafka_id='mycluster')
-    # 'ecosystem' is part of MOCK_REGION defined in mock_config
-    get_cluster_eco.assert_called_once_with('ecosystem')
-    assert clusters == mock.sentinel.clusters
-
-
-@mock.patch("yelp_kafka.discovery.get_clusters_config", autospec=True)
-def test_get_clusters_broker_list(mock_get_clusters, mock_clusters):
-    mock_get_clusters.return_value = mock_clusters
-    clusters = discovery.get_clusters_broker_list("myclustertype")
-    mock_get_clusters.assert_called_once_with('myclustertype', None)
-    assert clusters == [('cluster1', ['mybroker']),
-                        ('cluster2', ['mybroker2'])]
-
-
-@mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
-def test_get_all_clusters(mock_topology, mock_files):
-    get_cluster = mock_topology.return_value.get_all_clusters
-    get_cluster.return_value = mock.sentinel.clusters
-    clusters = discovery.get_all_clusters_config("mycluster")
+def test_get_local_cluster(mock_topology):
+    get_cluster = mock_topology.return_value.get_local_cluster
+    get_cluster.return_value = mock.sentinel.cluster
+    cluster = discovery.get_local_cluster("mycluster")
     mock_topology.assert_called_once_with(kafka_id='mycluster')
     get_cluster.assert_called_once_with()
+    assert cluster == mock.sentinel.cluster
+
+
+@mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
+def test_get_all_clusters(mock_topology):
+    get_clusters = mock_topology.return_value.get_all_clusters
+    get_clusters.return_value = mock.sentinel.clusters
+    clusters = discovery.get_all_clusters("mycluster")
+    mock_topology.assert_called_once_with(kafka_id='mycluster')
+    get_clusters.assert_called_once_with()
     assert clusters == mock.sentinel.clusters
 
 
-@mock.patch("yelp_kafka.discovery.get_clusters_config", autospec=True)
-def test_get_yelp_kafka_config(mock_get_clusters, mock_clusters):
-    mock_get_clusters.return_value = mock_clusters
-    with mock.patch("yelp_kafka.discovery.YelpKafkaConfig",
+@mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
+def test_get_yelp_kafka_config(mock_get_cluster):
+    my_cluster = (
+        'cluster1',
+        {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}
+    )
+    mock_get_cluster.return_value = my_cluster
+    with mock.patch("yelp_kafka.discovery.KafkaConsumerConfig",
                     autospec=True) as mock_config:
         mock_config.return_value = mock.sentinel.kafka_config
         actual = discovery.get_yelp_kafka_config(
             "mycluster", group_id='mygroup', auto_offset_reset='largest')
+        mock_config.assert_called_once_with(
+            cluster=my_cluster[1], group_id='mygroup',
+            auto_offset_reset='largest'
+        )
+        assert actual == mock.sentinel.kafka_config
+
+
+@mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
+def test_get_all_yelp_kafka_config(mock_get_clusters, mock_clusters):
+    mock_get_clusters.return_value = mock_clusters
+    with mock.patch("yelp_kafka.discovery.KafkaConsumerConfig",
+                    autospec=True) as mock_config:
+        mock_config.return_value = mock.sentinel.kafka_config
+        actual = discovery.get_all_yelp_kafka_config(
+            "mycluster", group_id='mygroup', auto_offset_reset='largest')
         assert mock_config.call_args_list == [
-            mock.call(cluster=mock_clusters[0], group_id='mygroup',
+            mock.call(cluster=mock_clusters[0][1], group_id='mygroup',
                       auto_offset_reset='largest'),
-            mock.call(cluster=mock_clusters[1], group_id='mygroup',
+            mock.call(cluster=mock_clusters[1][1], group_id='mygroup',
                       auto_offset_reset='largest'),
         ]
-        assert actual == [('cluster1', mock.sentinel.kafka_config),
-                          ('cluster2', mock.sentinel.kafka_config)]
+        assert actual == [mock.sentinel.kafka_config,
+                          mock.sentinel.kafka_config]
 
 
-@mock.patch("yelp_kafka.discovery.get_clusters_config", autospec=True)
-def test_get_kafka_connection(mock_get_clusters, mock_clusters):
-    mock_get_clusters.return_value = mock_clusters
+@mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
+def test_get_kafka_connection(mock_get_cluster):
+    my_cluster = (
+        'cluster1',
+        {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}
+    )
+    mock_get_cluster.return_value = my_cluster
     with mock.patch("yelp_kafka.discovery.KafkaClient",
                     autospec=True) as mock_kafka:
         mock_kafka.return_value = mock.sentinel.kafkaclient
         actual = discovery.get_kafka_connection("mycluster")
+        mock_kafka.assert_called_once_with(['mybroker'],
+                                           client_id='yelp-kafka')
+        assert actual == ('cluster1', mock.sentinel.kafkaclient)
+
+
+@mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
+def test_get_kafka_connection_error(mock_get_cluster):
+    my_cluster = (
+        'cluster1',
+        {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}
+    )
+    mock_get_cluster.return_value = my_cluster
+    with mock.patch("yelp_kafka.discovery.KafkaClient",
+                    autospec=True) as mock_kafka:
+        mock_kafka.side_effect = Exception("Boom!")
+        with pytest.raises(DiscoveryError):
+            discovery.get_kafka_connection("mycluster")
+        mock_kafka.assert_called_once_with(['mybroker'],
+                                           client_id='yelp-kafka')
+
+
+@mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
+def test_get_all_kafka_connections(mock_get_clusters, mock_clusters):
+    mock_get_clusters.return_value = mock_clusters
+    with mock.patch("yelp_kafka.discovery.KafkaClient",
+                    autospec=True) as mock_kafka:
+        mock_kafka.return_value = mock.sentinel.kafkaclient
+        actual = discovery.get_all_kafka_connections("mycluster")
         assert mock_kafka.call_args_list == [
             mock.call(['mybroker'], client_id='yelp-kafka'),
             mock.call(['mybroker2'], client_id='yelp-kafka')
@@ -108,15 +119,15 @@ def test_get_kafka_connection(mock_get_clusters, mock_clusters):
                           ('cluster2', mock.sentinel.kafkaclient)]
 
 
-@mock.patch("yelp_kafka.discovery.get_clusters_config", autospec=True)
-def test_get_kafka_connection_error(mock_get_clusters, mock_clusters):
+@mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
+def test_get_all_kafka_connections_error(mock_get_clusters, mock_clusters):
     mock_get_clusters.return_value = mock_clusters
     with mock.patch("yelp_kafka.discovery.KafkaClient",
                     autospec=True) as mock_kafka:
         client = mock.MagicMock()
         mock_kafka.side_effect = [client, Exception("Boom!")]
         with pytest.raises(DiscoveryError):
-            discovery.get_kafka_connection("mycluster")
+            discovery.get_all_kafka_connections("mycluster")
         client.close.assert_called_once_with()
 
 
@@ -127,10 +138,10 @@ def test_discover_topics(mock_topics):
         'topic2': [0]
     }
     mock_topics.return_value = expected
-    actual = discovery.discover_topics(
-        ClusterConfig(name='cluster1', broker_list=['mybroker'],
-                      zookeeper_cluster='mycluster')
-    )
+    actual = discovery.discover_topics({
+        'broker_list': ['mybroker'],
+        'zookeeper': 'zkhosts/kakfa'
+    })
     assert actual == expected
 
 
@@ -139,8 +150,8 @@ def test_discover_topics_error(mock_topics):
     mock_topics.side_effect = Exception("Boom!")
     with pytest.raises(DiscoveryError):
         discovery.discover_topics(
-            ClusterConfig(name='cluster1', broker_list=['mybroker'],
-                          zookeeper_cluster='mycluster')
+            {'broker_list': ['mybroker'],
+             'zookeeper': 'mycluster'}
         )
 
 
@@ -148,12 +159,11 @@ def test_search_topic(mock_clusters):
     with mock.patch("yelp_kafka.discovery.discover_topics",
                     autospec=True) as mock_discover:
         mock_discover.side_effect = iter([
-            {'topic1': [0, 1, 2], 'topic2': [0]},
-            {'topic2': [0]}
+            {'topic1': [0, 1, 2], 'topic2': [0]}
         ])
         # topic1 is only in the first cluster
-        actual = discovery.search_topic('topic1', mock_clusters)
-        expected = [('topic1', mock_clusters[0])]
+        actual = discovery.search_topic('topic1', [mock_clusters[0]])
+        expected = [('topic1', ) + mock_clusters[0]]
         assert expected == actual
 
 
@@ -166,8 +176,8 @@ def test_search_topic_in_2_clusters(mock_clusters):
         ])
         # topic1 is only in cluster1
         actual = discovery.search_topic('topic2', mock_clusters)
-        expected = [('topic2', mock_clusters[0]),
-                    ('topic2', mock_clusters[1])]
+        expected = [('topic2', ) + mock_clusters[0],
+                    ('topic2', ) + mock_clusters[1]]
         assert expected == actual
 
 
@@ -184,27 +194,49 @@ def test_search_no_topic(mock_clusters):
 
 
 @mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
-@mock.patch("yelp_kafka.discovery.get_clusters_config", autospec=True)
-def test_search_topic_in_region(mock_get_clusters, mock_search):
+@mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
+def test_search_local_topic(mock_get_cluster, mock_search):
+    mock_get_cluster.return_value = mock.sentinel.cluster
+    mock_search.return_value = [mock.sentinel.topic]
+    actual = discovery.search_local_topic('mycluster', 'topic1')
+    mock_search.assert_called_once_with('topic1', [mock.sentinel.cluster])
+    assert actual == mock.sentinel.topic
+
+
+@mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
+@mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
+def test_search_local_topic_None(mock_get_cluster, mock_search):
+    mock_get_cluster.return_value = mock.sentinel.cluster
+    mock_search.return_value = []
+    actual = discovery.search_local_topic('mycluster', 'topic1')
+    mock_search.assert_called_once_with('topic1', [mock.sentinel.cluster])
+    assert actual is None
+
+
+@mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
+@mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
+def test_search_topics_in_all_clusters(mock_get_clusters, mock_search):
     mock_get_clusters.return_value = mock.sentinel.clusters
     mock_search.return_value = mock.sentinel.topics
-    actual = discovery.search_topic_in_region('mycluster', 'topic1', 'myregion')
+    actual = discovery.search_topic_in_all_clusters(
+        'mycluster', 'topic1'
+    )
+    mock_get_clusters.assert_called_once_with('mycluster')
     mock_search.assert_called_once_with('topic1', mock.sentinel.clusters)
     assert actual == mock.sentinel.topics
 
 
 @mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
-@mock.patch("yelp_kafka.discovery.get_clusters_config_in_ecosystem",
-            autospec=True)
-def test_search_topic_in_ecosystem(mock_get_clusters, mock_search):
+@mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
+def test_search_topics_no_topics_in_clusters(mock_get_clusters, mock_search):
     mock_get_clusters.return_value = mock.sentinel.clusters
-    mock_search.return_value = mock.sentinel.topics
-    actual = discovery.search_topic_in_local_ecosystem(
+    mock_search.return_value = []
+    actual = discovery.search_topic_in_all_clusters(
         'mycluster', 'topic1'
     )
-    mock_search.assert_called_once_with('topic1', mock.sentinel.clusters)
     mock_get_clusters.assert_called_once_with('mycluster')
-    assert actual == mock.sentinel.topics
+    mock_search.assert_called_once_with('topic1', mock.sentinel.clusters)
+    assert [] == actual
 
 
 def test_search_by_regex(mock_clusters):
@@ -216,8 +248,8 @@ def test_search_by_regex(mock_clusters):
         ])
         # search for all topics starting with top
         actual = discovery.search_topics_by_regex('top.*', mock_clusters)
-        expected = [(['topic1', 'topic2'], mock_clusters[0]),
-                    (['topic2'], mock_clusters[1])]
+        expected = [(['topic1', 'topic2'],) + mock_clusters[0],
+                    (['topic2'],) + mock_clusters[1]]
         assert expected == actual
 
 
@@ -234,24 +266,23 @@ def test_search_by_regex_no_topic(mock_clusters):
 
 
 @mock.patch("yelp_kafka.discovery.search_topics_by_regex", autospec=True)
-@mock.patch("yelp_kafka.discovery.get_clusters_config", autospec=True)
-def test_search_topic_by_regex_in_region(mock_get_clusters, mock_search):
-    mock_get_clusters.return_value = mock.sentinel.clusters
+@mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
+def test_search_local_topic_by_regex(mock_get_cluster, mock_search):
+    mock_get_cluster.return_value = mock.sentinel.cluster
     mock_search.return_value = mock.sentinel.topics
-    actual = discovery.search_topics_by_regex_in_region(
-        'mycluster', 'topic1.*', 'myregion'
+    actual = discovery.search_local_topics_by_regex(
+        'mycluster', 'topic1.*'
     )
-    mock_search.assert_called_once_with('topic1.*', mock.sentinel.clusters)
+    mock_search.assert_called_once_with('topic1.*', [mock.sentinel.cluster])
     assert actual == mock.sentinel.topics
 
 
 @mock.patch("yelp_kafka.discovery.search_topics_by_regex", autospec=True)
-@mock.patch("yelp_kafka.discovery.get_clusters_config_in_ecosystem",
-            autospec=True)
-def test_search_topic_by_regex_in_ecosystem(mock_get_clusters, mock_search):
+@mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
+def test_search_topic_by_regex_in_all_clusters(mock_get_clusters, mock_search):
     mock_get_clusters.return_value = mock.sentinel.clusters
     mock_search.return_value = mock.sentinel.topics
-    actual = discovery.search_topics_by_regex_in_local_ecosystem(
+    actual = discovery.search_topics_by_regex_in_all_clusters(
         'mycluster', 'topic1.*'
     )
     mock_search.assert_called_once_with('topic1.*', mock.sentinel.clusters)
@@ -259,19 +290,34 @@ def test_search_topic_by_regex_in_ecosystem(mock_get_clusters, mock_search):
     assert actual == mock.sentinel.topics
 
 
-@mock.patch("yelp_kafka.discovery.search_topic_in_region", autospec=True)
-def test_get_scribe_topic_in_datacenter(mock_search):
-    mock_search.return_value = mock.sentinel.topics
-    actual = discovery.get_scribe_topic_in_datacenter(
-        'ranger', 'sfo2', cluster_type='mycluster', region='my-ecosystem'
+@mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
+@mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
+def test_get_local_scribe_topic(mock_search, mock_top):
+    my_cluster = (
+        'cluster1',
+        {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}
     )
+    mock_top.return_value.get_local_cluster.return_value = my_cluster
+    mock_top.return_value.get_scribe_local_prefix.return_value = 'my.prefix.'
+    mock_search.return_value = [mock.sentinel.topic]
+    actual = discovery.get_local_scribe_topic('ranger')
+    assert actual == mock.sentinel.topic
+    mock_search.assert_called_once_with(
+        'my.prefix.ranger', [my_cluster]
+    )
+
+
+@mock.patch("yelp_kafka.discovery.search_topic_in_all_clusters", autospec=True)
+def test_get_scribe_topic_in_datacenter(mock_search):
+    mock_search.return_value = [mock.sentinel.topics]
+    actual = discovery.get_scribe_topic_in_datacenter('ranger', 'sfo2')
     assert actual == mock.sentinel.topics
-    mock_search.assert_called_once_with('mycluster',
-                                        'scribe.sfo2.ranger',
-                                        'my-ecosystem')
+    mock_search.assert_called_once_with(
+        discovery.DEFAULT_KAFKA_SCRIBE, 'scribe.sfo2.ranger'
+    )
 
 
-@mock.patch("yelp_kafka.discovery.get_clusters_config", autospec=True)
+@mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
 def test_get_scribe_topic(mock_get_clusters, mock_clusters):
     mock_get_clusters.return_value = mock_clusters
     with mock.patch("yelp_kafka.discovery.discover_topics",
@@ -284,6 +330,5 @@ def test_get_scribe_topic(mock_get_clusters, mock_clusters):
             'scribe.dc1.non_my_scribe_stream': [0, 1]
         }])
         actual = discovery.get_scribe_topics('my_scribe_stream')
-    expected = [(['scribe.dc2.my_scribe_stream', 'scribe.dc1.my_scribe_stream'],
-                 mock_clusters[0])]
+    expected = [(['scribe.dc2.my_scribe_stream', 'scribe.dc1.my_scribe_stream'], ) + mock_clusters[0]]
     assert actual == expected

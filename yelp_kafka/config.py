@@ -71,18 +71,23 @@ class TopologyConfiguration(object):
         self.log.debug("Topology configuration %s", topology_config)
         try:
             self.clusters = topology_config['clusters']
-            self.local_config = topology_config['local_cluster']
+            self.local_config = topology_config['local_config']
         except KeyError:
             self.log.exception("Invalid topology file")
             raise ConfigurationError("Invalid topology file {0}".format(
                 config_path))
 
     def get_all_clusters(self):
-        return self.clusters
+        return [(name, cluster) for name, cluster in self.clusters.iteritems()]
 
     def get_local_cluster(self):
-        if self.local_config:
-            return self.clusters[self.local_config['cluster']]
+        try:
+            if self.local_config:
+                return (self.local_config['cluster'],
+                        self.clusters[self.local_config['cluster']])
+        except KeyError:
+            self.log.exception("Invalid topology file")
+            raise ConfigurationError("Invalid topology file.")
 
     def get_scribe_local_prefix(self):
         """We use prefix only in the scribe cluster."""
@@ -170,29 +175,29 @@ class KafkaConsumerConfig(object):
     @property
     def group_path(self):
         return '{zk_base}/{group_id}'.format(
-            zk_base=self.ZOOKEEPER_BASE_PATH,
+            zk_base=ZOOKEEPER_BASE_PATH,
             group_id=self.group_id
         )
 
     @property
     def partitioner_cooldown(self):
-        return self._config.get('partitioner_cooldown', self.PARTITIONER_COOLDOWN)
+        return self._config.get('partitioner_cooldown', PARTITIONER_COOLDOWN)
 
     @property
     def max_termination_timeout_secs(self):
         return self._config.get('max_termination_timeout_secs',
-                                self.MAX_ITERATOR_TIMEOUT_SECS)
+                                MAX_ITERATOR_TIMEOUT_SECS)
 
     @property
     def auto_offset_reset(self):
-        return self._config.get('auto_offset_reset', self.DEFAULT_OFFSET_RESET)
+        return self._config.get('auto_offset_reset', DEFAULT_OFFSET_RESET)
 
     @property
     def client_id(self):
-        return self._config.get('client_id', self.DEFAULT_CLIENT_ID)
+        return self._config.get('client_id', DEFAULT_CLIENT_ID)
 
     def __repr__(self):
-        return ("YelpKafkaConfig: cluster {cluster}, group {group} "
+        return ("KafkaConsumerConfig: cluster {cluster}, group {group} "
                 "config: {config}".format(cluster=self.cluster,
                                           group=self.group_id,
                                           config=self._config))

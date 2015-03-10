@@ -2,8 +2,7 @@ import contextlib
 import mock
 import pytest
 
-from yelp_kafka.config import YelpKafkaConfig
-from yelp_kafka.config import ClusterConfig
+from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.consumer import KafkaSimpleConsumer
 from yelp_kafka.consumer import KafkaConsumerBase
 from yelp_kafka.consumer import Message
@@ -21,9 +20,9 @@ def mock_kafka():
 
 @pytest.fixture
 def config():
-    return YelpKafkaConfig(
-        cluster=ClusterConfig(name='mycluster', broker_list='test_broker:9292',
-                              zookeeper_cluster='test_cluster'),
+    return KafkaConsumerConfig(
+        cluster={'broker_list': ['test_broker:9292'],
+                 'zookeeper': 'test_cluster'},
         group_id='test_group',
         client_id='test_client_id'
     )
@@ -46,7 +45,7 @@ class TestKafkaSimpleConsumer(object):
                 mock_client.return_value = mock.sentinel.client
                 consumer = KafkaSimpleConsumer('test_topic', config)
                 consumer.connect()
-                mock_client.assert_called_once_with('test_broker:9292',
+                mock_client.assert_called_once_with(['test_broker:9292'],
                                                     client_id='test_client_id')
                 assert not mock_consumer.call_args[0]
                 kwargs = mock_consumer.call_args[1]
@@ -144,9 +143,9 @@ class TestKafkaSimpleConsumer(object):
 
     def test__invalid_offsets_get_earliest(self, config):
         # Change config to use smallest (earliest) offset (default latest)
-        config = YelpKafkaConfig(
-            cluster=ClusterConfig(name='mycluster', broker_list='test_broker:9292',
-                                  zookeeper_cluster='test_cluster'),
+        config = KafkaConsumerConfig(
+            cluster={'broker_list': ['test_broker:9292'],
+                     'zookeeper': 'test_cluster'},
             group_id='test_group',
             client_id='test_client_id',
             auto_offset_reset='smallest'
@@ -176,9 +175,9 @@ class TestKafkaSimpleConsumer(object):
                 mock_client.return_value.close.assert_called_once_with()
 
     def test_close_no_commit(self, config):
-        config = YelpKafkaConfig(
-            cluster=ClusterConfig(name='mycluster', broker_list='test_broker:9292',
-                                  zookeeper_cluster='test_cluster'),
+        config = KafkaConsumerConfig(
+            cluster={'broker_list': ['test_broker:9292'],
+                     'zookeeper': 'test_cluster'},
             group_id='test_group',
             client_id='test_client_id',
             auto_commit=False
