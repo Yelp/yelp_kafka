@@ -6,7 +6,6 @@ import time
 import os
 import signal
 
-from yelp_kafka.config import load_config_or_default
 from yelp_kafka.error import ConsumerGroupError
 from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
@@ -53,8 +52,7 @@ class ConsumerGroup(object):
 
     def __init__(self, topic, config, process_func):
         self.log = logging.getLogger(self.__class__.__name__)
-        self._config = load_config_or_default(config)
-        self.log.debug("Using config: %s", self._config)
+        self.config = config
         self.topic = topic
         self.partitioner = Partitioner(
             config,
@@ -104,7 +102,7 @@ class ConsumerGroup(object):
            The partitioner executes _acquire when the partition group
            changes and the partitions have been acquired.
         """
-        self.consumer = KafkaSimpleConsumer(self.topic, self._config,
+        self.consumer = KafkaSimpleConsumer(self.topic, self.config,
                                             partitions[self.topic])
         try:
             # We explicitly catch and log the exception.
@@ -112,7 +110,7 @@ class ConsumerGroup(object):
         except:
             self.log.exception("Consumer topic %s, partition %s, config %s:"
                                " failed connecting to kafka", self.topic,
-                               partitions, self._config)
+                               partitions, self.config)
             raise
 
     def _release(self, partitions):
@@ -175,7 +173,7 @@ class MultiprocessingConsumerGroup(object):
         an instance of a subclass of :py:class:`yelp_kafka.consumer.KafkaConsumer`.
     """
     def __init__(self, topics, config, consumer_factory):
-        self._config = load_config_or_default(config)
+        self.config = config
         self.termination_flag = None
         self.partitioner = Partitioner(config, topics, self.acquire, self.release)
         self.consumers = None
@@ -244,9 +242,9 @@ class MultiprocessingConsumerGroup(object):
             for p in partitions:
                 self.log.info(
                     "Creating consumer topic = %s, config = %s,"
-                    " partition = %s", topic, self._config, p
+                    " partition = %s", topic, self.config, p
                 )
-                consumer = self.consumer_factory(topic, self._config.copy(), [p])
+                consumer = self.consumer_factory(topic, self.config, [p])
                 self.consumer_procs[self.start_consumer(consumer)] = consumer
         return self.consumer_procs.values()
 
@@ -262,7 +260,7 @@ class MultiprocessingConsumerGroup(object):
         for consumer in self.consumer_procs.itervalues():
             consumer.terminate()
 
-        timeout = time.time() + self._config['max_termination_timeout_secs']
+        timeout = time.time() + self.config.max_termination_timeout_secs
         while (time.time() <= timeout and
                any([proc.is_alive() for proc in self.consumer_procs.iterkeys()])):
             continue
