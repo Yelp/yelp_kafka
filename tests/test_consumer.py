@@ -118,6 +118,31 @@ class TestKafkaSimpleConsumer(object):
             mock_obj.seek.assert_called_once_with(0, 0)
             mock_offsets.assert_called_with({0: 12, 1: 12})
 
+    def test_valid_offsets_no_auto_commit(self, config):
+        with mock_kafka() as (_, mock_consumer):
+            mock_obj = mock_consumer.return_value
+            mock_offsets = mock.PropertyMock(
+                side_effect=(
+                    {0: 12, 1: 12},  # Group
+                    {0: 0, 1: 0},  # Earliest available
+                    None,
+                ),
+            )
+            mock_obj.auto_commit = False
+            type(mock_obj).fetch_offsets = mock_offsets
+
+            consumer = KafkaSimpleConsumer('test_topic', config)
+            consumer.connect()
+
+            mock_obj.fetch_last_known_offsets.assert_called_once_with(
+                consumer.partitions,
+            )
+
+            # This always happens. It's how _validate_offsets figures out the
+            # earliest available offsets. However, we must make sure it only
+            # happens once. A seconds time would indicate an actual seek.
+            mock_obj.seek.assert_called_once_with(0, 0)
+
     def test__invalid_offsets_get_latest(self, config):
         with mock_kafka() as (_, mock_consumer):
             mock_offsets = mock.PropertyMock()
