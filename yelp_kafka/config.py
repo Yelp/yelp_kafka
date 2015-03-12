@@ -29,6 +29,12 @@ cluster_configuration = {}
 
 
 ClusterConfig = namedtuple('ClusterConfig', ['name', 'broker_list', 'zookeeper'])
+"""Tuple representing the cluster configuration.
+
+* **name**\(``str``): Name of the cluster
+* **broker_list**\(``list``): List of brokers
+* **zookeeper**\(``str``): Zookeeper cluster
+"""
 
 
 def load_yaml_config(config_path):
@@ -119,17 +125,18 @@ class KafkaConsumerConfig(object):
     :param config: keyword arguments, configuration arguments from kafka-python
         SimpleConsumer are accepted.
         See valid keyword arguments in: http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.simple
-        yelp_kafka specific configuration arguments are:
-            auto_offset_reset: Used by KafkaSimpleConsumer for offset validation.
-                if 'largest' reset the offset to the latest available
-                message (tail). If 'smallest' uses consumes from the
-                earliest (head). Default: 'largest'.
-            client_id: client id to use on connection. Default: 'yelp-kafka'.
-            partitioner_cooldown: Waiting time for the consumer
-            to acquire the partitions. Default: 30 seconds.
-            max_termination_timeout_secs: Used by MultiprocessinConsumerGroup
-                time to wait for a consumer to terminate. Default 10 secs.
 
+        Yelp_kafka specific configuration arguments are:
+
+        * **auto_offset_reset**: Used by KafkaSimpleConsumer for offset validation.
+          if 'largest' reset the offset to the latest available
+          message (tail). If 'smallest' uses consumes from the
+          earliest (head). Default: 'largest'.
+        * **client_id**: client id to use on connection. Default: 'yelp-kafka'.
+        * **partitioner_cooldown**: Waiting time for the consumer
+          to acquire the partitions. Default: 30 seconds.
+        * **max_termination_timeout_secs**: Used by MultiprocessinConsumerGroup
+          time to wait for a consumer to terminate. Default 10 secs.
     """
 
     SIMPLE_CONSUMER_DEFAULT_CONFIG = {
