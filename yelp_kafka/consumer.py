@@ -143,6 +143,13 @@ class KafkaSimpleConsumer(object):
         :type auto_offset_reset: string
         """
 
+        # We fallback in SimpleConsumer behavior if the auto_offsets_reset is
+        # not a valid value.
+        if auto_offset_reset not in ('smallest', 'largest'):
+            self.log.warning("auto_offset_reset set to %s."
+                             "Offset validation is disabled.",
+                             auto_offset_reset)
+            return
         # Disable autocommit to avoid committing offsets during seek
         saved_auto_commit = self.kafka_consumer.auto_commit
         self.kafka_consumer.auto_commit = False
@@ -156,17 +163,18 @@ class KafkaSimpleConsumer(object):
         # available offset
         if any([offset < available[k]
                 for k, offset in group_offsets.iteritems()]):
-            self.log.warning("Group offset for %s is too old..."
-                             "Resetting offset", self.topic)
             if auto_offset_reset == 'largest':
-                # Fetch the latest available offset (the newest message)
-                self.log.debug("Reset to latest offsets")
-                self.kafka_consumer.seek(-1, 2)
+                # Fetch the tail of the queue. There are no messages at this
+                # position, yet.
+                self.log.warning("Group offset for %s is too old..."
+                                 "Resetting to latest offsets", self.topic)
+                self.kafka_consumer.seek(0, 2)
             else:
                 # We don't need to seek the offset again to the earliest
                 # offset. Because the first seek call already changed the
                 # offsets.
-                self.log.debug("Reset to earliest offset")
+                self.log.warning("Group offset for %s is too old..."
+                                 "Resetting to earliest offsets", self.topic)
         else:
             # self.fetch_offsets is used for the kafka fetch request,
             # while self.offsets is used to store the last processed message
