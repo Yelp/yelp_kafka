@@ -15,6 +15,7 @@ def mock_kafka():
         mock.patch('yelp_kafka.consumer.KafkaClient', autospec=True),
         mock.patch('yelp_kafka.consumer.SimpleConsumer', autospec=True)
     ) as (mock_client, mock_consumer):
+        mock_consumer.return_value.auto_commit = True
         yield mock_client, mock_consumer
 
 
@@ -111,12 +112,36 @@ class TestKafkaSimpleConsumer(object):
                 {0: 12, 1: 12}, {0: 0, 1: 0}, None
             ]
             mock_obj = mock_consumer.return_value
-            type(mock_obj).auto_commit = True
             type(mock_obj).fetch_offsets = mock_offsets
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
             mock_obj.seek.assert_called_once_with(0, 0)
             mock_offsets.assert_called_with({0: 12, 1: 12})
+
+    def test_valid_offsets_no_auto_commit(self, config):
+        with mock_kafka() as (_, mock_consumer):
+            mock_obj = mock_consumer.return_value
+            mock_offsets = mock.PropertyMock(
+                side_effect=(
+                    {0: 12, 1: 12},  # Group
+                    {0: 0, 1: 0},  # Earliest available
+                    None,
+                ),
+            )
+            mock_obj.auto_commit = False
+            type(mock_obj).fetch_offsets = mock_offsets
+
+            consumer = KafkaSimpleConsumer('test_topic', config)
+            consumer.connect()
+
+            mock_obj.fetch_last_known_offsets.assert_called_once_with(
+                consumer.partitions,
+            )
+
+            # This always happens. It's how _validate_offsets figures out the
+            # earliest available offsets. However, we must make sure it only
+            # happens once. A seconds time would indicate an actual seek.
+            mock_obj.seek.assert_called_once_with(0, 0)
 
     def test__invalid_offsets_get_latest(self, config):
         with mock_kafka() as (_, mock_consumer):
@@ -125,7 +150,6 @@ class TestKafkaSimpleConsumer(object):
                 {0: 0, 1: 0}, {0: 12, 1: 12},
             ]
             mock_obj = mock_consumer.return_value
-            type(mock_obj).auto_commit = True
             type(mock_obj).fetch_offsets = mock_offsets
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
@@ -146,7 +170,6 @@ class TestKafkaSimpleConsumer(object):
             ]
             mock_obj = mock_consumer.return_value
             type(mock_obj).fetch_offsets = mock_offsets
-            type(mock_obj).auto_commit = True
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
             mock_obj.seek.assert_called_once_with(0, 0)
@@ -155,8 +178,6 @@ class TestKafkaSimpleConsumer(object):
         with mock_kafka() as (mock_client, mock_consumer):
             with mock.patch.object(KafkaSimpleConsumer,
                                    '_validate_offsets'):
-                mock_obj = mock_consumer.return_value
-                type(mock_obj).auto_commit = True
                 consumer = KafkaSimpleConsumer('test_topic', config)
                 consumer.connect()
                 consumer.close()
@@ -174,7 +195,7 @@ class TestKafkaSimpleConsumer(object):
             with mock.patch.object(KafkaSimpleConsumer,
                                    '_validate_offsets'):
                 mock_obj = mock_consumer.return_value
-                type(mock_obj).auto_commit = False
+                mock_obj.auto_commit = False
                 consumer = KafkaSimpleConsumer('test_topic', config)
                 consumer.connect()
                 consumer.close()
@@ -221,7 +242,7 @@ class TestKafkaConsumer(object):
             Message(1, 12346, 'key2', 'value2'),
             Message(1, 12347, 'key1', 'value3'),
         ])
-        with mock_kafka() as (mock_client, mock_consumer):
+        with mock_kafka() as (mock_client, _):
             with contextlib.nested(
                 mock.patch.object(KafkaSimpleConsumer, '_validate_offsets'),
                 mock.patch.object(KafkaSimpleConsumer, '__iter__',

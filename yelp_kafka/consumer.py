@@ -69,6 +69,10 @@ class KafkaSimpleConsumer(object):
                       self.config.get_simple_consumer_args().iteritems()])
         )
         self.kafka_consumer.provide_partition_info()
+        if not self.kafka_consumer.auto_commit:
+            self.kafka_consumer.fetch_last_known_offsets(
+                self.partitions,
+            )
         self._validate_offsets(self.config.auto_offset_reset)
 
     def __iter__(self):
