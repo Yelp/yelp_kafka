@@ -90,6 +90,12 @@ class KafkaSimpleConsumer(object):
                     value=kafka_message[1].value
                 )
 
+    def __enter__(self):
+        self.connect()
+
+    def __exit__(self, type, value, tb):
+        self.close()
+
     def close(self):
         """Disconnect from kafka.
         If auto_commit is enabled commit offsets before disconnecting.
