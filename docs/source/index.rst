@@ -15,7 +15,7 @@ See :ref:`consumer_group`.
 Getting Started
 ===============
 
-Yelp_kafka provides sligthly different functions to interact with kafka depending  
+Yelp_kafka provides slightly different functions to interact with kafka depending  
 interact with the scribe cluster or any other cluster (such as the standard one).
 
 Scribe cluster
@@ -123,7 +123,7 @@ If the code above is run in prod it creates a consumer for each datacenter and c
 Use ConsumerGroup to tail from scribe
 `````````````````````````````````````
 
-Yelp_kafka currently provides two *consumer group* interfaces for consuming from kafka. :py:class:`yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for consuming from high volume topics since it starts as many consumer as topic partitions. It also handles process monitoring and restart upon failures. :py:class:`yelp_kafka.consumer_group.ConsumerGroup` is used for single process consumers. It is the racommended class to use if you want to be able to start multiple instances of your consumer. Since ConsumerGroup periodically checks about changes in the number of partitions, it assures that your consumers will always receive messages from all of them.
+Yelp_kafka currently provides two *consumer group* interfaces for consuming from kafka. :py:class:`yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for consuming from high volume topics since it starts as many consumer as topic partitions. It also handles process monitoring and restart upon failures. :py:class:`yelp_kafka.consumer_group.ConsumerGroup` is used for single process consumers. It is the recommended class to use if you want to be able to start multiple instances of your consumer. Since ConsumerGroup periodically checks about changes in the number of partitions, it assures that your consumers will always receive messages from all of them.
 
 .. code-block:: python
 
@@ -188,7 +188,7 @@ Create a consumer for all topics ending with tools_infra standard kafka cluster.
    for message in consumer:
        print message
 
-This example makes use of the `KafkaConsumer`_ from kafka-python. This consumer class allows to consume from many topics from a kafka cluster. This solution cannot be considered efficient for high volume topics, though.
+This example makes use of the `KafkaConsumer`_ from kafka-python. This consumer class allows to consume from many topics from a kafka cluster. This solution cannot be considered efficient for high volume topics, though. The parameter *client_id* is optional and it identifies the connection between kafka and the client.
 
 .. _KafkaConsumer: http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.kafka
    
