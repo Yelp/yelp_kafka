@@ -2,6 +2,7 @@ from collections import defaultdict
 import logging
 import time
 
+from kafka.client import KafkaClient
 from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
 from kazoo.recipe.partitioner import PartitionState
@@ -9,7 +10,10 @@ from kazoo.recipe.partitioner import PartitionState
 from yelp_kafka.error import PartitionerError
 from yelp_kafka.utils import get_kafka_topics
 
-MAX_START_TIME_SECS = 30
+MAX_START_TIME_SECS = 300
+# The java kafka api updates every 600s by default. We update the
+# number of partitions every 120 seconds.
+PARTITIONS_REFRESH_TIMEOUT = 120
 
 
 class Partitioner(object):
@@ -26,12 +30,15 @@ class Partitioner(object):
     """
     def __init__(self, config, topics, acquire, release):
         self.kazooclient = KazooClient(config.zookeeper)
+        self.kafkaclient = KafkaClient(config.broker_list)
         self.topics = topics
         self.acquired_partitions = defaultdict(list)
         self.partitions_set = None
         self.acquire = acquire
         self.release = release
         self.config = config
+        self._force_partitions_refresh = True
+        self._last_partitions_refresh = 0
         self._partitioner = None
         self.log = logging.getLogger(self.__class__.__name__)
         self.actions = {
@@ -71,13 +78,17 @@ class Partitioner(object):
 
     def _refresh(self):
         while True:
-            partitions = self.get_partitions_set()
-            partitioner = self._get_partitioner(partitions)
+            partitioner = self._get_partitioner()
             self._handle_group(partitioner)
             if self.acquired_partitions:
                 break
 
-    def _get_partitioner(self, partitions):
+    def _need_partitions_refresh(self):
+        return (self._force_partitions_refresh or
+                self._last_partitions_refresh <
+                time.time() - PARTITIONS_REFRESH_TIMEOUT)
+
+    def _get_partitioner(self):
         """Get an instance of the partitioner. When the partitions set changes
          we need to destroy the partitioner and create another one.
         If the partitioner does not exist yet, create a new partitioner.
@@ -87,24 +98,23 @@ class Partitioner(object):
         :param partitions: the partitions set to use for partitioner.
         :type partitions: set
         """
-        if not self.partitions_set or not self._partitioner:
-            self._partitioner = self._create_partitioner(partitions)
-            self.partitions_set = partitions
-        elif partitions != self.partitions_set:
-            # If partitions changed we release the consumers, destroy the
-            # partitioner and disconnect from zookeeper.
-            self.log.warning(
-                "Partitions set changed. Rebalancing."
-                "New partitions: %s. Old partitions %s",
-                [p for p in partitions if p not in self.partitions_set],
-                [p for p in self.partitions_set if p not in partitions]
-            )
-            self._destroy_partitioner(self._partitioner)
-            # Wait for the group to settle on the new partitions set before
-            # creating a new partitioner.
-            time.sleep(self.config.partitioner_cooldown)
-            self._partitioner = self._create_partitioner(partitions)
-            self.partitions_set = partitions
+        if self._need_partitions_refresh() or not self._partitioner:
+            partitions = self.get_partitions_set()
+            if partitions != self.partitions_set:
+                # If partitions changed we release the consumers, destroy the
+                # partitioner and disconnect from zookeeper.
+                self.log.warning(
+                    "Partitions set changed. Rebalancing."
+                    "New partitions: %s. Old partitions %s",
+                    [p for p in partitions if p not in self.partitions_set],
+                    [p for p in self.partitions_set if p not in partitions]
+                )
+                # We need to destroy the existing partitioner before creating a new
+                # one.
+                if self._partitioner:
+                    self._destroy_partitioner(self._partitioner)
+                self._partitioner = self._create_partitioner(partitions)
+                self.partitions_set = partitions
         return self._partitioner
 
     def _create_partitioner(self, partitions):
@@ -168,6 +178,7 @@ class Partitioner(object):
         self.release(self.acquired_partitions)
         partitioner.release_set()
         self.acquired_partitions.clear()
+        self._force_partitions_refresh = True
 
     def _fail(self, partitioner):
         """Handle zookeeper failures.
@@ -183,6 +194,7 @@ class Partitioner(object):
             # to create a new one.
             self.partitions_set = None
             self._partitioner = None
+            self._force_partitions_refresh = True
 
     def _get_acquired_partitions(self, partitioner):
         """Retrieve acquired partitions from a partitioner.
@@ -202,13 +214,25 @@ class Partitioner(object):
 
         :returns: partitions for user topics
         :rtype: set
+        :raises PartitionerError: if no partitions have been found
         """
-        topic_partitions = get_kafka_topics(self.config.broker_list)
+        topic_partitions = get_kafka_topics(self.kafkaclient)
         partitions = []
+        missing_topics = set()
         for topic in self.topics:
             if topic not in topic_partitions:
-                self.log.warning("Topic %s does not exist in kafka", topic)
+                missing_topics.add(topic)
             else:
                 partitions += ["{0}-{1}".format(topic, p)
                                for p in topic_partitions[topic]]
+        if missing_topics:
+            self.log.warning("Missing topics: %s", missing_topics)
+        if not partitions:
+            raise PartitionerError(
+                "No partitions found for topics: {topics}".format(
+                    topics=self.topics
+                )
+            )
+        self._force_partitions_refresh = False
+        self._last_partitions_refresh = time.time()
         return set(partitions)
