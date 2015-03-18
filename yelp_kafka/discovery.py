@@ -56,7 +56,7 @@ def get_yelp_kafka_config(cluster_type, group_id, **extra):
     :param group_id: consumer group id
     :type group_id: string
     :param extra: extra arguments to use for creating the configuration
-    :returns: list :py:class:`yelp_kafka.config.KafkaConsumerConfig`
+    :returns: :py:class:`yelp_kafka.config.KafkaConsumerConfig`
     """
     cluster = get_local_cluster(cluster_type)
     return KafkaConsumerConfig(group_id=group_id, cluster=cluster, **extra)
@@ -87,7 +87,7 @@ def get_kafka_connection(cluster_type, client_id='yelp-kafka'):
     :param client_id: client_id to be used to connect to kafka.
     :type client_id: string
     :returns: KafkaClient
-    :raises DiscoveryError: :py:class:`yelp_kafka.error.DiscoveryError` upon failure connecting connecting to a cluster.
+    :raises DiscoveryError: :py:class:`yelp_kafka.error.DiscoveryError` upon failure connecting to a cluster.
     """
     cluster = get_local_cluster(cluster_type)
     try:
@@ -108,13 +108,9 @@ def get_all_kafka_connections(cluster_type, client_id='yelp-kafka'):
     :param client_id: client_id to be used to connect to kafka.
     :type client_id: string
     :returns: list (cluster_name, KafkaClient)
-    :raises DiscoveryError: :py:class:`yelp_kafka.error.DiscoveryError` upon failure connecting connecting to a cluster.
+    :raises DiscoveryError: :py:class:`yelp_kafka.error.DiscoveryError` upon failure connecting to a cluster.
 
-    .. note: This function create a KafkaClient for each cluster in a region
-       and tries to connect to it. If a cluster is not available it fails and
-       closes all the previous connections.
-    .. warning: Connecting to a cluster fails if the cluster is not in
-       the current runtime env.
+    .. note:: This function creates a KafkaClient for each cluster in a region and tries to connect to it. If a cluster is not available it fails and closes all the previous connections.
     """
 
     clusters = get_all_clusters(cluster_type)

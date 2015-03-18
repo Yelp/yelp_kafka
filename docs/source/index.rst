@@ -1,7 +1,7 @@
 Yelp Kafka v\ |version| 
 =======================
 
-Yelp_kafka is a library to interact with kafka at Yelp. Before reading about yelp_kafka you should at least have clear what a kafka topic and a topic partitions are. If these are obscure concept to you, we recommend you to read the introduction of `Kafka documentation`_.  
+Yelp_kafka is a library to interact with kafka at Yelp. Before reading about yelp_kafka you should at least have clear what a kafka topic and a topic partitions are. If these are obscure concepts to you, we recommend you to read the introduction of `Kafka documentation`_.  
 Yelp_kafka is a wrapper around kafka-python, it fixes some of the issues still present in
 the official kafka-python release (such as offset validation) and provides some Yelp
 specific functions for cluster discovery.
@@ -15,8 +15,7 @@ See :ref:`consumer_group`.
 Getting Started
 ===============
 
-Yelp_kafka provides slightly different functions to interact with kafka depending  
-interact with the scribe cluster or any other cluster (such as the standard one).
+Yelp_kafka provides slightly different functions to interact with the scribe cluster and any other cluster (such as the standard one).
 
 Scribe cluster
 --------------
@@ -34,7 +33,7 @@ The use cases below are the most common when you want to tail a scribe log from 
 Tail a scribe log in the local datacenter using KafkaSimpleConsumer
 ```````````````````````````````````````````````````````````````````
 
-Yelp_kafka knows what is both the local scribe cluster and the prefix of the local scribe topic. You can use yelp_kafka.discovery and KafkaSimpleConsumer to read messages from it. 
+Yelp_kafka knows what is both the local scribe cluster and the prefix of the local scribe topic. You can use :py:mod:`yelp_kafka.discovery` and KafkaSimpleConsumer to read messages from it. 
 
 Create a KafkaSimpleConsumer to tail from the local ranger log.
 
@@ -46,7 +45,7 @@ Create a KafkaSimpleConsumer to tail from the local ranger log.
 
    # If the stream does not exist, discovery returns None.
    topic, cluster = discovery.get_local_scribe_topic('ranger')
-   consumer = KafkaSimpleConsumer(topic, KafkaSimpleConsumer(
+   consumer = KafkaSimpleConsumer(topic, KafkaConsumerConfig(
        group_id='my_app',
        cluster=cluster
    ))
@@ -54,7 +53,7 @@ Create a KafkaSimpleConsumer to tail from the local ranger log.
        for message in consumer:
            print message
 
-The code above can be run in a box in devc and it will consume messages from ranger in devc. The same goes for all the other datacenters. Each consumer needs to specify a group_id. The group_id should represent the application/service that consumer belongs to. Using the topic name or datacenter as part of the consumer group id is not really useful. Kafka already uses the topic name to distinguish between consumers of different topics in the same group id.
+The code above can be run in a box in devc and it will consume messages from ranger in devc. The same goes for all the other datacenters. Each consumer needs to specify a ``group_id``. The ``group_id`` should represent the application/service that consumer belongs to. Using the topic name or datacenter as part of the consumer group id is not really useful. Kafka already uses the topic name to distinguish between consumers of different topics in the same group id.
 
 .. warning:: You can't have 2 consumers for the same topic/partition in the same consumer group. If you are planning to have multiple instances of the same application for a better scalability and reliability you need to use :ref:`consumer_group`. See :ref:`group_example`.
 
@@ -73,8 +72,8 @@ Create a KafkaSimpleConsumer to tail from sfo2 ranger.
    from yelp_kafka.config import KafkaConsumerConfig
 
    # If the stream does not exist, discovery returns None.
-   topic, cluster = discovery.get_local_scribe_topic_in_datacenter('ranger', 'sfo2')
-   consumer = KafkaSimpleConsumer(topic, KafkaSimpleConsumer(
+   topic, cluster = discovery.get_scribe_topic_in_datacenter('ranger', 'sfo2')
+   consumer = KafkaSimpleConsumer(topic, KafkaConsumerConfig(
        group_id='my_app',
        cluster=cluster,
        auto_offset_reset='smallest',
@@ -84,7 +83,7 @@ Create a KafkaSimpleConsumer to tail from sfo2 ranger.
        for message in consumer:
            print message
 
-The code about creates a consumer for the ranger log coming from sfo2. The consumer has also set the optional paramenter *auto_offset_reset* and *auto_commit_every_n*. The former instructs the consumer to fetch the earliest (default: oldest) message in the queue if the group offset is too old or not valid, the latter sets the number of message consumed before committing the offset to kafka (default: 100).
+The code about creates a consumer for the ranger log coming from sfo2. The consumer has also set the optional paramenter ``auto_offset_reset`` and ``auto_commit_every_n``. The former instructs the consumer to fetch the earliest (default: oldest) message in the queue if the group offset is too old or not valid, the latter sets the number of message consumed before committing the offset to kafka (default: 100).
 
 .. note:: The datacenter has to be available from your current runtime env.
 .. seealso:: :ref:`config` for all the available configuration options. 
@@ -173,7 +172,7 @@ Create a consumer for my_topic in the local standard kafka cluster.
            print message
 
 
-Create a consumer for all topics ending with tools_infra standard kafka cluster.
+Create a consumer for all topics ending with tools_infra in the standard kafka cluster.
 
 .. code-block:: python
 
@@ -194,6 +193,7 @@ This example makes use of the `KafkaConsumer`_ from kafka-python. This consumer 
    
 
 Contents:
+=========
 
 .. toctree::
    :maxdepth: 2
