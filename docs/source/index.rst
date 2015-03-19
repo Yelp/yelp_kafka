@@ -102,7 +102,7 @@ In order to tail a scribe stream from all the datacenters in the current runtime
 
    # If the stream does not exist, discovery returns None.
    topics = discovery.get_scribe_topics('ranger')
-   consumers = [KafkaSimpleConsumer(topic, KafkaSimpleConsumer(
+   consumers = [KafkaSimpleConsumer(topic, KafkaConsumerConfig(
        group_id='my_app',
        cluster=cluster,
    )) for topic, cluster in topics]
@@ -161,7 +161,7 @@ Create a consumer for my_topic in the local standard kafka cluster.
 
    # If the topic does not exist, discovery returns None.
    topic, cluster = discovery.search_local_topic('standard', 'my_topic')
-   consumer = KafkaSimpleConsumer(topic, KafkaSimpleConsumer(
+   consumer = KafkaSimpleConsumer(topic, KafkaConsumerConfig(
        group_id='my_app',
        cluster=cluster,
        auto_offset_reset='smallest',
