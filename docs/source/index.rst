@@ -91,7 +91,7 @@ This example makes use of the `KafkaConsumer`_ from kafka-python. This consumer 
 Scribe cluster
 --------------
 
-Yelp_Kafka provides some helper functions to interact with the scribe Kafka cluster. 
+Yelp_Kafka provides some helper functions to interact with the scribe Kafka cluster.
 Scribe Kafka is a dedicated cluster for scribe streams. This cluster contains all the logs from
 our scribe infrastructure. This has to be considered as a readonly cluster. Indeed, no producers
 other than Sekretar are allowed to connect to this cluster, create new topics or write messages on it.
