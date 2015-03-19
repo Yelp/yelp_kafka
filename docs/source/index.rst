@@ -20,6 +20,33 @@ Standard clusters
 
 :py:mod:`yelp_kafka.discovery` provides functions for connecting to any Kafka clusters at Yelp and search topics on it. While in the scribe Kafka cluster the stream name and datacenter identifies a specific topic, in the other clusters there are currently no conventions for topic naming.
 
+Producer
+````````
+
+Create a producer for my_topic in the local standard Kafka cluster.
+
+.. code-block:: python
+
+   from yelp_kafka import discovery
+   from kafka import SimpleProducer
+
+   # Get a connected KafkaClient from yelp_kafka
+   client = discovery.get_kafka_connection('standard')
+   # Create the producer and send 2 messages
+   producer = SimpleProducer(client)
+   producer.send_messages("my_topic", "message1", "message2")
+
+
+This example makes use of the `SimpleProducer`_ class from kafka-python.
+
+.. seealso:: kafka-python `usage examples`_
+
+.. _usage examples: http://kafka-python.readthedocs.org/en/latest/usage.html
+.. _SimpleProducer: http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.producer.html
+
+Consumer
+````````
+
 Create a consumer for my_topic in the local standard Kafka cluster.
 
 .. code-block:: python
