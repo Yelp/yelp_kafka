@@ -1,12 +1,12 @@
-Yelp Kafka v\ |version| 
+Yelp_Kafka v\ |version|
 =======================
 
-Yelp_kafka is a library to interact with kafka at Yelp. Before reading about yelp_kafka you should at least have clear what a kafka topic and a topic partitions are. If these are obscure concepts to you, we recommend you to read the introduction of `Kafka documentation`_.  
-Yelp_kafka is a wrapper around kafka-python, it fixes some of the issues still present in
+Yelp_Kafka is a library to interact with Kafka at Yelp. Before reading about Yelp_Kafka you should at least have clear what a Kafka topic and a topic partitions are. If these are obscure concepts to you, we recommend you to read the introduction of `Kafka documentation`_.
+Yelp_Kafka is a wrapper around kafka-python, it fixes some of the issues still present in
 the official kafka-python release (such as offset validation) and provides some Yelp
 specific functions for cluster discovery.
-Yelp_kafka supports consumer group and multiprocessing consumer group, that allow multiple
-consumer instances to coordinate with each other while consuming messages from different kafka partitions.
+Yelp_Kafka supports consumer groups and multiprocessing consumer groups, that allow multiple
+consumer instances to coordinate with each other while consuming messages from different Kafka partitions.
 
 See :ref:`consumer_group`.
 
@@ -15,25 +15,71 @@ See :ref:`consumer_group`.
 Getting Started
 ===============
 
-Yelp_kafka provides slightly different functions to interact with the scribe cluster and any other cluster (such as the standard one).
+Standard clusters
+-----------------
+
+:py:mod:`yelp_kafka.discovery` provides functions for connecting to any Kafka clusters at Yelp and search topics on it. While in the scribe Kafka cluster the stream name and datacenter identifies a specific topic, in the other clusters there are currently no conventions for topic naming.
+
+Create a consumer for my_topic in the local standard Kafka cluster.
+
+.. code-block:: python
+
+   from yelp_kafka import discovery
+   from yelp_kafka.consumer import KafkaSimpleConsumer
+   from yelp_kafka.config import KafkaConsumerConfig
+
+   # If the topic does not exist, discovery returns None.
+   topic, cluster = discovery.search_local_topic('standard', 'my_topic')
+   consumer = KafkaSimpleConsumer(topic, KafkaConsumerConfig(
+       group_id='my_app',
+       cluster=cluster,
+       auto_offset_reset='smallest',
+       auto_commit_every_n=1
+   ))
+   with consumer:
+       for message in consumer:
+           print message
+
+
+Create a consumer for all topics ending with tools_infra in the standard Kafka cluster.
+
+.. code-block:: python
+
+   from yelp_kafka import discovery
+   from yelp_kafka.config import KafkaConsumerConfig
+   from kafka import KafkaConsumer
+
+   # If the topic does not exist, discovery returns None.
+   topics, cluster = discovery.search_local_topic_by_regex('standard', '.*tools_infra')
+   config = KafkaConsumerConfig(group_id='my_app', cluster=cluster, client_id='my-consumer')
+   consumer = KafkaConsumer(topics, **config.get_kafka_consumer_config())
+   for message in consumer:
+       print message
+
+This example makes use of the `KafkaConsumer`_ from kafka-python. This consumer class allows to consume from many topics from a Kafka cluster. This solution cannot be considered efficient for high volume topics, though. The parameter *client_id* is optional and it identifies the connection between Kafka and the client.
+
+.. _KafkaConsumer: http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.kafka
+
 
 Scribe cluster
 --------------
 
-Scribe kafka is a dedicated cluster for scribe streams. This cluster contains all the logs from
+Yelp_Kafka provides some helper functions to interact with the scribe Kafka cluster. 
+Scribe Kafka is a dedicated cluster for scribe streams. This cluster contains all the logs from
 our scribe infrastructure. This has to be considered as a readonly cluster. Indeed, no producers
 other than Sekretar are allowed to connect to this cluster, create new topics or write messages on it.
 
-All the topics in the scribe kafka are named after the scribe stream they represent. 
+All the topics in the scribe Kafka are named after the scribe stream they represent.
 The topic name follows the template: **scribe.<datacenter>.<stream>**.
-You usually don't need to generate the topic name, since yelp_kafka will do that for you.
+You usually don't need to generate the topic name, since Yelp_Kafka will do that for you.
 
-The use cases below are the most common when you want to tail a scribe log from kafka.
+The use cases below are the most common when you want to tail a scribe log from Kafka.
+
 
 Tail a scribe log in the local datacenter using KafkaSimpleConsumer
 ```````````````````````````````````````````````````````````````````
 
-Yelp_kafka knows what is both the local scribe cluster and the prefix of the local scribe topic. You can use :py:mod:`yelp_kafka.discovery` and KafkaSimpleConsumer to read messages from it. 
+Yelp_Kafka knows what is both the local scribe cluster and the prefix of the local scribe topic. You can use :py:mod:`yelp_kafka.discovery` and KafkaSimpleConsumer to read messages from it.
 
 Create a KafkaSimpleConsumer to tail from the local ranger log.
 
@@ -83,10 +129,10 @@ Create a KafkaSimpleConsumer to tail from sfo2 ranger.
        for message in consumer:
            print message
 
-The code about creates a consumer for the ranger log coming from sfo2. The consumer has also set the optional paramenter ``auto_offset_reset`` and ``auto_commit_every_n``. The former instructs the consumer to fetch the earliest (default: oldest) message in the queue if the group offset is too old or not valid, the latter sets the number of message consumed before committing the offset to kafka (default: 100).
+The code about creates a consumer for the ranger log coming from sfo2. The consumer has also set the optional paramenter ``auto_offset_reset`` and ``auto_commit_every_n``. The former instructs the consumer to fetch the earliest (default: oldest) message in the queue if the group offset is too old or not valid, the latter sets the number of message consumed before committing the offset to Kafka (default: 100).
 
 .. note:: The datacenter has to be available from your current runtime env.
-.. seealso:: :ref:`config` for all the available configuration options. 
+.. seealso:: :ref:`config` for all the available configuration options.
 
 Tail a scribe log from all the datacenters using KafkaSimpleConsumer
 ````````````````````````````````````````````````````````````````````
@@ -122,7 +168,7 @@ If the code above is run in prod it creates a consumer for each datacenter and c
 Use ConsumerGroup to tail from scribe
 `````````````````````````````````````
 
-Yelp_kafka currently provides two *consumer group* interfaces for consuming from kafka. :py:class:`yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for consuming from high volume topics since it starts as many consumer as topic partitions. It also handles process monitoring and restart upon failures. :py:class:`yelp_kafka.consumer_group.ConsumerGroup` is used for single process consumers. It is the recommended class to use if you want to be able to start multiple instances of your consumer. Since ConsumerGroup periodically checks about changes in the number of partitions, it assures that your consumers will always receive messages from all of them.
+Yelp_Kafka currently provides two *consumer group* interfaces for consuming from Kafka. :py:class:`yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for consuming from high volume topics since it starts as many consumer as topic partitions. It also handles process monitoring and restart upon failures. :py:class:`yelp_kafka.consumer_group.ConsumerGroup` is used for single process consumers. It is the recommended class to use if you want to be able to start multiple instances of your consumer. Since ConsumerGroup periodically checks about changes in the number of partitions, it assures that your consumers will always receive messages from all of them.
 
 .. code-block:: python
 
@@ -132,7 +178,7 @@ Yelp_kafka currently provides two *consumer group* interfaces for consuming from
 
    # If the stream does not exist, discovery returns None.
    topic, cluster = discovery.get_local_scribe_topic('ranger')
-   
+
    def my_process_function(message):
        print message
 
@@ -145,52 +191,6 @@ Yelp_kafka currently provides two *consumer group* interfaces for consuming from
         my_process_function
    )
    consumer.run()
-
-Generic clusters
-----------------
-
-:py:mod:`yelp_kafka.discovery` provides functions for connecting to any kafka clusters at Yelp and search topics on it. While in the scribe kafka cluster the stream name and datacenter identifies a specific topic, in the other clusters there are currently no conventions for topic naming. 
-
-Create a consumer for my_topic in the local standard kafka cluster.
-
-.. code-block:: python
-
-   from yelp_kafka import discovery
-   from yelp_kafka.consumer import KafkaSimpleConsumer
-   from yelp_kafka.config import KafkaConsumerConfig
-
-   # If the topic does not exist, discovery returns None.
-   topic, cluster = discovery.search_local_topic('standard', 'my_topic')
-   consumer = KafkaSimpleConsumer(topic, KafkaConsumerConfig(
-       group_id='my_app',
-       cluster=cluster,
-       auto_offset_reset='smallest',
-       auto_commit_every_n=1
-   ))
-   with consumer:
-       for message in consumer:
-           print message
-
-
-Create a consumer for all topics ending with tools_infra in the standard kafka cluster.
-
-.. code-block:: python
-
-   from yelp_kafka import discovery
-   from yelp_kafka.config import KafkaConsumerConfig
-   from kafka import KafkaConsumer
-
-   # If the topic does not exist, discovery returns None.
-   topics, cluster = discovery.search_local_topic_by_regex('standard', '.*tools_infra')
-   config = KafkaConsumerConfig(group_id='my_app', cluster=cluster, client_id='my-consumer')
-   consumer = KafkaConsumer(topics, **config.get_kafka_consumer_config())
-   for message in consumer:
-       print message
-
-This example makes use of the `KafkaConsumer`_ from kafka-python. This consumer class allows to consume from many topics from a kafka cluster. This solution cannot be considered efficient for high volume topics, though. The parameter *client_id* is optional and it identifies the connection between kafka and the client.
-
-.. _KafkaConsumer: http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.kafka
-   
 
 Contents:
 =========
