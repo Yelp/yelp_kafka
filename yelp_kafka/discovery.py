@@ -137,6 +137,7 @@ def discover_topics(cluster):
     :param cluster: config of the cluster to get topics from
     :type cluster: ClusterConfig
     :returns: a dict <topic>: <[partitions]>
+    :raises DiscoveryError: upon failure to request topics from kafka
     """
     try:
         return get_kafka_topics(cluster.broker_list)
@@ -188,7 +189,12 @@ def search_topic_in_all_clusters(cluster_type, topic):
     :returns: list (topic, cluster_config).
     """
     clusters = get_all_clusters(cluster_type)
-    return search_topic(topic, clusters)
+    results = search_topic(topic, clusters)
+    if not results:
+        raise DiscoveryError("Topic {topic} does not exist".format(
+            topic=topic
+        ))
+    return results
 
 
 def search_topics_by_regex(pattern, clusters=None):
@@ -216,6 +222,7 @@ def search_local_topics_by_regex(cluster_type, pattern):
     :type cluster_type: string
     :param pattern: regex to match topics
     :returns: ([topics], cluster).
+    :raises DiscoveryError: if the topic does not exist
     """
     cluster = get_local_cluster(cluster_type)
     result = search_topics_by_regex(pattern, [cluster])
@@ -236,9 +243,17 @@ def search_topics_by_regex_in_all_clusters(cluster_type, pattern):
     :type cluster_type: string
     :param pattern: regex to match topics
     :returns: a list of tuples ([topics], cluster).
+    :raises DiscoveryError: if the topic does not exist
     """
     clusters = get_all_clusters(cluster_type)
-    return search_topics_by_regex(pattern, clusters)
+    results = search_topics_by_regex(pattern, clusters)
+    if not results:
+        raise DiscoveryError(
+            "No Kafka topics for pattern {pattern}".format(
+                pattern=pattern
+            )
+        )
+    return results
 
 
 def local_scribe_topic_exists(stream):
