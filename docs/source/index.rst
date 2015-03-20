@@ -55,9 +55,8 @@ Create a consumer for my_topic in the local standard Kafka cluster.
    from yelp_kafka.consumer import KafkaSimpleConsumer
    from yelp_kafka.config import KafkaConsumerConfig
 
-   # If the topic does not exist, discovery returns None.
-   topic, cluster = discovery.search_local_topic('standard', 'my_topic')
-   consumer = KafkaSimpleConsumer(topic, KafkaConsumerConfig(
+   cluster = discovery.get_local_cluster('standard')
+   consumer = KafkaSimpleConsumer('my_topic', KafkaConsumerConfig(
        group_id='my_app',
        cluster=cluster,
        auto_offset_reset='smallest',
@@ -76,7 +75,7 @@ Create a consumer for all topics ending with tools_infra in the standard Kafka c
    from yelp_kafka.config import KafkaConsumerConfig
    from kafka import KafkaConsumer
 
-   # If the topic does not exist, discovery returns None.
+   # If no topics match the pattern, discovery raises DiscoveryError.
    topics, cluster = discovery.search_local_topic_by_regex('standard', '.*tools_infra')
    config = KafkaConsumerConfig(group_id='my_app', cluster=cluster, client_id='my-consumer')
    consumer = KafkaConsumer(topics, **config.get_kafka_consumer_config())
@@ -116,7 +115,7 @@ Create a KafkaSimpleConsumer to tail from the local ranger log.
    from yelp_kafka.consumer import KafkaSimpleConsumer
    from yelp_kafka.config import KafkaConsumerConfig
 
-   # If the stream does not exist, discovery returns None.
+   # If the stream does not exist, discovery raises DiscoveryError.
    topic, cluster = discovery.get_local_scribe_topic('ranger')
    consumer = KafkaSimpleConsumer(topic, KafkaConsumerConfig(
        group_id='my_app',
@@ -144,7 +143,7 @@ Create a KafkaSimpleConsumer to tail from sfo2 ranger.
    from yelp_kafka.consumer import KafkaSimpleConsumer
    from yelp_kafka.config import KafkaConsumerConfig
 
-   # If the stream does not exist, discovery returns None.
+   # If the stream does not exist, discovery raises DiscoveryError.
    topic, cluster = discovery.get_scribe_topic_in_datacenter('ranger', 'sfo2')
    consumer = KafkaSimpleConsumer(topic, KafkaConsumerConfig(
        group_id='my_app',
@@ -173,7 +172,7 @@ In order to tail a scribe stream from all the datacenters in the current runtime
    from yelp_kafka.consumer import KafkaSimpleConsumer
    from yelp_kafka.config import KafkaConsumerConfig
 
-   # If the stream does not exist, discovery returns None.
+   # If the stream does not exist, discovery raises DiscoveryError.
    topics = discovery.get_scribe_topics('ranger')
    consumers = [KafkaSimpleConsumer(topic, KafkaConsumerConfig(
        group_id='my_app',
@@ -203,7 +202,7 @@ Yelp_Kafka currently provides two *consumer group* interfaces for consuming from
    from yelp_kafka.consumer_group import ConsumerGroup
    from yelp_kafka.config import KafkaConsumerConfig
 
-   # If the stream does not exist, discovery returns None.
+   # If the stream does not exist, discovery raises DiscoveryError.
    topic, cluster = discovery.get_local_scribe_topic('ranger')
 
    def my_process_function(message):
