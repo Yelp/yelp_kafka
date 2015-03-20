@@ -141,13 +141,14 @@ def discover_topics(cluster):
     :type cluster: ClusterConfig
     :returns: a dict <topic>: <[partitions]>
     """
+    client = KafkaClient(cluster.broker_list)
     try:
-        return get_kafka_topics(cluster.broker_list)
+        return get_kafka_topics(client)
     except:
         log.exception("Topics discovery failed for %s",
                       cluster.broker_list)
         raise DiscoveryError("Failed to get topics information from "
-                             "{0}".format(cluster.broker_list))
+                             "{cluster}".format(cluster=cluster))
 
 
 def search_topic(topic, clusters=None):
