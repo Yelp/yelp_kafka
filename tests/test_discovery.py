@@ -35,13 +35,13 @@ def test_get_all_clusters(mock_topology):
 
 
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
-def test_get_yelp_kafka_config(mock_get_cluster):
+def test_get_consumer_config(mock_get_cluster):
     my_cluster = ClusterConfig('cluster1', ['mybroker'], 'zk_hosts/kafka')
     mock_get_cluster.return_value = my_cluster
     with mock.patch("yelp_kafka.discovery.KafkaConsumerConfig",
                     autospec=True) as mock_config:
         mock_config.return_value = mock.sentinel.kafka_config
-        actual = discovery.get_yelp_kafka_config(
+        actual = discovery.get_consumer_config(
             "mycluster", group_id='mygroup', auto_offset_reset='largest')
         mock_config.assert_called_once_with(
             cluster=my_cluster, group_id='mygroup',
@@ -51,12 +51,12 @@ def test_get_yelp_kafka_config(mock_get_cluster):
 
 
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
-def test_get_all_yelp_kafka_config(mock_get_clusters, mock_clusters):
+def test_get_all_consumer_config(mock_get_clusters, mock_clusters):
     mock_get_clusters.return_value = mock_clusters
     with mock.patch("yelp_kafka.discovery.KafkaConsumerConfig",
                     autospec=True) as mock_config:
         mock_config.return_value = mock.sentinel.kafka_config
-        actual = discovery.get_all_yelp_kafka_config(
+        actual = discovery.get_all_consumer_config(
             "mycluster", group_id='mygroup', auto_offset_reset='largest')
         assert mock_config.call_args_list == [
             mock.call(cluster=mock_clusters[0], group_id='mygroup',
@@ -122,7 +122,8 @@ def test_get_all_kafka_connections_error(mock_get_clusters, mock_clusters):
 
 
 @mock.patch("yelp_kafka.discovery.get_kafka_topics", autospec=True)
-def test_discover_topics(mock_topics):
+@mock.patch("yelp_kafka.discovery.KafkaClient", autospec=True)
+def test_discover_topics(mock_kafka, mock_topics):
     expected = {
         'topic1': [0, 1, 2, 3],
         'topic2': [0]
@@ -135,7 +136,8 @@ def test_discover_topics(mock_topics):
 
 
 @mock.patch("yelp_kafka.discovery.get_kafka_topics", autospec=True)
-def test_discover_topics_error(mock_topics):
+@mock.patch("yelp_kafka.discovery.KafkaClient", autospec=True)
+def test_discover_topics_error(mock_kafka, mock_topics):
     mock_topics.side_effect = Exception("Boom!")
     with pytest.raises(DiscoveryError):
         discovery.discover_topics(

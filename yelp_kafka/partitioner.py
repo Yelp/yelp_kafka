@@ -33,12 +33,12 @@ class Partitioner(object):
         self.kafkaclient = KafkaClient(config.broker_list)
         self.topics = topics
         self.acquired_partitions = defaultdict(list)
-        self.partitions_set = None
+        self.partitions_set = set()
         self.acquire = acquire
         self.release = release
         self.config = config
-        self._force_partitions_refresh = True
-        self._last_partitions_refresh = 0
+        self.force_partitions_refresh = True
+        self.last_partitions_refresh = 0
         self._partitioner = None
         self.log = logging.getLogger(self.__class__.__name__)
         self.actions = {
@@ -83,9 +83,9 @@ class Partitioner(object):
             if self.acquired_partitions:
                 break
 
-    def _need_partitions_refresh(self):
-        return (self._force_partitions_refresh or
-                self._last_partitions_refresh <
+    def need_partitions_refresh(self):
+        return (self.force_partitions_refresh or
+                self.last_partitions_refresh <
                 time.time() - PARTITIONS_REFRESH_TIMEOUT)
 
     def _get_partitioner(self):
@@ -98,8 +98,10 @@ class Partitioner(object):
         :param partitions: the partitions set to use for partitioner.
         :type partitions: set
         """
-        if self._need_partitions_refresh() or not self._partitioner:
+        if self.need_partitions_refresh() or not self._partitioner:
             partitions = self.get_partitions_set()
+            self.force_partitions_refresh = False
+            self.last_partitions_refresh = time.time()
             if partitions != self.partitions_set:
                 # If partitions changed we release the consumers, destroy the
                 # partitioner and disconnect from zookeeper.
@@ -178,7 +180,7 @@ class Partitioner(object):
         self.release(self.acquired_partitions)
         partitioner.release_set()
         self.acquired_partitions.clear()
-        self._force_partitions_refresh = True
+        self.force_partitions_refresh = True
 
     def _fail(self, partitioner):
         """Handle zookeeper failures.
@@ -194,7 +196,7 @@ class Partitioner(object):
             # to create a new one.
             self.partitions_set = None
             self._partitioner = None
-            self._force_partitions_refresh = True
+            self.force_partitions_refresh = True
 
     def _get_acquired_partitions(self, partitioner):
         """Retrieve acquired partitions from a partitioner.
@@ -233,6 +235,4 @@ class Partitioner(object):
                     topics=self.topics
                 )
             )
-        self._force_partitions_refresh = False
-        self._last_partitions_refresh = time.time()
         return set(partitions)

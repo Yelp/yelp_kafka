@@ -19,7 +19,8 @@ class TestPartitioner(object):
 
     @pytest.fixture
     @mock.patch('yelp_kafka.partitioner.KazooClient', autospec=True)
-    def partitioner(self, kazoo, config):
+    @mock.patch('yelp_kafka.partitioner.KafkaClient', autospec=True)
+    def partitioner(self, kazoo, kafka, config):
         return Partitioner(config, self.topics, mock.Mock(), mock.Mock())
 
     def test_get_partitions_set(self, partitioner):
@@ -72,55 +73,76 @@ class TestPartitioner(object):
         partitioner._handle_group(mock_kpartitioner)
         mock_kpartitioner.wait_for_acquire.assert_called_once_with()
 
-    def test__get_partitioner(self, partitioner, config):
+    def test__get_partitioner_no_partitions_change(self, partitioner):
+        expected_partitions = set(['top-1', 'top1-2'])
+        with contextlib.nested(
+            mock.patch.object(Partitioner, '_create_partitioner',
+                              side_effect=[mock.sentinel.partitioner1,
+                                           mock.sentinel.partitioner2]),
+            mock.patch.object(Partitioner, '_destroy_partitioner'),
+            mock.patch.object(Partitioner, 'get_partitions_set'),
+        ) as (mock_create, mock_destroy, mock_partitions):
+            mock_partitions.return_value = expected_partitions
+            # force partitions refresh is True when the partitioner starts
+            assert partitioner.need_partitions_refresh()
+            actual = partitioner._get_partitioner()
+            assert actual == mock.sentinel.partitioner1
+            assert partitioner.partitions_set == expected_partitions
+            assert not partitioner.need_partitions_refresh()
+
+            # Call the partitioner again with the same partitions set and be sure
+            # it does not create a new one
+            partitioner.force_partitions_refresh = True
+            actual = partitioner._get_partitioner()
+            assert partitioner.partitions_set is expected_partitions
+            assert actual == mock.sentinel.partitioner1
+            assert mock_create.call_count == 1
+            assert not partitioner.need_partitions_refresh()
+
+    def test__get_partitioner_partitions_change(self, partitioner):
         # We create a new partitioner, then we change the partitions
         # and we expect the partitioner to be destroyed.
-        # Afterwards, the partitioner should be recreated for the new
-        # partitions set.
         expected_partitions = set(['top-1', 'top1-2'])
 
         with contextlib.nested(
             mock.patch.object(Partitioner, '_create_partitioner',
                               side_effect=[mock.sentinel.partitioner1,
                                            mock.sentinel.partitioner2]),
-            mock.patch.object(Partitioner, '_destroy_partitioner')
-        ) as (mock_create, mock_destroy):
-            actual = partitioner._get_partitioner(
-                expected_partitions
-            )
+            mock.patch.object(Partitioner, '_destroy_partitioner'),
+            mock.patch.object(Partitioner, 'get_partitions_set'),
+        ) as (mock_create, mock_destroy, mock_partitions):
+            mock_partitions.return_value = expected_partitions
+            # force partitions refresh is True when the partitioner starts
+            assert partitioner.need_partitions_refresh()
+            actual = partitioner._get_partitioner()
             assert actual == mock.sentinel.partitioner1
             assert partitioner.partitions_set == expected_partitions
+            assert not partitioner.need_partitions_refresh()
 
             # Change the partitions and test the partitioner gets destroyed for
             # rebalancing
+            partitioner.force_partitions_refresh = True
             new_expected_partitions = set(['top-1', 'top1-2', 'top1-3'])
-            actual = partitioner._get_partitioner(
-                new_expected_partitions
-            )
+            mock_partitions.return_value = new_expected_partitions
+            actual = partitioner._get_partitioner()
             assert partitioner.partitions_set is new_expected_partitions
             assert mock_destroy.called
             assert actual == mock.sentinel.partitioner2
             assert mock_create.call_count == 2
+            assert not partitioner.need_partitions_refresh()
 
-            # Call the partitioner again with the same partitions set and be sure
-            # it does not create a new one
-            actual = partitioner._get_partitioner(
-                new_expected_partitions
-            )
-            assert partitioner.partitions_set is new_expected_partitions
-            assert actual == mock.sentinel.partitioner2
-            assert mock_create.call_count == 2
-
+    @mock.patch('yelp_kafka.partitioner.KafkaClient', autospec=True)
     @mock.patch('yelp_kafka.partitioner.KazooClient')
-    def test__destroy_partitioner(self, mock_kazoo, config):
+    def test__destroy_partitioner(self, mock_kazoo, _, config):
         mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
         partitioner._destroy_partitioner(mock_kpartitioner)
         mock_kpartitioner.finish.assert_called_once()
         mock_kazoo.stop.assert_called_once()
 
+    @mock.patch('yelp_kafka.partitioner.KafkaClient', autospec=True)
     @mock.patch('yelp_kafka.partitioner.KazooClient')
-    def test__create_partitioner(self, mock_kazoo, config):
+    def test__create_partitioner(self, mock_kazoo, _, config):
         mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
         mock_kazoo.return_value.SetPartitioner.return_value = mock_kpartitioner
         mock_kazoo.return_value.state = KazooState.CONNECTED
@@ -136,8 +158,9 @@ class TestPartitioner(object):
         )
         assert not mock_kazoo.return_value.start.called
 
+    @mock.patch('yelp_kafka.partitioner.KafkaClient', autospec=True)
     @mock.patch('yelp_kafka.partitioner.KazooClient')
-    def test__create_partitioner_no_kazoo_connection(self, mock_kazoo, config):
+    def test__create_partitioner_no_kazoo_connection(self, mock_kazoo, _, config):
         mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
         mock_kazoo.return_value.SetPartitioner.return_value = mock_kpartitioner
         mock_kazoo.return_value.state = KazooState.LOST

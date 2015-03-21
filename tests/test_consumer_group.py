@@ -9,11 +9,11 @@ from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
 from yelp_kafka.error import ProcessMessageError
 
 
+@mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
 class TestConsumerGroup(object):
 
     topic = 'topic1'
 
-    @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
     def test__consume(self, mock_partitioner, config):
         group = ConsumerGroup(self.topic, config, mock.Mock())
         group.consumer = mock.MagicMock()
@@ -28,7 +28,6 @@ class TestConsumerGroup(object):
         ]
         mock_partitioner.return_value.refresh.assert_called_once_with()
 
-    @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
     def test__consume_error(self, mock_partitioner, config):
         group = ConsumerGroup(self.topic, config, mock.Mock(side_effect=Exception("Boom!")))
         group.consumer = mock.MagicMock()
@@ -40,7 +39,7 @@ class TestConsumerGroup(object):
             group._consume(refresh_timeout=1)
 
     @mock.patch('yelp_kafka.consumer_group.KafkaSimpleConsumer', autospec=True)
-    def test__acquire(self, mock_consumer, config):
+    def test__acquire(self, mock_consumer, _, config):
         group = ConsumerGroup(self.topic, config, mock.Mock())
         partitions = {self.topic: [0, 1]}
         group._acquire(partitions)
@@ -51,7 +50,7 @@ class TestConsumerGroup(object):
         mock_consumer.return_value.connect.assert_called_once_with()
 
     @mock.patch('yelp_kafka.consumer_group.KafkaSimpleConsumer', autospec=True)
-    def test__release(self, mock_consumer, config):
+    def test__release(self, mock_consumer, _, config):
         group = ConsumerGroup(self.topic, config, mock.Mock())
         partitions = {self.topic: [0, 1]}
         group._acquire(partitions)
