@@ -32,12 +32,17 @@ class ConsumerGroup(object):
 
     .. code-block:: python
 
+       from yelp_kafka import discovery
+       from yelp_kafka.config import KafkaConsumerConfig
+       from yelp_kafka.consumer_group import ConsumerGroup
+
+       cluster = discovery.get_local_cluster('standard')
+       config = KafkaConsumerConfig('my_group', cluster)
+
        def my_process_function(message):
            partition, offset, key, value = message
            print partition, offset, key, value
 
-       config = {'brokers': ['kafka_host:9092'], 'zk_hosts': ['zookeeper:2181'],
-                 'group_id': 'my_group'}
        consumer = ConsumerGroup('test_topic', config, my_process_function)
        consumer.run()
 
@@ -138,6 +143,8 @@ class MultiprocessingConsumerGroup(object):
     .. code-block:: python
 
        from threading import Thread
+       from yelp_kafka import discovery
+       from yelp_kafka.config import KafkaConsumerConfig
        from yelp_kafka.consumer import KafkaConsumer
        from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
 
@@ -155,6 +162,9 @@ class MultiprocessingConsumerGroup(object):
            def process(self, message):
                partition, offset, key, value = message
                print partition, offset, key, value
+
+       cluster = discovery.get_local_cluster('standard')
+       config = KafkaConsumerConfig('my_group', cluster)
 
        group = MultiprocessingConsumerGroup(['topic1', 'topic2'], config, MyConsumer)
        group_thread = Thread(target=group.start_group)

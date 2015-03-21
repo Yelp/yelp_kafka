@@ -185,22 +185,22 @@ def test_search_no_topic(mock_clusters):
 
 @mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
-def test_search_local_topic(mock_get_cluster, mock_search):
+def test_local_topic_exists(mock_get_cluster, mock_search):
     mock_get_cluster.return_value = mock.sentinel.cluster
     mock_search.return_value = [mock.sentinel.topic]
-    actual = discovery.search_local_topic('mycluster', 'topic1')
+    actual = discovery.local_topic_exists('mycluster', 'topic1')
     mock_search.assert_called_once_with('topic1', [mock.sentinel.cluster])
-    assert actual == mock.sentinel.topic
+    assert actual is True
 
 
 @mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
-def test_search_local_topic_None(mock_get_cluster, mock_search):
+def test_local_topic_not_exists(mock_get_cluster, mock_search):
     mock_get_cluster.return_value = mock.sentinel.cluster
     mock_search.return_value = []
-    actual = discovery.search_local_topic('mycluster', 'topic1')
+    actual = discovery.local_topic_exists('mycluster', 'topic1')
     mock_search.assert_called_once_with('topic1', [mock.sentinel.cluster])
-    assert actual is None
+    assert actual is False
 
 
 @mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
@@ -221,12 +221,12 @@ def test_search_topics_in_all_clusters(mock_get_clusters, mock_search):
 def test_search_topics_no_topics_in_clusters(mock_get_clusters, mock_search):
     mock_get_clusters.return_value = mock.sentinel.clusters
     mock_search.return_value = []
-    actual = discovery.search_topic_in_all_clusters(
-        'mycluster', 'topic1'
-    )
+    with pytest.raises(DiscoveryError):
+        discovery.search_topic_in_all_clusters(
+            'mycluster', 'topic1'
+        )
     mock_get_clusters.assert_called_once_with('mycluster')
     mock_search.assert_called_once_with('topic1', mock.sentinel.clusters)
-    assert [] == actual
 
 
 def test_search_by_regex(mock_clusters):
@@ -259,7 +259,7 @@ def test_search_by_regex_no_topic(mock_clusters):
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
 def test_search_local_topic_by_regex(mock_get_cluster, mock_search):
     mock_get_cluster.return_value = mock.sentinel.cluster
-    mock_search.return_value = mock.sentinel.topics
+    mock_search.return_value = [mock.sentinel.topics]
     actual = discovery.search_local_topics_by_regex(
         'mycluster', 'topic1.*'
     )
@@ -280,6 +280,19 @@ def test_search_topic_by_regex_in_all_clusters(mock_get_clusters, mock_search):
     assert actual == mock.sentinel.topics
 
 
+@mock.patch("yelp_kafka.discovery.search_topics_by_regex", autospec=True)
+@mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
+def test_search_topic_by_regex_in_all_clusters_error(mock_get_clusters, mock_search):
+    mock_get_clusters.return_value = mock.sentinel.clusters
+    mock_search.return_value = []
+    with pytest.raises(DiscoveryError):
+        discovery.search_topics_by_regex_in_all_clusters(
+            'mycluster', 'topic1.*'
+        )
+    mock_search.assert_called_once_with('topic1.*', mock.sentinel.clusters)
+    mock_get_clusters.assert_called_once_with('mycluster')
+
+
 @mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
 @mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
 def test_get_local_scribe_topic(mock_search, mock_top):
@@ -297,11 +310,92 @@ def test_get_local_scribe_topic(mock_search, mock_top):
     )
 
 
+@mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
+@mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
+def test_local_scribe_topic_exists(mock_search, mock_top):
+    my_cluster = (
+        'cluster1',
+        {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}
+    )
+    mock_top.return_value.get_local_cluster.return_value = my_cluster
+    mock_top.return_value.get_scribe_local_prefix.return_value = 'my.prefix.'
+    mock_search.return_value = [mock.sentinel.topic]
+    actual = discovery.local_scribe_topic_exists('ranger')
+    assert actual is True
+    mock_search.assert_called_once_with(
+        'my.prefix.ranger', [my_cluster]
+    )
+
+
+@mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
+@mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
+def test_local_scribe_topic_not_exists(mock_search, mock_top):
+    my_cluster = (
+        'cluster1',
+        {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}
+    )
+    mock_top.return_value.get_local_cluster.return_value = my_cluster
+    mock_top.return_value.get_scribe_local_prefix.return_value = 'my.prefix.'
+    mock_search.return_value = []
+    actual = discovery.local_scribe_topic_exists('ranger')
+    assert actual is False
+    mock_search.assert_called_once_with(
+        'my.prefix.ranger', [my_cluster]
+    )
+
+
+@mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
+@mock.patch("yelp_kafka.discovery.search_topic", autospec=True)
+def test_get_local_scribe_topic_error(mock_search, mock_top):
+    my_cluster = (
+        'cluster1',
+        {'broker_list': ['mybroker'], 'zookeeper': 'zk_hosts/kafka'}
+    )
+    mock_top.return_value.get_local_cluster.return_value = my_cluster
+    mock_top.return_value.get_scribe_local_prefix.return_value = 'my.prefix.'
+    mock_search.return_value = []
+    with pytest.raises(DiscoveryError):
+        discovery.get_local_scribe_topic('ranger')
+    mock_search.assert_called_once_with(
+        'my.prefix.ranger', [my_cluster]
+    )
+
+
+@mock.patch("yelp_kafka.discovery.search_topic_in_all_clusters", autospec=True)
+def test_scribe_topic_exists_in_datacenter(mock_search):
+    mock_search.return_value = [mock.sentinel.topics]
+    actual = discovery.scribe_topic_exists_in_datacenter('ranger', 'sfo2')
+    assert actual is True
+    mock_search.assert_called_once_with(
+        discovery.DEFAULT_KAFKA_SCRIBE, 'scribe.sfo2.ranger'
+    )
+
+
+@mock.patch("yelp_kafka.discovery.search_topic_in_all_clusters", autospec=True)
+def test_scribe_topic_not_exists_in_datacenter(mock_search):
+    mock_search.return_value = []
+    actual = discovery.scribe_topic_exists_in_datacenter('ranger', 'sfo2')
+    assert actual is False
+    mock_search.assert_called_once_with(
+        discovery.DEFAULT_KAFKA_SCRIBE, 'scribe.sfo2.ranger'
+    )
+
+
 @mock.patch("yelp_kafka.discovery.search_topic_in_all_clusters", autospec=True)
 def test_get_scribe_topic_in_datacenter(mock_search):
     mock_search.return_value = [mock.sentinel.topics]
     actual = discovery.get_scribe_topic_in_datacenter('ranger', 'sfo2')
     assert actual == mock.sentinel.topics
+    mock_search.assert_called_once_with(
+        discovery.DEFAULT_KAFKA_SCRIBE, 'scribe.sfo2.ranger'
+    )
+
+
+@mock.patch("yelp_kafka.discovery.search_topic_in_all_clusters", autospec=True)
+def test_get_scribe_topic_in_datacenter_error(mock_search):
+    mock_search.return_value = []
+    with pytest.raises(DiscoveryError):
+        discovery.get_scribe_topic_in_datacenter('ranger', 'sfo2')
     mock_search.assert_called_once_with(
         discovery.DEFAULT_KAFKA_SCRIBE, 'scribe.sfo2.ranger'
     )
@@ -322,3 +416,19 @@ def test_get_scribe_topic(mock_get_clusters, mock_clusters):
         actual = discovery.get_scribe_topics('my_scribe_stream')
     expected = [(['scribe.dc2.my_scribe_stream', 'scribe.dc1.my_scribe_stream'], mock_clusters[0])]
     assert actual == expected
+
+
+@mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
+def test_get_scribe_topic_error(mock_get_clusters, mock_clusters):
+    mock_get_clusters.return_value = mock_clusters
+    with mock.patch("yelp_kafka.discovery.discover_topics",
+                    autospec=True) as mock_discover:
+        mock_discover.side_effect = iter([{
+            'scribe.dc1.my_scribe_stream2': [0, 1, 2],
+            'scribe.dc1.my_scribe_stream': [0, 1, 2],
+            'scribe.dc2.my_scribe_stream': [0]
+        }, {
+            'scribe.dc1.non_my_scribe_stream': [0, 1]
+        }])
+        with pytest.raises(DiscoveryError):
+            discovery.get_scribe_topics('not_a_real_stream')

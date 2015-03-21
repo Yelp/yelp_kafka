@@ -7,6 +7,7 @@ log = logging.getLogger(__name__)
 
 
 def get_kafka_topics(kafkaclient):
+    """Connect to kafka and fetch all the topics/partitions."""
     try:
         kafkaclient.load_metadata_for_topics()
     except KafkaUnavailableError:
@@ -22,4 +23,10 @@ def get_kafka_topics(kafkaclient):
 
 
 def make_scribe_topic(stream, datacenter):
+    """Get a scribe topic name
+
+    :param stream: scribe stream name
+    :param datacenter: datacenter name
+    :returns: topic name
+    """
     return "scribe.{0}.{1}".format(datacenter, stream)
