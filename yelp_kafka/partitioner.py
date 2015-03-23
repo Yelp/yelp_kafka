@@ -106,8 +106,8 @@ class Partitioner(object):
                 # If partitions changed we release the consumers, destroy the
                 # partitioner and disconnect from zookeeper.
                 self.log.warning(
-                    "Partitions set changed. Rebalancing."
-                    "New partitions: %s. Old partitions %s",
+                    "Partitions set changed. New partitions: %s. "
+                    "Old partitions %s. Rebalancing...",
                     [p for p in partitions if p not in self.partitions_set],
                     [p for p in self.partitions_set if p not in partitions]
                 )
