@@ -4,6 +4,7 @@ from collections import namedtuple
 from kafka.common import (
     OffsetFetchRequest,
     OffsetRequest,
+    OffsetFetchResponse,
     UnknownTopicOrPartitionError,
     check_error,
 )
@@ -14,7 +15,6 @@ from yelp_kafka.error import (
     UnknownTopic,
 )
 
-OffsetsResponse = namedtuple('OffsetsResponse', ['topic', 'partition', 'offset'])
 ConsumerPartitionOffsets = namedtuple('ConsumerPartitionOffsets',
                                       ['partition', 'current',
                                        'highmark', 'lowmark'])
@@ -30,8 +30,10 @@ def pluck_topic_offset_or_zero_on_unknown(resp):
     # The API spec says server wont set an error, but 0.8.1.1 does. The actual
     # check is if the offset is -1.
     if resp.offset == -1:
-        return OffsetsResponse(resp.topic, resp.partition, 0,)
-    return OffsetsResponse(resp.topic, resp.partition, resp.offset,)
+        return OffsetFetchResponse(
+            resp.topic, resp.partition, 0, resp.metadata, 0
+        )
+    return resp
 
 
 def get_consumer_offsets_metadata(kafka_client, group, topics):
