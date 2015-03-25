@@ -16,8 +16,16 @@ from yelp_kafka.error import (
 )
 
 ConsumerPartitionOffsets = namedtuple('ConsumerPartitionOffsets',
-                                      ['partition', 'current',
+                                      ['topic', 'partition', 'current',
                                        'highmark', 'lowmark'])
+"""Tuple representing the offsets for a topic partition.
+
+* **topic**\(``str``): Name of the topic
+* **partition**\(``int``): Partition number
+* **current**\(``int``): current group offset
+* **highmark**\(``int``): high watermark
+* **lowmark**\(``int``): low watermark
+"""
 
 
 def pluck_topic_offset_or_zero_on_unknown(resp):
@@ -82,6 +90,7 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
         else:
             # Default get all partitions metadata
             partitions = kafka_client.get_partition_ids_for_topic(topic)
+
         for partition in partitions:
             # We perform 3 requests: group offsets, high watermark and low
             # watermark.
@@ -104,12 +113,11 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
     highmark_resps = kafka_client.send_offset_request(highmark_offset_reqs)
     lowmark_resps = kafka_client.send_offset_request(lowmark_offset_reqs)
 
-    # Sanity check. We should have responses for all topics and partitions,
-    # so the two lists should have the same length.
+    # Sanity check. We send the same number of requests for group, highmark and
+    # lowmark. So we expect to receive the same number of responses for all of
+    # them.
     assert len(highmark_resps) == len(lowmark_resps)
-    # Sanity check. The group offsets should be the same of
-    # highmark/lowmark resps
-    assert len(group_resps) <= len(highmark_resps)
+    assert len(group_resps) == len(highmark_resps)
 
     group_offsets = defaultdict(dict)
     for resp in group_resps:
@@ -127,6 +135,7 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
     for topic, partitions in highmark_offsets.iteritems():
         result[topic] = [
             ConsumerPartitionOffsets(
+                topic=topic,
                 partition=partition,
                 current=group_offsets[topic][partition],
                 highmark=highmark_offsets[topic][partition],
