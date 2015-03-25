@@ -54,7 +54,7 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
     else:
         raise TypeError("Invalid topics: {topics}. It must be either a "
                         "list of topics or a dict "
-                        "{topic: [partitions]}".format(topics=topics))
+                        "topic: [partitions]".format(topics=topics))
 
     # Refresh client metadata. We do now use the topic list, because we
     # don't want to accidentally create the topic if it does not exist.
@@ -63,7 +63,7 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
     group_offset_reqs = []
     highmark_offset_reqs = []
     lowmark_offset_reqs = []
-    for topic, partitions in topic_partitions:
+    for topic, partitions in topic_partitions.iteritems():
         if not kafka_client.has_metadata_for_topic(topic):
             raise UnknownTopic("Topic {topic!r} does not exist in "
                                "kafka".format(topic=topic))
@@ -87,10 +87,10 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
                 OffsetFetchRequest(kafka_bytestring(topic), partition)
             )
             highmark_offset_reqs.append(
-                OffsetRequest(topic, partition, -1, max_num_offsets=1)
+                OffsetRequest(topic, partition, -1, max_offsets=1)
             )
             lowmark_offset_reqs.append(
-                OffsetRequest(topic, partition, -2, max_num_offsets=1)
+                OffsetRequest(topic, partition, -2, max_offsets=1)
             )
 
     group_resps = kafka_client.send_offset_fetch_request(
@@ -117,11 +117,12 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
         offsets = defaultdict(dict)
         for resp in resps:
             offsets[resp.topic][resp.partition] = resp.offsets[0]
+        return offsets
 
     highmark_offsets = aggregate_offsets(highmark_resps)
     lowmark_offsets = aggregate_offsets(lowmark_resps)
     result = {}
-    for topic, partitions in highmark_offsets:
+    for topic, partitions in highmark_offsets.iteritems():
         result[topic] = [
             ConsumerPartitionOffsets(
                 partition=partition,
@@ -150,7 +151,9 @@ def topics_offset_distance(kafka_client, group, topics):
     """
 
     distance = {}
-    for topic, offsets in get_consumer_offsets_metadata(kafka_client, group, topics):
+    for topic, offsets in get_consumer_offsets_metadata(
+        kafka_client, group, topics
+    ).iteritems():
         distance[topic] = dict([(offset.partition, offset.highmark - offset.current)
                                 for offset in offsets])
     return distance
@@ -180,6 +183,6 @@ def offset_distance(kafka_client, topic, group, partitions=None):
         topics = [topic]
     consumer_offsets = get_consumer_offsets_metadata(kafka_client, group, topics)
     return dict(
-        [(offsets, offsets.highmark - offsets.current)
-         for partition, offsets in consumer_offsets[topic].iteritems()]
+        [(offset.partition, offset.highmark - offset.current)
+         for offset in consumer_offsets[topic]]
     )
