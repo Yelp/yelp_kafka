@@ -1,15 +1,13 @@
 import logging
 
-from kafka.client import KafkaClient
 from kafka.common import KafkaUnavailableError
 
 
 log = logging.getLogger(__name__)
 
 
-def get_kafka_topics(brokers_list):
+def get_kafka_topics(kafkaclient):
     """Connect to kafka and fetch all the topics/partitions."""
-    kafkaclient = KafkaClient(brokers_list)
     try:
         kafkaclient.load_metadata_for_topics()
     except KafkaUnavailableError:

@@ -47,7 +47,7 @@ def get_all_clusters(cluster_type):
     return topology.get_all_clusters()
 
 
-def get_yelp_kafka_config(cluster_type, group_id, **extra):
+def get_consumer_config(cluster_type, group_id, **extra):
     """Get a :py:class:`yelp_kafka.config.KafkaConsumerConfig`
     for the local kafka cluster.
 
@@ -63,7 +63,7 @@ def get_yelp_kafka_config(cluster_type, group_id, **extra):
     return KafkaConsumerConfig(group_id=group_id, cluster=cluster, **extra)
 
 
-def get_all_yelp_kafka_config(cluster_type, group_id, ecosystem=None, **extra):
+def get_all_consumer_config(cluster_type, group_id, ecosystem=None, **extra):
     """Get a list of :py:class:`yelp_kafka.config.KafkaConsumerConfig`
     for the kafka clusters in ecosystem.
 
@@ -139,13 +139,14 @@ def discover_topics(cluster):
     :returns: a dict <topic>: <[partitions]>
     :raises DiscoveryError: upon failure to request topics from kafka
     """
+    client = KafkaClient(cluster.broker_list)
     try:
-        return get_kafka_topics(cluster.broker_list)
+        return get_kafka_topics(client)
     except:
         log.exception("Topics discovery failed for %s",
                       cluster.broker_list)
         raise DiscoveryError("Failed to get topics information from "
-                             "{0}".format(cluster.broker_list))
+                             "{cluster}".format(cluster=cluster))
 
 
 def search_topic(topic, clusters=None):

@@ -13,40 +13,36 @@ def test_make_scribe_topic():
     )
 
 
-@mock.patch("yelp_kafka.utils.KafkaClient", autospec=True)
-def test_get_kafka_topics(mock_client):
+def test_get_kafka_topics():
     expected = {
         'topic1': [0, 1, 2, 3],
         'topic2': [0, 1]
     }
-    mock_client.return_value.topic_partitions = expected
-    actual = utils.get_kafka_topics(['mybroker'])
-    mock_client.assert_called_once_with(['mybroker'])
+    mock_client = mock.Mock()
+    mock_client.topic_partitions = expected
+    actual = utils.get_kafka_topics(mock_client)
     assert expected == actual
 
 
-@mock.patch("yelp_kafka.utils.KafkaClient", autospec=True)
-def test_get_kafka_topics_recover_from_error(mock_client):
+def test_get_kafka_topics_recover_from_error():
     expected = {
         'topic1': [0, 1, 2, 3],
         'topic2': [0, 1]
     }
-    mock_obj = mock_client.return_value
-    mock_obj.topic_partitions = expected
-    mock_obj.load_metadata_for_topics.side_effect = [KafkaUnavailableError(), None]
-    actual = utils.get_kafka_topics(['mybroker'])
-    mock_client.assert_called_once_with(['mybroker'])
+    mock_client = mock.Mock()
+    mock_client.topic_partitions = expected
+    mock_client.load_metadata_for_topics.side_effect = [KafkaUnavailableError(), None]
+    actual = utils.get_kafka_topics(mock_client)
     assert expected == actual
 
 
-@mock.patch("yelp_kafka.utils.KafkaClient", autospec=True)
-def test_get_kafka_topics_error(mock_client):
+def test_get_kafka_topics_error():
     expected = {
         'topic1': [0, 1, 2, 3],
         'topic2': [0, 1]
     }
-    mock_obj = mock_client.return_value
-    mock_obj.topic_partitions = expected
-    mock_obj.load_metadata_for_topics.side_effect = KafkaUnavailableError('Boom!')
+    mock_client = mock.Mock()
+    mock_client.topic_partitions = expected
+    mock_client.load_metadata_for_topics.side_effect = KafkaUnavailableError('Boom!')
     with pytest.raises(KafkaUnavailableError):
-        utils.get_kafka_topics(['mybroker'])
+        utils.get_kafka_topics(mock_client)
