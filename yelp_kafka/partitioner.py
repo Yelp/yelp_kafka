@@ -29,8 +29,8 @@ class Partitioner(object):
         partitions have to be release. It should usually stops the consumers.
     """
     def __init__(self, config, topics, acquire, release):
-        self.kazooclient = KazooClient(config.zookeeper)
-        self.kafkaclient = KafkaClient(config.broker_list)
+        self.kazoo_client = KazooClient(config.zookeeper)
+        self.kafka_client = KafkaClient(config.broker_list)
         self.topics = topics
         self.acquired_partitions = defaultdict(list)
         self.partitions_set = set()
@@ -121,16 +121,16 @@ class Partitioner(object):
 
     def _create_partitioner(self, partitions):
         """Connect to zookeeper and create a partitioner"""
-        if self.kazooclient.state != KazooState.CONNECTED:
+        if self.kazoo_client.state != KazooState.CONNECTED:
             try:
-                self.kazooclient.start()
+                self.kazoo_client.start()
             except:
                 self.log.exception("Impossible to connect to zookeeper")
                 raise PartitionerError("Zookeeper connection failure")
         self.log.debug("Creating partitioner for group %s, topic %s,"
                        " partitions set %s", self.config.group_id,
                        self.topics, partitions)
-        return self.kazooclient.SetPartitioner(
+        return self.kazoo_client.SetPartitioner(
             path=self.config.group_path,
             set=partitions,
             time_boundary=self.config.partitioner_cooldown
@@ -142,7 +142,7 @@ class Partitioner(object):
             raise PartitionerError("Internal error partitioner not yet started.")
         self._release(partitioner)
         partitioner.finish()
-        self.kazooclient.stop()
+        self.kazoo_client.stop()
 
     def _handle_group(self, partitioner):
         """Handle group status changes, for example when a new
@@ -218,7 +218,7 @@ class Partitioner(object):
         :rtype: set
         :raises PartitionerError: if no partitions have been found
         """
-        topic_partitions = get_kafka_topics(self.kafkaclient)
+        topic_partitions = get_kafka_topics(self.kafka_client)
         partitions = []
         missing_topics = set()
         for topic in self.topics:
