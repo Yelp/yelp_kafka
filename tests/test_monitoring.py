@@ -109,46 +109,46 @@ class TestOffsetDifference(object):
         with pytest.raises(TypeError):
             get_consumer_offsets_metadata(
                 self.kafka_client_mock(),
-                group="this won't even be consulted",
-                topics="this should be a list or dict",
+                "this won't even be consulted",
+                "this should be a list or dict",
             )
 
     def test_unknown_topic(self):
         with pytest.raises(UnknownTopic):
             get_consumer_offsets_metadata(
                 self.kafka_client_mock(),
-                group="this won't even be consulted",
-                topics=["something that doesn't exist"],
+                "this won't even be consulted",
+                ["something that doesn't exist"],
             )
 
     def test_unknown_partitions(self):
         with pytest.raises(UnknownPartitions):
             get_consumer_offsets_metadata(
                 self.kafka_client_mock(),
-                group=self.group,
-                topics={'topic1': [99]},
+                self.group,
+                {'topic1': [99]},
             )
 
     def test_invalid_partition_subset(self):
         with pytest.raises(UnknownPartitions):
             get_consumer_offsets_metadata(
                 self.kafka_client_mock(),
-                group=self.group,
-                topics={'topic1': [1, 99]},
+                self.group,
+                {'topic1': [1, 99]},
             )
 
     def test_offset_distance_ok(self):
         assert {0: 0, 1: 10, 2: 20} == offset_distance(
             self.kafka_client_mock(),
-            topic='topic1',
-            group=self.group,
+            self.group,
+            'topic1',
         )
 
     def test_offset_distance_partition_subset(self):
         assert {1: 10, 2: 20} == offset_distance(
             self.kafka_client_mock(),
-            topic='topic1',
-            group=self.group,
+            self.group,
+            'topic1',
             partitions=[1, 2],
         )
 
@@ -157,14 +157,14 @@ class TestOffsetDifference(object):
 
         implicit = offset_distance(
             kafka_client,
-            topic='topic1',
-            group=self.group,
+            self.group,
+            'topic1',
         )
 
         explicit = offset_distance(
             kafka_client,
-            topic='topic1',
-            group=self.group,
+            self.group,
+            'topic1',
             partitions=self.high_offsets['topic1'].keys(),
         )
 
@@ -182,8 +182,8 @@ class TestOffsetDifference(object):
 
         assert self.high_offsets['topic1'] == offset_distance(
             kafka_client_mock,
-            topic='topic1',
-            group='derp',
+            'derp',
+            'topic1',
         )
 
     def test_topics_offset_distance(self):
@@ -193,8 +193,8 @@ class TestOffsetDifference(object):
         }
         assert expected == topics_offset_distance(
             self.kafka_client_mock(),
-            topics=['topic1', 'topic2'],
-            group=self.group
+            self.group,
+            ['topic1', 'topic2'],
         )
 
     def test_topics_offset_distance_partition_subset(self):
@@ -204,8 +204,8 @@ class TestOffsetDifference(object):
         }
         assert expected == topics_offset_distance(
             self.kafka_client_mock(),
-            topics={'topic1': [0, 1], 'topic2': [1]},
-            group=self.group
+            self.group,
+            {'topic1': [0, 1], 'topic2': [1]},
         )
 
     def test_topics_offset_distance_topic_subset(self):
@@ -214,6 +214,6 @@ class TestOffsetDifference(object):
         }
         assert expected == topics_offset_distance(
             self.kafka_client_mock(),
-            topics={'topic1': [0, 1]},
-            group=self.group
+            self.group,
+            {'topic1': [0, 1]},
         )

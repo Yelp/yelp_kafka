@@ -145,7 +145,7 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
     return result
 
 
-def topics_offset_distance(kafka_client, topics, group):
+def topics_offset_distance(kafka_client, group, topics):
     """Get the distance a group_id is from the current latest offset for topics.
 
     If the group is unkown to kafka it's assumed to be an offset 0. All other
@@ -170,7 +170,7 @@ def topics_offset_distance(kafka_client, topics, group):
     return distance
 
 
-def offset_distance(kafka_client, topic, group, partitions=None):
+def offset_distance(kafka_client, group, topic, partitions=None):
     """Get the distance a group_id is from the current latest in a topic.
 
     If the group is unknown to kafka, it's assumed to be on offset 0. All other
