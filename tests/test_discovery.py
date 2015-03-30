@@ -78,7 +78,7 @@ def test_get_kafka_connection(mock_get_cluster):
         actual = discovery.get_kafka_connection("mycluster")
         mock_kafka.assert_called_once_with(['mybroker'],
                                            client_id='yelp-kafka')
-        assert actual == ('cluster1', mock.sentinel.kafkaclient)
+        assert actual == mock.sentinel.kafkaclient
 
 
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)

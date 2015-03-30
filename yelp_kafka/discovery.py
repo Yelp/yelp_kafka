@@ -92,7 +92,7 @@ def get_kafka_connection(cluster_type, client_id='yelp-kafka'):
     """
     cluster = get_local_cluster(cluster_type)
     try:
-        return cluster.name, KafkaClient(cluster.broker_list, client_id=client_id)
+        return KafkaClient(cluster.broker_list, client_id=client_id)
     except:
         log.exception("Connection to kafka cluster %s using broker"
                       " list %s failed", cluster.name,
