@@ -99,7 +99,12 @@ class Partitioner(object):
         :type partitions: set
         """
         if self.need_partitions_refresh() or not self._partitioner:
-            partitions = self.get_partitions_set()
+            try:
+                partitions = self.get_partitions_set()
+            except:
+                if self._partitioner:
+                    self._destroy_partitioner(self._partitioner)
+                raise
             self.force_partitions_refresh = False
             self.last_partitions_refresh = time.time()
             if partitions != self.partitions_set:

@@ -175,3 +175,24 @@ class TestPartitioner(object):
             time_boundary=0.5
         )
         mock_kazoo.return_value.start.assert_called_once()
+
+    def test_get_partitions_kafka_unavailable(self, partitioner):
+        expected_partitions = set(['fake-topic'])
+        with contextlib.nested(
+            mock.patch.object(Partitioner, '_create_partitioner'),
+            mock.patch.object(Partitioner, 'get_partitions_set'),
+        ) as (mock_create, mock_partitions):
+            mock_create.return_value = mock.sentinel.partitioner
+            mock_partitions.return_value = expected_partitions
+            actual = partitioner._get_partitioner()
+            assert actual == mock.sentinel.partitioner
+            assert mock_create.call_count == 1
+        with contextlib.nested(
+            mock.patch('yelp_kafka.partitioner.get_kafka_topics',
+                       side_effect=Exception("Boom!"), autospec=True),
+            mock.patch.object(Partitioner, '_destroy_partitioner'),
+        ) as (mock_get_kafka_topics, mock_destroy):
+            partitioner.force_partitions_refresh = True
+            with pytest.raises(Exception):
+                partitioner._get_partitioner()
+            assert mock_destroy.called
