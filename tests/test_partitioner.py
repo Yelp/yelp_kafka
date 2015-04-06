@@ -182,10 +182,10 @@ class TestPartitioner(object):
             mock.patch.object(Partitioner, '_create_partitioner'),
             mock.patch.object(Partitioner, 'get_partitions_set'),
         ) as (mock_create, mock_partitions):
-            mock_create.return_value = mock.sentinel.partitioner1
+            mock_create.return_value = mock.sentinel.partitioner
             mock_partitions.return_value = expected_partitions
             actual = partitioner._get_partitioner()
-            assert actual == mock.sentinel.partitioner1
+            assert actual == mock.sentinel.partitioner
             assert mock_create.call_count == 1
         with contextlib.nested(
             mock.patch('yelp_kafka.partitioner.get_kafka_topics',
