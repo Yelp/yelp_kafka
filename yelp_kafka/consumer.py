@@ -1,5 +1,7 @@
 from collections import namedtuple
+from ctypes import create_string_buffer, byref
 import logging
+import prctl
 from multiprocessing import Event
 
 from kafka import KafkaClient
@@ -251,6 +253,12 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
 
         :raises: MessageProcessError when the process function fails
         """
+        #Setup process name for debuggability
+        process_name = 'Consumer-%s-%s' %(self.topic, self.partitions)
+        str_buf = create_string_buffer(len(process_name) + 1)
+        str_buf.value = process_name
+        prctl.prctl(prctl.PR_SET_NAME, byref(str_buf), 0, 0, 0)
+
         self.initialize()
         try:
             # We explicitly catch and log the exception.
