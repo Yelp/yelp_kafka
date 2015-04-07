@@ -1,6 +1,5 @@
 from collections import defaultdict
 from collections import namedtuple
-from kafka.common import KafkaUnavailableError
 
 from kafka.common import (
     OffsetFetchRequest,
@@ -8,6 +7,7 @@ from kafka.common import (
     OffsetFetchResponse,
     UnknownTopicOrPartitionError,
     check_error,
+    KafkaUnavailableError,
 )
 from kafka.util import kafka_bytestring
 
