@@ -1,5 +1,6 @@
 from collections import defaultdict
 from collections import namedtuple
+from kafka.common import KafkaUnavailableError
 
 from kafka.common import (
     OffsetFetchRequest,
@@ -68,7 +69,10 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
 
     # Refresh client metadata. We do now use the topic list, because we
     # don't want to accidentally create the topic if it does not exist.
-    kafka_client.load_metadata_for_topics()
+    try:
+        kafka_client.load_metadata_for_topics()
+    except KafkaUnavailableError:
+        kafka_client.load_metadata_for_topics()
 
     group_offset_reqs = []
     highmark_offset_reqs = []
