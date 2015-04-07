@@ -67,8 +67,11 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
                         "list of topics or a dict "
                         "topic: [partitions]".format(topics=topics))
 
-    # Refresh client metadata. We do now use the topic list, because we
-    # don't want to accidentally create the topic if it does not exist.
+    """
+    Refresh client metadata. We do now use the topic list, because we
+    don't want to accidentally create the topic if it does not exist.
+    If Kafka is unavailable, let's retry loading client metadata (YELPKAFKA-30)
+    """
     try:
         kafka_client.load_metadata_for_topics()
     except KafkaUnavailableError:
