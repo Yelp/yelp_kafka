@@ -6,6 +6,7 @@ from kazoo.recipe.partitioner import SetPartitioner
 from kazoo.recipe.partitioner import PartitionState
 from kazoo.protocol.states import KazooState
 
+from yelp_kafka.error import PartitionerError
 from yelp_kafka.partitioner import Partitioner
 
 
@@ -193,6 +194,6 @@ class TestPartitioner(object):
             mock.patch.object(Partitioner, '_destroy_partitioner'),
         ) as (mock_get_kafka_topics, mock_destroy):
             partitioner.force_partitions_refresh = True
-            with pytest.raises(Exception):
+            with pytest.raises(PartitionerError):
                 partitioner._get_partitioner()
             assert mock_destroy.called
