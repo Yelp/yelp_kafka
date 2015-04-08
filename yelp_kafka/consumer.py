@@ -1,12 +1,11 @@
 from collections import namedtuple
-from ctypes import create_string_buffer, byref
 import logging
-import prctl
 from multiprocessing import Event
 
 from kafka import KafkaClient
 from kafka import SimpleConsumer
 
+from setproctitle import setproctitle
 from yelp_kafka.error import ProcessMessageError
 
 
@@ -246,6 +245,13 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
         """
         self.termination_flag.set()
 
+    def set_process_name(self):
+        """Setup process name for consumer to include topic and
+        partitions to improve debuggability.
+        """
+        process_name = 'Consumer-%s-%s' % (self.topic, self.partitions)
+        setproctitle(process_name)
+
     def run(self):
         """Fetch and process messages from kafka.
         Non returning function. It initialize the consumer, connect to kafka
@@ -253,11 +259,8 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
 
         :raises: MessageProcessError when the process function fails
         """
-        #Setup process name for debuggability
-        process_name = 'Consumer-%s-%s' %(self.topic, self.partitions)
-        str_buf = create_string_buffer(len(process_name) + 1)
-        str_buf.value = process_name
-        prctl.prctl(prctl.PR_SET_NAME, byref(str_buf), 0, 0, 0)
+        # Setup process name for debuggability
+        self.set_process_name()
 
         self.initialize()
         try:
