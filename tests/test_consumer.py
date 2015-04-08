@@ -257,11 +257,15 @@ class TestKafkaConsumer(object):
                     consumer.run()
 
     def test_set_process_name(self, config):
-        consumer = KafkaConsumerBase('my_very_extraordinarily_enlongated_topic_name', config, ['1'])
+        consumer = KafkaConsumerBase(
+            'my_very_extraordinarily_enlongated_topic_name',
+            config, ['1', '2', '3', '4', '5'])
         old_name = getproctitle()
         consumer.set_process_name()
         current_name = getproctitle()
         # Let's firt restore the old name
         setproctitle(old_name)
-        expected_name = 'Consumer-my_very_extraordinarily_enlongated_topic_name-[\'1\']'
+        # Let's verify the updated process name
+        expected_name = \
+            'Consumer-my_very_extraordinarily_enlongated_topic_name-[\'1\', \'2\', \'3\', \'4\', \'5\']'
         assert current_name == expected_name
