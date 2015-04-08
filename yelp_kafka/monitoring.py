@@ -7,6 +7,7 @@ from kafka.common import (
     OffsetFetchResponse,
     UnknownTopicOrPartitionError,
     check_error,
+    KafkaUnavailableError,
 )
 from kafka.util import kafka_bytestring
 
@@ -68,7 +69,11 @@ def get_consumer_offsets_metadata(kafka_client, group, topics):
 
     # Refresh client metadata. We do now use the topic list, because we
     # don't want to accidentally create the topic if it does not exist.
-    kafka_client.load_metadata_for_topics()
+    # If Kafka is unavailable, let's retry loading client metadata (YELPKAFKA-30)
+    try:
+        kafka_client.load_metadata_for_topics()
+    except KafkaUnavailableError:
+        kafka_client.load_metadata_for_topics()
 
     group_offset_reqs = []
     highmark_offset_reqs = []
