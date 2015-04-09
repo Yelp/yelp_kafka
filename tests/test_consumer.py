@@ -7,7 +7,7 @@ from yelp_kafka.consumer import KafkaSimpleConsumer
 from yelp_kafka.consumer import KafkaConsumerBase
 from yelp_kafka.consumer import Message
 from yelp_kafka.error import ProcessMessageError
-from setproctitle import getproctitle, setproctitle
+from setproctitle import getproctitle
 
 
 @contextlib.contextmanager
@@ -258,14 +258,10 @@ class TestKafkaConsumer(object):
 
     def test_set_process_name(self, config):
         consumer = KafkaConsumerBase(
-            'my_very_extraordinarily_enlongated_topic_name',
+            'my_very_extraordinarily_elongated_topic_name',
             config, ['1', '2', '3', '4', '5'])
-        old_name = getproctitle()
-        consumer.set_process_name()
-        current_name = getproctitle()
-        # Let's firt restore the old name
-        setproctitle(old_name)
-        # Let's verify the updated process name
-        expected_name = \
-            'Consumer-my_very_extraordinarily_enlongated_topic_name-[\'1\', \'2\', \'3\', \'4\', \'5\']'
-        assert current_name == expected_name
+        with mock.patch('yelp_kafka.consumer.setproctitle') as mock_setproctitle:
+            consumer.set_process_name()
+            expected_name = \
+                '%s-my_very_extraordinarily_elongated_topic_name-[\'1\', \'2\', \'3\', \'4\', \'5\']' % (getproctitle())
+            mock_setproctitle.assert_called_with(expected_name)

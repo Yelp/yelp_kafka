@@ -5,7 +5,7 @@ from multiprocessing import Event
 from kafka import KafkaClient
 from kafka import SimpleConsumer
 
-from setproctitle import setproctitle
+from setproctitle import setproctitle, getproctitle
 from yelp_kafka.error import ProcessMessageError
 
 
@@ -249,7 +249,7 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
         """Setup process name for consumer to include topic and
         partitions to improve debuggability.
         """
-        process_name = 'Consumer-%s-%s' % (self.topic, self.partitions)
+        process_name = '%s-%s-%s' % (getproctitle(), self.topic, self.partitions)
         setproctitle(process_name)
 
     def run(self):
