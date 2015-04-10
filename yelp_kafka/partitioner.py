@@ -177,7 +177,7 @@ class Partitioner(object):
         """
         if not self.acquired_partitions:
             self.acquired_partitions = self._get_acquired_partitions(partitioner)
-            self.log.debug("Acquired partitions: %s", self.acquired_partitions)
+            self.log.info("Acquired partitions: %s", self.acquired_partitions)
             self.acquire(self.acquired_partitions)
 
     def _release(self, partitioner):
