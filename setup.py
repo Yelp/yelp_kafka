@@ -42,7 +42,8 @@ setup(
         'kafka-python==0.9.3',
         'kazoo',
         'python-snappy',
-        'PyYAML'
+        'PyYAML',
+        'setproctitle'
     ],
     cmdclass={
         'test': Tox,

@@ -179,8 +179,8 @@ class MultiprocessingConsumerGroup(object):
     :type config: dict
     :param consumer_factory: the function used to instantiate the consumer.
         the consumer_factory must have the same argument list of
-        :py:class:`yelp_kafka.consumer.KafkaConsumer`. It has to return
-        an instance of a subclass of :py:class:`yelp_kafka.consumer.KafkaConsumer`.
+        :py:class:`yelp_kafka.consumer.KafkaConsumerBase`. It has to return
+        an instance of a subclass of :py:class:`yelp_kafka.consumer.KafkaConsumerBase`.
     """
     def __init__(self, topics, config, consumer_factory):
         self.config = config

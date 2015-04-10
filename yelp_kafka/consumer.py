@@ -5,6 +5,7 @@ from multiprocessing import Event
 from kafka import KafkaClient
 from kafka import SimpleConsumer
 
+from setproctitle import setproctitle, getproctitle
 from yelp_kafka.error import ProcessMessageError
 
 
@@ -244,6 +245,13 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
         """
         self.termination_flag.set()
 
+    def set_process_name(self):
+        """Setup process name for consumer to include topic and
+        partitions to improve debuggability.
+        """
+        process_name = '%s-%s-%s' % (getproctitle(), self.topic, self.partitions)
+        setproctitle(process_name)
+
     def run(self):
         """Fetch and process messages from kafka.
         Non returning function. It initialize the consumer, connect to kafka
@@ -251,6 +259,9 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
 
         :raises: MessageProcessError when the process function fails
         """
+        # Setup process name for debuggability
+        self.set_process_name()
+
         self.initialize()
         try:
             # We explicitly catch and log the exception.
