@@ -102,9 +102,13 @@ class Partitioner(object):
             try:
                 partitions = self.get_partitions_set()
             except:
+                self.log.exception(
+                    "Failed to get partitions set from Kafka."
+                    "Releasing the group."
+                )
                 if self._partitioner:
                     self._destroy_partitioner(self._partitioner)
-                raise
+                raise PartitionerError("Failed to get partitions set from Kafka")
             self.force_partitions_refresh = False
             self.last_partitions_refresh = time.time()
             if partitions != self.partitions_set:
