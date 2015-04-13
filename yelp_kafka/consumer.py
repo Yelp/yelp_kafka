@@ -4,6 +4,7 @@ from multiprocessing import Event
 
 from kafka import KafkaClient
 from kafka import SimpleConsumer
+from kafka.util import kafka_bytestring
 
 from setproctitle import setproctitle, getproctitle
 from yelp_kafka.error import ProcessMessageError
@@ -41,7 +42,7 @@ class KafkaSimpleConsumer(object):
         self.log = logging.getLogger(self.__class__.__name__)
         if not isinstance(topic, str):
             raise TypeError("Topic must be a string")
-        self.topic = topic
+        self.topic = kafka_bytestring(topic)
         if partitions and not isinstance(partitions, list):
             raise TypeError("Partitions must be a list")
         self.partitions = partitions
