@@ -50,6 +50,7 @@ def pluck_topic_offset_or_zero_on_unknown(resp):
     except UnknownTopicOrPartitionError:
         # If the server doesn't have any commited offsets by this group for
         # this topic, assume it's zero.
+        log.exception("Error in OffsetFetchResponse")
         pass
     # The API spec says server wont set an error, but 0.8.1.1 does. The actual
     # check is if the offset is -1.
@@ -65,6 +66,7 @@ def check_response_error(resp):
         check_error(resp)
     except BrokerResponseError:
         # In case of error we set the offset to -1
+        log.exception("Error in OffsetResponse")
         return OffsetResponse(
             resp.topic, resp.partitions, resp.error, -1
         )
@@ -83,7 +85,7 @@ def _validate_topics_list_or_dict(topics):
 
 
 def _verify_topics_and_partitions(kafka_client, topics, fail_on_error):
-    _validate_topics_list_or_dict(topics)
+    topics = _validate_topics_list_or_dict(topics)
     valid_topics = {}
     for topic, partitions in topics.iteritems():
         # Check topic exists
@@ -143,17 +145,21 @@ def get_current_consumer_offsets(kafka_client, group, topics, fail_on_error=True
             for partition in partitions
         ]
 
-    # fail_on_error = False does not prevent network errors
-    group_resps = kafka_client.send_offset_fetch_request(
-        kafka_bytestring(group),
-        group_offset_reqs,
-        fail_on_error=False,
-        callback=pluck_topic_offset_or_zero_on_unknown
-    )
-
     group_offsets = defaultdict(dict)
-    for resp in group_resps:
-        group_offsets[resp.topic][resp.partition] = resp.offset
+
+    # Return an empty dict if there are no valid topics and fail_on_error is
+    # False.
+    if group_offset_reqs:
+        # fail_on_error = False does not prevent network errors
+        group_resps = kafka_client.send_offset_fetch_request(
+            kafka_bytestring(group),
+            group_offset_reqs,
+            fail_on_error=False,
+            callback=pluck_topic_offset_or_zero_on_unknown
+        )
+
+        for resp in group_resps:
+            group_offsets[resp.topic][resp.partition] = resp.offset
 
     return group_offsets
 
@@ -184,12 +190,20 @@ def get_topics_watermarks(kafka_client, topics, fail_on_error=True):
     for topic, partitions in topics.iteritems():
         # Batch watermark requests
         for partition in partitions:
+            # Request the the latest offset
             highmark_offset_reqs.append(
                 OffsetRequest(topic, partition, -1, max_offsets=1)
             )
+            # Request the earliest offset
             lowmark_offset_reqs.append(
                 OffsetRequest(topic, partition, -2, max_offsets=1)
             )
+
+    watermark_offsets = defaultdict(dict)
+    # Return an empty dict if there are no valid topics and fail_on_error is
+    # False.
+    if not any(highmark_offset_reqs + lowmark_offset_reqs):
+        return watermark_offsets
 
     # fail_on_error = False does not prevent network errors
     highmark_resps = kafka_client.send_offset_request(
@@ -213,10 +227,9 @@ def get_topics_watermarks(kafka_client, topics, fail_on_error=True):
         aggregated_offsets[resp.topic][resp.partition]['lowmark'] = \
             resp.offsets[0]
 
-    watermark_offsets = defaultdict(dict)
     for topic, partition_watermarks in aggregated_offsets.iteritems():
         for partition, watermarks in partition_watermarks.iteritems():
-            watermark_offsets = PartitionOffsets(
+            watermark_offsets[topic][partition] = PartitionOffsets(
                 topic, partition, watermarks['highmark'], watermarks['lowmark']
             )
     return watermark_offsets
