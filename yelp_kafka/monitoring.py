@@ -116,7 +116,8 @@ def _verify_topics_and_partitions(kafka_client, topics, fail_on_error):
     return valid_topics
 
 
-def get_current_consumer_offsets(kafka_client, group, topics, fail_on_error=True):
+def get_current_consumer_offsets(kafka_client, group, topics,
+                                 fail_on_error=True):
     """ Get current consumer offsets.
 
     NOTE: This method does not refresh client metadata. It is up to the caller
@@ -125,13 +126,17 @@ def get_current_consumer_offsets(kafka_client, group, topics, fail_on_error=True
     :param kafka_client: a connected KafkaClient
     :param group: kafka group_id
     :param topics: topic list or dict {<topic>: [partitions]}
-    :param fail_on_error: if False the method ignore missing topics and missing partitions.
+    :param fail_on_error: if False the method ignore missing topics and
+    missing partitions.
     :returns: a dict topic: partition: offset
-    It still may fail on the request send. For example if any partition leader is
-    not available the request fails for all the other topics. This is the tradeoff
-    of sending all topic requests in batch and save both in performance and Kafka load.
-    :raises :py:class:`yelp_kafka.error.UnknownTopic`: upon missing topics and fail_on_error=True
-    :raises :py:class:`yelp_kafka.error.UnknownPartition`: upon missing partitions and fail_on_error=True
+    It still may fail on the request send. For example if any partition
+    leader is not available the request fails for all the other topics.
+    This is the tradeoff of sending all topic requests in batch and save
+    both in performance and Kafka load.
+    :raises :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
+    topics and fail_on_error=True
+    :raises :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
+    partitions and fail_on_error=True
     :raises FailedPayloadsError: upon send request error.
     """
 
@@ -172,13 +177,17 @@ def get_topics_watermarks(kafka_client, topics, fail_on_error=True):
 
     :param kafka_client: a connected KafkaClient
     :param topics: topic list or dict {<topic>: [partitions]}
-    :param fail_on_error: if False the method ignore missing topics and missing partitions.
+    :param fail_on_error: if False the method ignore missing topics
+    and missing partitions.
     :returns: a dict topic: partition: Part
-    It still may fail on the request send. For example if any partition leader is
-    not available the request fails for all the other topics. This is the tradeoff
-    of sending all topic requests in batch and save both in performance and Kafka load.
-    :raises :py:class:`yelp_kafka.error.UnknownTopic`: upon missing topics and fail_on_error=True
-    :raises :py:class:`yelp_kafka.error.UnknownPartition`: upon missing partitions and fail_on_error=True
+    It still may fail on the request send. For example if any partition
+    leader is not available the request fails for all the other topics.
+    This is the tradeoff of sending all topic requests in batch and save
+    both in performance and Kafka load.
+    :raises :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
+    topics and fail_on_error=True
+    :raises :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
+    partitions and fail_on_error=True
     :raises FailedPayloadsError: upon send request error.
     """
     topics = _verify_topics_and_partitions(
@@ -274,7 +283,8 @@ def get_consumer_offsets_metadata(kafka_client, group,
 
 
 def topics_offset_distance(kafka_client, group, topics):
-    """Get the distance a group_id is from the current latest offset for topics.
+    """Get the distance a group_id is from the current latest offset
+    for topics.
 
     If the group is unkown to kafka it's assumed to be an offset 0. All other
     errors will not be caught.
@@ -293,8 +303,10 @@ def topics_offset_distance(kafka_client, group, topics):
     for topic, offsets in get_consumer_offsets_metadata(
         kafka_client, group, topics
     ).iteritems():
-        distance[topic] = dict([(offset.partition, offset.highmark - offset.current)
-                                for offset in offsets])
+        distance[topic] = dict([
+            (offset.partition, offset.highmark - offset.current)
+            for offset in offsets
+        ])
     return distance
 
 
@@ -320,7 +332,8 @@ def offset_distance(kafka_client, group, topic, partitions=None):
         topics = {topic: partitions}
     else:
         topics = [topic]
-    consumer_offsets = get_consumer_offsets_metadata(kafka_client, group, topics)
+    consumer_offsets = get_consumer_offsets_metadata(kafka_client, group,
+                                                     topics)
     return dict(
         [(offset.partition, offset.highmark - offset.current)
          for offset in consumer_offsets[topic]]
