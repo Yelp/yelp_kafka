@@ -167,21 +167,20 @@ class TestOffsetDifference(object):
             fail_on_error=False
         )
         assert actual['topic1'][1] == 20
+        # Partition 99 does not exist so it shouldn't be in the result
         assert 99 not in actual['topic1']
 
     def test_get_topics_watermarks_invalid_arguments(self):
         with pytest.raises(TypeError):
-            get_current_consumer_offsets(
+            get_topics_watermarks(
                 self.kafka_client_mock(),
-                "this won't even be consulted",
                 "this should be a list or dict",
             )
 
     def test_get_topics_watermarks_unknown_topic(self):
         with pytest.raises(UnknownTopic):
-            get_current_consumer_offsets(
+            get_topics_watermarks(
                 self.kafka_client_mock(),
-                "this won't even be consulted",
                 ["something that doesn't exist"],
             )
 
@@ -275,6 +274,8 @@ class TestOffsetDifference(object):
             )
 
     def test_offset_metadata_invalid_partition_subset_no_fail(self):
+        # Partition 99 does not exist, so we expect to have
+        # offset metadata ONLY for partition 1.
         expected = [
             ConsumerPartitionOffsets('topic1', 1, 20, 30, 5)
         ]

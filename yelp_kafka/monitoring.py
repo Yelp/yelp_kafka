@@ -141,19 +141,15 @@ def get_current_consumer_offsets(kafka_client, group, topics,
     """
 
     topics = _verify_topics_and_partitions(kafka_client, topics, fail_on_error)
-    group_offset_reqs = []
 
-    for topic, partitions in topics.iteritems():
-        # Batch group_offset requests
-        group_offset_reqs += [
-            OffsetFetchRequest(kafka_bytestring(topic), partition)
-            for partition in partitions
-        ]
+    group_offset_reqs = [
+        OffsetFetchRequest(kafka_bytestring(topic), partition)
+        for topic, partitions in topics.iteritems()
+        for partition in partitions
+    ]
 
-    group_offsets = defaultdict(dict)
+    group_offsets = {}
 
-    # Return an empty dict if there are no valid topics and fail_on_error is
-    # False.
     if group_offset_reqs:
         # fail_on_error = False does not prevent network errors
         group_resps = kafka_client.send_offset_fetch_request(
@@ -162,9 +158,10 @@ def get_current_consumer_offsets(kafka_client, group, topics,
             fail_on_error=False,
             callback=pluck_topic_offset_or_zero_on_unknown
         )
-
         for resp in group_resps:
-            group_offsets[resp.topic][resp.partition] = resp.offset
+            group_offsets.setdefault(
+                resp.topic, {}
+            )[resp.partition] = resp.offset
 
     return group_offsets
 
@@ -208,10 +205,9 @@ def get_topics_watermarks(kafka_client, topics, fail_on_error=True):
                 OffsetRequest(topic, partition, -2, max_offsets=1)
             )
 
-    watermark_offsets = defaultdict(dict)
-    # Return an empty dict if there are no valid topics and fail_on_error is
-    # False.
-    if not any(highmark_offset_reqs + lowmark_offset_reqs):
+    watermark_offsets = {}
+
+    if not (len(highmark_offset_reqs) + len(lowmark_offset_reqs)):
         return watermark_offsets
 
     # fail_on_error = False does not prevent network errors
@@ -238,7 +234,9 @@ def get_topics_watermarks(kafka_client, topics, fail_on_error=True):
 
     for topic, partition_watermarks in aggregated_offsets.iteritems():
         for partition, watermarks in partition_watermarks.iteritems():
-            watermark_offsets[topic][partition] = PartitionOffsets(
+            watermark_offsets.setdefault(
+                topic, {}
+            )[partition] = PartitionOffsets(
                 topic, partition, watermarks['highmark'], watermarks['lowmark']
             )
     return watermark_offsets
@@ -247,9 +245,9 @@ def get_topics_watermarks(kafka_client, topics, fail_on_error=True):
 def get_consumer_offsets_metadata(kafka_client, group,
                                   topics, fail_on_error=True):
     """This method:
-        * refresh metadata for the kafka client
-        * fetch group offsets
-        * fetch watermarks
+        * refreshes metadata for the kafka client
+        * fetches group offsets
+        * fetches watermarks
 
     :param kafka_client: KafkaClient instance
     :param group: group id
@@ -260,15 +258,16 @@ def get_consumer_offsets_metadata(kafka_client, group,
     # Refresh client metadata. We do now use the topic list, because we
     # don't want to accidentally create the topic if it does not exist.
     kafka_client.load_metadata_for_topics()
+
     group_offsets = get_current_consumer_offsets(
         kafka_client, group, topics, fail_on_error
     )
+
     watermarks = get_topics_watermarks(
         kafka_client, topics, fail_on_error
     )
+
     result = {}
-    # We do not refresh the metadata before the offsets fetch so group_offsets
-    # and watermarks should contain the same topic and partitions.
     for topic, partitions in group_offsets.iteritems():
         result[topic] = [
             ConsumerPartitionOffsets(
