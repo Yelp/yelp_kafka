@@ -10,6 +10,7 @@ from kafka.common import (
     OffsetResponse,
     UnknownTopicOrPartitionError,
     check_error,
+    KafkaUnavailableError,
 )
 from kafka.util import kafka_bytestring
 
@@ -17,6 +18,7 @@ from yelp_kafka.error import (
     UnknownPartitions,
     UnknownTopic,
 )
+
 
 ConsumerPartitionOffsets = namedtuple('ConsumerPartitionOffsets',
                                       ['topic', 'partition', 'current',
@@ -273,7 +275,11 @@ def get_consumer_offsets_metadata(kafka_client, group,
 
     # Refresh client metadata. We do now use the topic list, because we
     # don't want to accidentally create the topic if it does not exist.
-    kafka_client.load_metadata_for_topics()
+    # If Kafka is unavailable, let's retry loading client metadata (YELPKAFKA-30)
+    try:
+        kafka_client.load_metadata_for_topics()
+    except KafkaUnavailableError:
+        kafka_client.load_metadata_for_topics()
 
     group_offsets = get_current_consumer_offsets(
         kafka_client, group, topics, fail_on_error

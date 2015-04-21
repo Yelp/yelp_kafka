@@ -4,6 +4,7 @@ import pytest
 from kafka.common import (
     OffsetResponse,
     OffsetFetchResponse,
+    KafkaUnavailableError,
 )
 
 from yelp_kafka.consumer import KafkaClient
@@ -288,6 +289,15 @@ class TestOffsetDifference(object):
         )
         assert 'topic1' in actual
         assert actual['topic1'] == expected
+
+    def test_get_metadata_kafka_error(self):
+        kafka_client_mock = self.kafka_client_mock()
+        kafka_client_mock.load_metadata_for_topics.side_effect = KafkaUnavailableError("Boom!")
+        with pytest.raises(KafkaUnavailableError):
+            get_consumer_offsets_metadata(kafka_client_mock,
+                                          self.group,
+                                          {'topic1': [99]},)
+        assert kafka_client_mock.load_metadata_for_topics.call_count == 2
 
     def test_offset_distance_ok(self):
         assert {0: 0, 1: 10, 2: 20} == offset_distance(
