@@ -56,7 +56,11 @@ def pluck_topic_offset_or_zero_on_unknown(resp):
     # check is if the offset is -1.
     if resp.offset == -1:
         return OffsetFetchResponse(
-            resp.topic, resp.partition, 0, resp.metadata, 0
+            resp.topic,
+            resp.partition,
+            0,
+            resp.metadata,
+            0,
         )
     return resp
 
@@ -68,7 +72,10 @@ def check_response_error(resp):
         # In case of error we set the offset to -1
         log.exception("Error in OffsetResponse")
         return OffsetResponse(
-            resp.topic, resp.partitions, resp.error, -1
+            resp.topic,
+            resp.partitions,
+            resp.error,
+            -1,
         )
     return resp
 
@@ -103,8 +110,10 @@ def _verify_topics_and_partitions(kafka_client, topics, fail_on_error):
                 if fail_on_error:
                     raise UnknownPartitions(
                         "Partitions {partitions!r} for topic {topic!r} do not"
-                        "exist in kafka".format(partitions=unknown_partitions,
-                                                topic=topic)
+                        "exist in kafka".format(
+                            partitions=unknown_partitions,
+                            topic=topic,
+                        )
                     )
                 else:
                     # We only use the available partitions in this case
@@ -156,11 +165,12 @@ def get_current_consumer_offsets(kafka_client, group, topics,
             kafka_bytestring(group),
             group_offset_reqs,
             fail_on_error=False,
-            callback=pluck_topic_offset_or_zero_on_unknown
+            callback=pluck_topic_offset_or_zero_on_unknown,
         )
         for resp in group_resps:
             group_offsets.setdefault(
-                resp.topic, {}
+                resp.topic,
+                {},
             )[resp.partition] = resp.offset
 
     return group_offsets
@@ -188,7 +198,9 @@ def get_topics_watermarks(kafka_client, topics, fail_on_error=True):
     :raises FailedPayloadsError: upon send request error.
     """
     topics = _verify_topics_and_partitions(
-        kafka_client, topics, fail_on_error
+        kafka_client,
+        topics,
+        fail_on_error,
     )
     highmark_offset_reqs = []
     lowmark_offset_reqs = []
@@ -214,12 +226,12 @@ def get_topics_watermarks(kafka_client, topics, fail_on_error=True):
     highmark_resps = kafka_client.send_offset_request(
         highmark_offset_reqs,
         fail_on_error=False,
-        callback=check_response_error
+        callback=check_response_error,
     )
     lowmark_resps = kafka_client.send_offset_request(
         lowmark_offset_reqs,
         fail_on_error=False,
-        callback=check_response_error
+        callback=check_response_error,
     )
 
     # At this point highmark and lowmark should ideally have the same length.
@@ -235,9 +247,13 @@ def get_topics_watermarks(kafka_client, topics, fail_on_error=True):
     for topic, partition_watermarks in aggregated_offsets.iteritems():
         for partition, watermarks in partition_watermarks.iteritems():
             watermark_offsets.setdefault(
-                topic, {}
+                topic,
+                {},
             )[partition] = PartitionOffsets(
-                topic, partition, watermarks['highmark'], watermarks['lowmark']
+                topic,
+                partition,
+                watermarks['highmark'],
+                watermarks['lowmark'],
             )
     return watermark_offsets
 
@@ -275,7 +291,7 @@ def get_consumer_offsets_metadata(kafka_client, group,
                 partition=partition,
                 current=group_offsets[topic][partition],
                 highmark=watermarks[topic][partition].highmark,
-                lowmark=watermarks[topic][partition].lowmark
+                lowmark=watermarks[topic][partition].lowmark,
             ) for partition in partitions
         ]
     return result
@@ -300,7 +316,9 @@ def topics_offset_distance(kafka_client, group, topics):
 
     distance = {}
     for topic, offsets in get_consumer_offsets_metadata(
-        kafka_client, group, topics
+        kafka_client,
+        group,
+        topics,
     ).iteritems():
         distance[topic] = dict([
             (offset.partition, offset.highmark - offset.current)
@@ -331,8 +349,11 @@ def offset_distance(kafka_client, group, topic, partitions=None):
         topics = {topic: partitions}
     else:
         topics = [topic]
-    consumer_offsets = get_consumer_offsets_metadata(kafka_client, group,
-                                                     topics)
+    consumer_offsets = get_consumer_offsets_metadata(
+        kafka_client,
+        group,
+        topics,
+    )
     return dict(
         [(offset.partition, offset.highmark - offset.current)
          for offset in consumer_offsets[topic]]
