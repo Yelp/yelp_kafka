@@ -30,3 +30,18 @@ def make_scribe_topic(stream, datacenter):
     :returns: topic name
     """
     return "scribe.{0}.{1}".format(datacenter, stream)
+
+
+def split_scribe_topic(topic_name):
+    """Get the datacentre and stream from a kafka topic name
+
+    :param topic_name: Kafka topic name
+    "returns: datacentre and stream name
+    """
+    try:
+        (_, datacentre, stream) = topic_name.split(".")
+    except ValueError:
+        log.warning("Encountered wrongly formatted topic %s" % topic_name)
+        raise
+    else:
+        return (datacentre, stream)

@@ -46,3 +46,18 @@ def test_get_kafka_topics_error():
     mock_client.load_metadata_for_topics.side_effect = KafkaUnavailableError('Boom!')
     with pytest.raises(KafkaUnavailableError):
         utils.get_kafka_topics(mock_client)
+
+
+def test_split_scribe_topic():
+    topic = "scribe.uswest1-devc.ranger"
+    datacentre, stream = utils.split_scribe_topic(topic)
+    assert datacentre == "uswest1-devc"
+    assert stream == "ranger"
+
+    topic = "scribeuswest1-devcranger"
+    with pytest.raises(ValueError):
+        utils.split_scribe_topic(topic)
+
+    topic = "scribe.uswest.ranger.garbage"
+    with pytest.raises(ValueError):
+        utils.split_scribe_topic(topic)
