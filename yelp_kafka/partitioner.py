@@ -152,6 +152,8 @@ class Partitioner(object):
         self._release(partitioner)
         partitioner.finish()
         self.kazoo_client.stop()
+        self.kazoo_client.close()
+        self.kafka_client.stop()
 
     def _handle_group(self, partitioner):
         """Handle group status changes, for example when a new
