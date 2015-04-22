@@ -48,16 +48,49 @@ def test_get_kafka_topics_error():
         utils.get_kafka_topics(mock_client)
 
 
-def test_split_scribe_topic():
+def test_extract_datacentre():
     topic = "scribe.uswest1-devc.ranger"
-    datacentre, stream = utils.split_scribe_topic(topic)
+    datacentre = utils.extract_datacentre(topic)
     assert datacentre == "uswest1-devc"
-    assert stream == "ranger"
 
+    topic = "scribe.uswest1-devc.mylogfile.log"
+    datacentre = utils.extract_datacentre(topic)
+    assert datacentre == "uswest1-devc"
+
+
+def test_extract_datacentre_error():
     topic = "scribeuswest1-devcranger"
     with pytest.raises(ValueError):
-        utils.split_scribe_topic(topic)
+        utils.extract_datacentre(topic)
 
-    topic = "scribe.uswest.ranger.garbage"
+    topic = "scribe.uswest1-devcranger"
     with pytest.raises(ValueError):
-        utils.split_scribe_topic(topic)
+        utils.extract_datacentre(topic)
+
+    topic = "scribble.uswest1-devc.ranger"
+    with pytest.raises(ValueError):
+        utils.extract_datacentre(topic)
+
+
+def test_extract_stream_name():
+    topic = "scribe.uswest1-devc.ranger"
+    stream = utils.extract_stream_name(topic)
+    assert stream == "ranger"
+
+    topic = "scribe.uswest1-devc.mylogfile.log"
+    stream = utils.extract_stream_name(topic)
+    assert stream == "mylogfile.log"
+
+
+def test_extract_stream_name_error():
+    topic = "scribeuswest1-devcranger"
+    with pytest.raises(ValueError):
+        utils.extract_stream_name(topic)
+
+    topic = "scribe.uswest1-devcranger"
+    with pytest.raises(ValueError):
+        utils.extract_stream_name(topic)
+
+    topic = "scribble.uswest1-devc.ranger"
+    with pytest.raises(ValueError):
+        utils.extract_stream_name(topic)

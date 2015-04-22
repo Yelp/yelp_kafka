@@ -32,16 +32,31 @@ def make_scribe_topic(stream, datacenter):
     return "scribe.{0}.{1}".format(datacenter, stream)
 
 
-def split_scribe_topic(topic_name):
-    """Get the datacentre and stream from a kafka topic name
+def extract_datacentre(topic_name):
+    """Get the datacentre from a kafka topic name
 
     :param topic_name: Kafka topic name
-    "returns: datacentre and stream name
+    :returns: datacentre
+    :raises: ValueError if the topic name does not conform to the expected
+             format: "scribe.<datacentre>.<stream name>"
     """
-    try:
-        (_, datacentre, stream) = topic_name.split(".")
-    except ValueError:
-        log.warning("Encountered wrongly formatted topic %s" % topic_name)
-        raise
+    tokens = topic_name.split(".", 2)
+    if len(tokens) < 3 or tokens[0] != "scribe":
+        raise ValueError("Encountered wrongly formatted topic %s" % topic_name)
     else:
-        return (datacentre, stream)
+        return tokens[1]
+
+
+def extract_stream_name(topic_name):
+    """Get the stream name from a kafka topic name
+
+    :param topic_name: Kafka topic name
+    :returns: stream name
+    :raises: ValueError if the topic name does not conform to the expected
+               format: "scribe.<datacentre>.<stream name>"
+    """
+    tokens = topic_name.split(".", 2)
+    if len(tokens) < 3 or tokens[0] != "scribe":
+        raise ValueError("Encountered wrongly formatted topic %s" % topic_name)
+    else:
+        return tokens[2]
