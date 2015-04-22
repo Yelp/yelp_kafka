@@ -48,28 +48,28 @@ def test_get_kafka_topics_error():
         utils.get_kafka_topics(mock_client)
 
 
-def test_extract_datacentre():
+def test_extract_datacenter():
     topic = "scribe.uswest1-devc.ranger"
-    datacentre = utils.extract_datacentre(topic)
-    assert datacentre == "uswest1-devc"
+    datacenter = utils.extract_datacenter(topic)
+    assert datacenter == "uswest1-devc"
 
     topic = "scribe.uswest1-devc.mylogfile.log"
-    datacentre = utils.extract_datacentre(topic)
-    assert datacentre == "uswest1-devc"
+    datacenter = utils.extract_datacenter(topic)
+    assert datacenter == "uswest1-devc"
 
 
-def test_extract_datacentre_error():
+def test_extract_datacenter_error():
     topic = "scribeuswest1-devcranger"
     with pytest.raises(ValueError):
-        utils.extract_datacentre(topic)
+        utils.extract_datacenter(topic)
 
     topic = "scribe.uswest1-devcranger"
     with pytest.raises(ValueError):
-        utils.extract_datacentre(topic)
+        utils.extract_datacenter(topic)
 
     topic = "scribble.uswest1-devc.ranger"
     with pytest.raises(ValueError):
-        utils.extract_datacentre(topic)
+        utils.extract_datacenter(topic)
 
 
 def test_extract_stream_name():
