@@ -32,6 +32,14 @@ def make_scribe_topic(stream, datacenter):
     return "scribe.{0}.{1}".format(datacenter, stream)
 
 
+def __split_topic_name(topic_name):
+    tokens = topic_name.split(".", 2)
+    if len(tokens) < 3 or tokens[0] != "scribe":
+        raise ValueError("Encountered wrongly formatted topic %s" % topic_name)
+    else:
+        return tokens
+
+
 def extract_datacenter(topic_name):
     """Get the datacenter from a kafka topic name
 
@@ -40,11 +48,7 @@ def extract_datacenter(topic_name):
     :raises: ValueError if the topic name does not conform to the expected
              format: "scribe.<datacenter>.<stream name>"
     """
-    tokens = topic_name.split(".", 2)
-    if len(tokens) < 3 or tokens[0] != "scribe":
-        raise ValueError("Encountered wrongly formatted topic %s" % topic_name)
-    else:
-        return tokens[1]
+    return __split_topic_name(topic_name)[1]
 
 
 def extract_stream_name(topic_name):
@@ -55,8 +59,4 @@ def extract_stream_name(topic_name):
     :raises: ValueError if the topic name does not conform to the expected
                format: "scribe.<datacenter>.<stream name>"
     """
-    tokens = topic_name.split(".", 2)
-    if len(tokens) < 3 or tokens[0] != "scribe":
-        raise ValueError("Encountered wrongly formatted topic %s" % topic_name)
-    else:
-        return tokens[2]
+    return __split_topic_name(topic_name)[2]
