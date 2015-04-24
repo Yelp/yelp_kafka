@@ -85,7 +85,7 @@ def check_response_error(resp):
 def _validate_topics_list_or_dict(topics):
     if isinstance(topics, dict):
         return topics
-    elif isinstance(topics, list):
+    elif isinstance(topics, (list, set, tuple)):
         return dict([(topic, []) for topic in topics])
     else:
         raise TypeError("Invalid topics: {topics}. It must be either a "
