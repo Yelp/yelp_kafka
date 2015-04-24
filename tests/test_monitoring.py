@@ -25,6 +25,11 @@ def kafka_client_mock():
     return mock.Mock(KafkaClient)
 
 
+@pytest.fixture(params=[['topic1'], set(['topic1']), ('topic1',)])
+def topics(request):
+    return request.param
+
+
 class TestOffsetDifference(object):
     topics = {
         'topic1': [0, 1, 2],
@@ -171,6 +176,14 @@ class TestOffsetDifference(object):
         # Partition 99 does not exist so it shouldn't be in the result
         assert 99 not in actual['topic1']
 
+    def test_get_current_consumer_offsets(self, topics):
+        actual = get_current_consumer_offsets(
+            self.kafka_client_mock(),
+            self.group,
+            topics
+        )
+        assert actual == {'topic1': {0: 30, 1: 20, 2: 10}}
+
     def test_get_topics_watermarks_invalid_arguments(self):
         with pytest.raises(TypeError):
             get_topics_watermarks(
@@ -223,6 +236,17 @@ class TestOffsetDifference(object):
         )
         assert actual['topic1'][1] == PartitionOffsets('topic1', 1, 30, 5)
         assert 99 not in actual['topic1']
+
+    def test_get_topics_watermarks(self, topics):
+        actual = get_topics_watermarks(
+            self.kafka_client_mock(),
+            topics,
+        )
+        assert actual == {'topic1': {
+            0: PartitionOffsets('topic1', 0, 30, 10),
+            1: PartitionOffsets('topic1', 1, 30, 5),
+            2: PartitionOffsets('topic1', 2, 30, 3),
+        }}
 
     def test_offset_metadata_invalid_arguments(self):
         with pytest.raises(TypeError):
