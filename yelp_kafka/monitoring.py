@@ -212,11 +212,15 @@ def get_topics_watermarks(kafka_client, topics, fail_on_error=True):
         for partition in partitions:
             # Request the the latest offset
             highmark_offset_reqs.append(
-                OffsetRequest(topic, partition, -1, max_offsets=1)
+                OffsetRequest(
+                    kafka_bytestring(topic), partition, -1, max_offsets=1
+                )
             )
             # Request the earliest offset
             lowmark_offset_reqs.append(
-                OffsetRequest(topic, partition, -2, max_offsets=1)
+                OffsetRequest(
+                    kafka_bytestring(topic), partition, -2, max_offsets=1
+                )
             )
 
     watermark_offsets = {}
