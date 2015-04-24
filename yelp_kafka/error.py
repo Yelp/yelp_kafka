@@ -34,6 +34,11 @@ class PartitionerError(YelpKafkaError):
     pass
 
 
+class PartitionerZookeeperError(YelpKafkaError):
+    """Error in partitioner communication with Zookeeper"""
+    pass
+
+
 class UnknownTopic(YelpKafkaError):
     pass
 

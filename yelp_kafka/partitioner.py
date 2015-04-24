@@ -7,7 +7,7 @@ from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
 from kazoo.recipe.partitioner import PartitionState
 
-from yelp_kafka.error import PartitionerError
+from yelp_kafka.error import PartitionerError, PartitionerZookeeperError
 from yelp_kafka.utils import get_kafka_topics
 
 MAX_START_TIME_SECS = 300
@@ -29,8 +29,9 @@ class Partitioner(object):
         partitions have to be release. It should usually stops the consumers.
     """
     def __init__(self, config, topics, acquire, release):
-        self.kazoo_client = KazooClient(config.zookeeper)
-        self.kafka_client = KafkaClient(config.broker_list)
+        self.config = config
+        self.kazoo_client = None
+        self.kafka_client = None
         self.topics = topics
         self.acquired_partitions = defaultdict(list)
         self.partitions_set = set()
@@ -56,6 +57,8 @@ class Partitioner(object):
 
         .. note: This is a blocking operation.
         """
+        self.kazoo_client = KazooClient(self.config.zookeeper)
+        self.kafka_client = KafkaClient(self.config.broker_list)
         self.log.debug("Starting a new group for topics %s", self.topics)
         self._refresh()
 
@@ -154,6 +157,9 @@ class Partitioner(object):
         self.kazoo_client.stop()
         self.kazoo_client.close()
         self.kafka_client.stop()
+        self.partitions_set = None
+        self._partitioner = None
+        self.last_partitions_refresh = 0
 
     def _handle_group(self, partitioner):
         """Handle group status changes, for example when a new
@@ -200,14 +206,8 @@ class Partitioner(object):
         the running consumers.
         """
         self.log.error("Lost or unable to acquire partitions")
-        if self.acquired_partitions:
-            self.release(self.acquired_partitions)
-            self.acquired_partitions.clear()
-            # The partitioner is in fail state so we can get rid of it and try
-            # to create a new one.
-            self.partitions_set = None
-            self._partitioner = None
-            self.force_partitions_refresh = True
+        self._destroy_partitioner(self._partitioner)
+        raise PartitionerZookeeperError
 
     def _get_acquired_partitions(self, partitioner):
         """Retrieve acquired partitions from a partitioner.

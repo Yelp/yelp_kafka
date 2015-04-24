@@ -6,7 +6,7 @@ from kazoo.recipe.partitioner import SetPartitioner
 from kazoo.recipe.partitioner import PartitionState
 from kazoo.protocol.states import KazooState
 
-from yelp_kafka.error import PartitionerError
+from yelp_kafka.error import PartitionerError, PartitionerZookeeperError
 from yelp_kafka.partitioner import Partitioner
 
 
@@ -54,8 +54,19 @@ class TestPartitioner(object):
         )
         expected_partitions = {'topic1': [0, 1, 3]}
         partitioner.acquired_partitions = expected_partitions
-        partitioner._handle_group(mock_kpartitioner)
-        partitioner.release.assert_called_once_with(expected_partitions)
+        with mock.patch.object(Partitioner, '_destroy_partitioner') as mock_destroy:
+            with pytest.raises(PartitionerZookeeperError):
+                partitioner._handle_group(mock_kpartitioner)
+            mock_destroy.assert_called_once()
+
+    def test_handle_failed_and_release_no_acquried_partitions(self, partitioner):
+        mock_kpartitioner = mock.MagicMock(
+            spec=SetPartitioner, **get_partitioner_state(PartitionState.FAILURE)
+        )
+        with mock.patch.object(Partitioner, '_destroy_partitioner') as mock_destroy:
+            with pytest.raises(PartitionerZookeeperError):
+                partitioner._handle_group(mock_kpartitioner)
+            mock_destroy.assert_called_once()
 
     def test_handle_acquired(self, partitioner):
         mock_kpartitioner = mock.MagicMock(
@@ -132,14 +143,26 @@ class TestPartitioner(object):
             assert mock_create.call_count == 2
             assert not partitioner.need_partitions_refresh()
 
-    @mock.patch('yelp_kafka.partitioner.KafkaClient', autospec=True)
+    @mock.patch('yelp_kafka.partitioner.KafkaClient')
     @mock.patch('yelp_kafka.partitioner.KazooClient')
-    def test__destroy_partitioner(self, mock_kazoo, _, config):
+    def test__destroy_partitioner(self, mock_kazoo, mock_kafka, config):
         mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
-        partitioner._destroy_partitioner(mock_kpartitioner)
-        mock_kpartitioner.finish.assert_called_once()
-        mock_kazoo.stop.assert_called_once()
+        with contextlib.nested(
+            mock.patch.object(Partitioner, '_refresh'),
+            mock.patch.object(Partitioner, '_release'),
+        ) as (mock_refresh, mock_release):
+            partitioner.start()
+            mock_refresh.assert_called_once()
+            partitioner._destroy_partitioner(mock_kpartitioner)
+            mock_release.assert_called_once()
+            mock_kpartitioner.finish.assert_called_once()
+            mock_kazoo.stop.assert_called_once()
+            mock_kazoo.close.assert_called_once()
+            mock_kafka.stop.assert_called_once()
+            assert partitioner.partitions_set is None
+            assert partitioner._partitioner is None
+            assert partitioner.last_partitions_refresh == 0
 
     @mock.patch('yelp_kafka.partitioner.KafkaClient', autospec=True)
     @mock.patch('yelp_kafka.partitioner.KazooClient')
@@ -148,16 +171,19 @@ class TestPartitioner(object):
         mock_kazoo.return_value.SetPartitioner.return_value = mock_kpartitioner
         mock_kazoo.return_value.state = KazooState.CONNECTED
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
-        expected_partitions = set(['top-1', 'top1-2'])
-        assert mock_kpartitioner == partitioner._create_partitioner(
-            expected_partitions
-        )
-        mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
-            path='/yelp-kafka/test_group',
-            set=expected_partitions,
-            time_boundary=0.5
-        )
-        assert not mock_kazoo.return_value.start.called
+        with mock.patch.object(Partitioner, '_refresh') as mock_refresh:
+            partitioner.start()
+            mock_refresh.assert_called_once()
+            expected_partitions = set(['top-1', 'top1-2'])
+            assert mock_kpartitioner == partitioner._create_partitioner(
+                expected_partitions
+            )
+            mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
+                path='/yelp-kafka/test_group',
+                set=expected_partitions,
+                time_boundary=0.5
+            )
+            assert not mock_kazoo.return_value.start.called
 
     @mock.patch('yelp_kafka.partitioner.KafkaClient', autospec=True)
     @mock.patch('yelp_kafka.partitioner.KazooClient')
@@ -166,16 +192,19 @@ class TestPartitioner(object):
         mock_kazoo.return_value.SetPartitioner.return_value = mock_kpartitioner
         mock_kazoo.return_value.state = KazooState.LOST
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
-        expected_partitions = set(['top-1', 'top1-2'])
-        assert mock_kpartitioner == partitioner._create_partitioner(
-            expected_partitions
-        )
-        mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
-            path='/yelp-kafka/test_group',
-            set=expected_partitions,
-            time_boundary=0.5
-        )
-        mock_kazoo.return_value.start.assert_called_once()
+        with mock.patch.object(Partitioner, '_refresh') as mock_refresh:
+            partitioner.start()
+            mock_refresh.assert_called_once()
+            expected_partitions = set(['top-1', 'top1-2'])
+            assert mock_kpartitioner == partitioner._create_partitioner(
+                expected_partitions
+            )
+            mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
+                path='/yelp-kafka/test_group',
+                set=expected_partitions,
+                time_boundary=0.5
+            )
+            mock_kazoo.return_value.start.assert_called_once()
 
     def test_get_partitions_kafka_unavailable(self, partitioner):
         expected_partitions = set(['fake-topic'])
