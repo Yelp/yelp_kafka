@@ -148,7 +148,7 @@ class MultiprocessingConsumerGroup(object):
        from yelp_kafka.consumer import KafkaConsumer
        from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
 
-       class MyConsumer(KafkaConsumer):
+       class MyConsumer(KafkaConsumerBase):
 
            def __init__(topic, config, partitions):
                super(MyConsumer, self).__init__(topic, config, partitions)
