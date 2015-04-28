@@ -1,4 +1,3 @@
-import contextlib
 import mock
 from multiprocessing import Process
 import os
@@ -8,10 +7,9 @@ from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.consumer_group import ConsumerGroup
 from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
 from yelp_kafka.error import ProcessMessageError, PartitionerError, PartitionerZookeeperError
-from yelp_kafka.partitioner import Partitioner
 
 
-@mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
+@mock.patch('yelp_kafka.consumer_group.Partitioner')
 class TestConsumerGroup(object):
 
     topic = 'topic1'
@@ -37,18 +35,13 @@ class TestConsumerGroup(object):
             mock.sentinel.message1,
             mock.sentinel.message2
         ]
-        with contextlib.nested(
-            mock.patch.object(Partitioner, 'refresh', side_effect=PartitionerError("Boom!")),
-            mock.patch.object(Partitioner, 'start'),
-        ) as (mock_refresh, mock_start):
-            group._consume(refresh_timeout=1)
-            mock_start.assert_called_once()
-        with contextlib.nested(
-            mock.patch.object(Partitioner, 'refresh', side_effect=PartitionerZookeeperError("Boom!")),
-            mock.patch.object(Partitioner, 'start'),
-        ) as (mock_refresh, mock_start):
-            group._consume(refresh_timeout=1)
-            mock_start.assert_called_once()
+        mock_partitioner.return_value.refresh.side_effect = PartitionerError("Boom")
+        group._consume(refresh_timeout=1)
+        assert mock_partitioner.start.assert_called_once()
+
+        mock_partitioner.return_value.refresh.side_effect = PartitionerZookeeperError("Boom")
+        group._consume(refresh_timeout=1)
+        assert mock_partitioner.start.assert_called_once()
 
     def test__consume_error(self, mock_partitioner, config):
         group = ConsumerGroup(self.topic, config, mock.Mock(side_effect=Exception("Boom!")))
