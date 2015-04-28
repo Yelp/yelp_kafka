@@ -109,8 +109,7 @@ class Partitioner(object):
                     "Failed to get partitions set from Kafka."
                     "Releasing the group."
                 )
-                if self._partitioner:
-                    self._destroy_partitioner(self._partitioner)
+                self._destroy_partitioner(self._partitioner)
                 raise PartitionerError("Failed to get partitions set from Kafka")
             self.force_partitions_refresh = False
             self.last_partitions_refresh = time.time()
@@ -138,6 +137,7 @@ class Partitioner(object):
                 self.kazoo_client.start()
             except:
                 self.log.exception("Impossible to connect to zookeeper")
+                self._destory_partitioner(self._partitioner)
                 raise PartitionerError("Zookeeper connection failure")
         self.log.debug("Creating partitioner for group %s, topic %s,"
                        " partitions set %s", self.config.group_id,
@@ -150,16 +150,16 @@ class Partitioner(object):
 
     def _destroy_partitioner(self, partitioner):
         """Release consumers and terminate the partitioner"""
-        if not partitioner:
-            raise PartitionerError("Internal error partitioner not yet started.")
-        self._release(partitioner)
-        partitioner.finish()
         self.kazoo_client.stop()
         self.kazoo_client.close()
         self.kafka_client.stop()
         self.partitions_set = None
-        self._partitioner = None
         self.last_partitions_refresh = 0
+
+        if partitioner:
+            self._release(partitioner)
+            partitioner.finish()
+            self._partitioner = None
 
     def _handle_group(self, partitioner):
         """Handle group status changes, for example when a new
@@ -170,6 +170,7 @@ class Partitioner(object):
                 self.actions[partitioner.state](partitioner)
             except KeyError:
                 self.log.exception("Unexpected partitioner state.")
+                self._destroy_partitioner(self._partitioner)
                 raise PartitionerError("Invalid partitioner state %s" %
                                        partitioner.state)
 
@@ -241,6 +242,7 @@ class Partitioner(object):
         if missing_topics:
             self.log.warning("Missing topics: %s", missing_topics)
         if not partitions:
+            self._destroy_partitioner(self._partitioner)
             raise PartitionerError(
                 "No partitions found for topics: {topics}".format(
                     topics=self.topics
