@@ -153,13 +153,13 @@ class TestPartitioner(object):
             mock.patch.object(Partitioner, '_release'),
         ) as (mock_refresh, mock_release):
             partitioner.start()
-            mock_refresh.assert_called_once()
+            mock_refresh.assert_called_once_with()
             partitioner._destroy_partitioner(mock_kpartitioner)
-            mock_release.assert_called_once()
+            mock_release.assert_called_once_with(mock_kpartitioner)
             mock_kpartitioner.finish.assert_called_once()
-            mock_kazoo.stop.assert_called_once()
-            mock_kazoo.close.assert_called_once()
-            mock_kafka.stop.assert_called_once()
+            mock_kazoo.return_value.stop.assert_called_once_with()
+            mock_kazoo.return_value.close.assert_called_once_with()
+            mock_kafka.return_value.close.assert_called_once_with()
             assert partitioner.partitions_set is None
             assert partitioner._partitioner is None
             assert partitioner.last_partitions_refresh == 0
@@ -173,7 +173,7 @@ class TestPartitioner(object):
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
         with mock.patch.object(Partitioner, '_refresh') as mock_refresh:
             partitioner.start()
-            mock_refresh.assert_called_once()
+            mock_refresh.assert_called_once_with()
             expected_partitions = set(['top-1', 'top1-2'])
             assert mock_kpartitioner == partitioner._create_partitioner(
                 expected_partitions
@@ -194,7 +194,7 @@ class TestPartitioner(object):
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
         with mock.patch.object(Partitioner, '_refresh') as mock_refresh:
             partitioner.start()
-            mock_refresh.assert_called_once()
+            mock_refresh.assert_called_once_with()
             expected_partitions = set(['top-1', 'top1-2'])
             assert mock_kpartitioner == partitioner._create_partitioner(
                 expected_partitions

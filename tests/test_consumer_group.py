@@ -37,11 +37,11 @@ class TestConsumerGroup(object):
         ]
         mock_partitioner.return_value.refresh.side_effect = PartitionerError("Boom")
         group._consume(refresh_timeout=1)
-        assert mock_partitioner.start.assert_called_once()
-
+        mock_partitioner.return_value.start.assert_called_once_with()
+        mock_partitioner.return_value.start.reset_mock()
         mock_partitioner.return_value.refresh.side_effect = PartitionerZookeeperError("Boom")
         group._consume(refresh_timeout=1)
-        assert mock_partitioner.start.assert_called_once()
+        mock_partitioner.return_value.start.assert_called_once_with()
 
     def test__consume_error(self, mock_partitioner, config):
         group = ConsumerGroup(self.topic, config, mock.Mock(side_effect=Exception("Boom!")))

@@ -137,11 +137,12 @@ class Partitioner(object):
                 self.kazoo_client.start()
             except:
                 self.log.exception("Impossible to connect to zookeeper")
-                self._destory_partitioner(self._partitioner)
+                self._destroy_partitioner(self._partitioner)
                 raise PartitionerError("Zookeeper connection failure")
         self.log.debug("Creating partitioner for group %s, topic %s,"
                        " partitions set %s", self.config.group_id,
                        self.topics, partitions)
+
         return self.kazoo_client.SetPartitioner(
             path=self.config.group_path,
             set=partitions,
@@ -152,7 +153,7 @@ class Partitioner(object):
         """Release consumers and terminate the partitioner"""
         self.kazoo_client.stop()
         self.kazoo_client.close()
-        self.kafka_client.stop()
+        self.kafka_client.close()
         self.partitions_set = None
         self.last_partitions_refresh = 0
 
