@@ -59,7 +59,7 @@ class TestPartitioner(object):
                 partitioner._handle_group(mock_kpartitioner)
             mock_destroy.assert_called_once()
 
-    def test_handle_failed_and_release_no_acquried_partitions(self, partitioner):
+    def test_handle_failed_and_release_no_acquired_partitions(self, partitioner):
         mock_kpartitioner = mock.MagicMock(
             spec=SetPartitioner, **get_partitioner_state(PartitionState.FAILURE)
         )
@@ -152,25 +152,32 @@ class TestPartitioner(object):
             mock.patch.object(Partitioner, '_refresh'),
             mock.patch.object(Partitioner, '_release'),
         ) as (mock_refresh, mock_release):
+            # start the partitioner and verify that we refresh the partition set
             partitioner.start()
             mock_refresh.assert_called_once_with()
+            # destroy the partitioner and ensure we cleanup all open handles.
             partitioner._destroy_partitioner(mock_kpartitioner)
+            # did we release acquired partitions?
             mock_release.assert_called_once_with(mock_kpartitioner)
+            # did we cleanup the kafka partitioner?
             mock_kpartitioner.finish.assert_called_once()
+            # did we close all open connections with kafka and zk?
             mock_kazoo.return_value.stop.assert_called_once_with()
             mock_kazoo.return_value.close.assert_called_once_with()
             mock_kafka.return_value.close.assert_called_once_with()
-            assert partitioner.partitions_set is None
+            assert partitioner.partitions_set == set()
             assert partitioner._partitioner is None
             assert partitioner.last_partitions_refresh == 0
 
     @mock.patch('yelp_kafka.partitioner.KafkaClient', autospec=True)
     @mock.patch('yelp_kafka.partitioner.KazooClient')
-    def test__create_partitioner(self, mock_kazoo, _, config):
+    def test__create_partitioner_with_kazoo_connection(self, mock_kazoo, _, config):
+        # Mock a successful connection to zookeeper
         mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
         mock_kazoo.return_value.SetPartitioner.return_value = mock_kpartitioner
         mock_kazoo.return_value.state = KazooState.CONNECTED
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
+        # Verify that we distribute the partitions when we start the partitioner
         with mock.patch.object(Partitioner, '_refresh') as mock_refresh:
             partitioner.start()
             mock_refresh.assert_called_once_with()
@@ -188,10 +195,13 @@ class TestPartitioner(object):
     @mock.patch('yelp_kafka.partitioner.KafkaClient', autospec=True)
     @mock.patch('yelp_kafka.partitioner.KazooClient')
     def test__create_partitioner_no_kazoo_connection(self, mock_kazoo, _, config):
+        # Mock a failed connection to Zookeeper
         mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
         mock_kazoo.return_value.SetPartitioner.return_value = mock_kpartitioner
         mock_kazoo.return_value.state = KazooState.LOST
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
+        # Verify that we attempt to re-establish the connection with Zookeeper
+        # and distribute the partitions.
         with mock.patch.object(Partitioner, '_refresh') as mock_refresh:
             partitioner.start()
             mock_refresh.assert_called_once_with()

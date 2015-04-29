@@ -6,10 +6,12 @@ import pytest
 from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.consumer_group import ConsumerGroup
 from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
-from yelp_kafka.error import ProcessMessageError, PartitionerError, PartitionerZookeeperError
+from yelp_kafka.error import (ProcessMessageError,
+                              PartitionerError,
+                              PartitionerZookeeperError)
 
 
-@mock.patch('yelp_kafka.consumer_group.Partitioner')
+@mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
 class TestConsumerGroup(object):
 
     topic = 'topic1'
@@ -36,12 +38,11 @@ class TestConsumerGroup(object):
             mock.sentinel.message2
         ]
         mock_partitioner.return_value.refresh.side_effect = PartitionerError("Boom")
-        group._consume(refresh_timeout=1)
-        mock_partitioner.return_value.start.assert_called_once_with()
-        mock_partitioner.return_value.start.reset_mock()
+        with pytest.raises(PartitionerError):
+            group._consume(refresh_timeout=1)
         mock_partitioner.return_value.refresh.side_effect = PartitionerZookeeperError("Boom")
-        group._consume(refresh_timeout=1)
-        mock_partitioner.return_value.start.assert_called_once_with()
+        with pytest.raises(PartitionerZookeeperError):
+            group._consume(refresh_timeout=1)
 
     def test__consume_error(self, mock_partitioner, config):
         group = ConsumerGroup(self.topic, config, mock.Mock(side_effect=Exception("Boom!")))
