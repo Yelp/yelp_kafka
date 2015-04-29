@@ -104,7 +104,7 @@ class KafkaSimpleConsumer(object):
         """
         if self.kafka_consumer.auto_commit is True:
             try:
-                self.kafka_consumer.commit()
+                self.commit()
             except:
                 self.log.exception("Commit error. "
                                    "Offsets may not have been committed")
@@ -195,6 +195,13 @@ class KafkaSimpleConsumer(object):
             self.kafka_consumer.offsets = group_offsets.copy()
             self.kafka_consumer.fetch_offsets = group_offsets.copy()
         self.kafka_consumer.auto_commit = saved_auto_commit
+
+    def commit(self, partitions=None):
+        """Commit offset for this consumer
+        :param partitions: list of partitions to commit, default commits to all
+                           partitions
+        """
+        self.kafka_consumer.commit(partitions)
 
 
 class KafkaConsumerBase(KafkaSimpleConsumer):
@@ -287,6 +294,13 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
         """Commit offsets and terminate the consumer.
         """
         self.log.info("Terminating consumer topic %s ", self.topic)
-        self.kafka_consumer.commit()
+        self.commit()
         self.client.close()
         self.dispose()
+
+    def commit(self, partitions=None):
+        """Commit offset for this consumer
+        :param partitions: list of partitions to commit, default commits to all
+                           partitions
+        """
+        self.kafka_consumer.commit(partitions)

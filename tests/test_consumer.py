@@ -203,7 +203,15 @@ class TestKafkaSimpleConsumer(object):
                 assert not mock_consumer.return_value.commit.called
                 mock_client.return_value.close.assert_called_once_with()
 
-
+    def test_commit(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            consumer = KafkaSimpleConsumer('test_topic', config)
+            consumer.commit()
+            mock_consumer.return_value.commit.assert_called_once_with()
+            mock_consumer.return_value.commit.reset_mock()
+            partitions = ['partition1', 'partition2']
+            consumer.commit(partitions)
+            mock_consumer.return_value.commit.assert_called_once_with
 class TestKafkaConsumer(object):
 
     def test_run_and_terminate(self, config):
