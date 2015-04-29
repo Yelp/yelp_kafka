@@ -6,9 +6,11 @@ import pytest
 from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.consumer_group import ConsumerGroup
 from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
-from yelp_kafka.error import (ProcessMessageError,
-                              PartitionerError,
-                              PartitionerZookeeperError)
+from yelp_kafka.error import (
+    ProcessMessageError,
+    PartitionerError,
+    PartitionerZookeeperError
+)
 
 
 @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)

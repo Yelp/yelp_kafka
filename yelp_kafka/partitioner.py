@@ -151,16 +151,15 @@ class Partitioner(object):
 
     def _destroy_partitioner(self, partitioner):
         """Release consumers and terminate the partitioner"""
-        self.kazoo_client.stop()
-        self.kazoo_client.close()
         self.kafka_client.close()
         self.partitions_set = set()
         self.last_partitions_refresh = 0
-
         if partitioner:
             self._release(partitioner)
             partitioner.finish()
             self._partitioner = None
+        self.kazoo_client.stop()
+        self.kazoo_client.close()
 
     def _handle_group(self, partitioner):
         """Handle group status changes, for example when a new
