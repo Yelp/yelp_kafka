@@ -201,7 +201,10 @@ class KafkaSimpleConsumer(object):
         :param partitions: list of partitions to commit, default commits to all
                            partitions
         """
-        self.kafka_consumer.commit(partitions)
+        if partitions:
+            self.kafka_consumer.commit(partitions)
+        else:
+            self.kafka_consumer.commit()
 
 
 class KafkaConsumerBase(KafkaSimpleConsumer):
@@ -297,10 +300,3 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
         self.commit()
         self.client.close()
         self.dispose()
-
-    def commit(self, partitions=None):
-        """Commit offset for this consumer
-        :param partitions: list of partitions to commit, default commits to all
-                           partitions
-        """
-        self.kafka_consumer.commit(partitions)
