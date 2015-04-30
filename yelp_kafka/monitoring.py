@@ -75,7 +75,7 @@ def check_response_error(resp):
         log.exception("Error in OffsetResponse")
         return OffsetResponse(
             resp.topic,
-            resp.partitions,
+            resp.partition,
             resp.error,
             -1,
         )
