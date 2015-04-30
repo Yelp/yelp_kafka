@@ -17,8 +17,6 @@ def get_kafka_topics(kafkaclient):
         log.warning("First call to kafka for loading metadata failed."
                     " Trying again.")
         kafkaclient.load_metadata_for_topics()
-    finally:
-        kafkaclient.close()
     return kafkaclient.topic_partitions
 
 
