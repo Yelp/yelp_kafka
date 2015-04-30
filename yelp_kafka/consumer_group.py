@@ -6,7 +6,11 @@ import time
 import os
 import signal
 
-from yelp_kafka.error import ConsumerGroupError
+from yelp_kafka.error import (
+    ConsumerGroupError,
+    PartitionerError,
+    PartitionerZookeeperError,
+)
 from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
 from yelp_kafka.consumer import KafkaSimpleConsumer
@@ -98,7 +102,11 @@ class ConsumerGroup(object):
                 raise ProcessMessageError("Error processing message: %s", message)
             if time.time() > timeout:
                 break
-        self.partitioner.refresh()
+        try:
+            self.partitioner.refresh()
+        except (PartitionerZookeeperError, PartitionerError):
+            self.log.exception("Encountered a partitioner error")
+            raise
 
     def _acquire(self, partitions):
         """Create a consumer ready to consume from kafka.
@@ -211,7 +219,11 @@ class MultiprocessingConsumerGroup(object):
         while not self.termination_flag.is_set():
             self.termination_flag.wait(refresh_timeout)
             self.monitor()
-            self.partitioner.refresh()
+            try:
+                self.partitioner.refresh()
+            except (PartitionerZookeeperError, PartitionerError):
+                self.log.exception("Encountered a partitioner error")
+                raise
         # Release the group for termination
         self.partitioner.stop()
 
