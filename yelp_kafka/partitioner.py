@@ -184,9 +184,24 @@ class Partitioner(object):
         """Acquire kafka topics-[partitions] and start the
         consumers for them.
         """
-        if not self.acquired_partitions:
-            self.acquired_partitions = self._get_acquired_partitions(partitioner)
-            self.log.info("Acquired partitions: %s", self.acquired_partitions)
+        acquired_partitions = self._get_acquired_partitions(partitioner)
+        if acquired_partitions != self.acquired_partitions:
+            self.log.warning(
+                "Total number of acquired partitions = %s"
+                "It was %s before. Added partitions %s. Removed partitions %s",
+                len(acquired_partitions),
+                len(self.acquired_partitions),
+                [
+                    p for p in acquired_partitions
+                    if p not in self.acquired_partitions
+                ],
+                [
+                    p for p in self.acquired_partitions
+                    if p not in acquired_partitions
+                ],
+            )
+            self.acquired_partitions = acquired_partitions
+            self.log.warning("Total acquired partitions: %s", self.acquired_partitions)
             self.acquire(self.acquired_partitions)
 
     def _release(self, partitioner):
