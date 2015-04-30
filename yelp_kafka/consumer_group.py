@@ -9,7 +9,7 @@ import signal
 from yelp_kafka.error import (
     ConsumerGroupError,
     PartitionerError,
-    PartitionerZookeeperError
+    PartitionerZookeeperError,
 )
 from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner

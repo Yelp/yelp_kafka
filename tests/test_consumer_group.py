@@ -9,7 +9,7 @@ from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
 from yelp_kafka.error import (
     ProcessMessageError,
     PartitionerError,
-    PartitionerZookeeperError
+    PartitionerZookeeperError,
 )
 
 
