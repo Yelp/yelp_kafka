@@ -119,7 +119,7 @@ class KafkaSimpleConsumer(object):
         :param block: If True, the API will block till at least a message is fetched.
         :type block: boolean
         :param timeout: If block is True, the function will block for the specified
-                        time (in seconds) ultil count messages is fetched.
+                        time (in seconds).
                         If None, it will block forever.
 
         :returns: a Kafka message
