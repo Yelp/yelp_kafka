@@ -177,12 +177,14 @@ class TestKafkaSimpleConsumer(object):
 
     def test_close(self, config):
         with mock_kafka() as (mock_client, mock_consumer):
-            with mock.patch.object(KafkaSimpleConsumer,
-                                   '_validate_offsets'):
+            with contextlib.nested(
+                mock.patch.object(KafkaSimpleConsumer, '_validate_offsets', autospec=True),
+                mock.patch.object(KafkaSimpleConsumer, 'commit', autospec=True),
+            ) as (_, mock_commit):
                 consumer = KafkaSimpleConsumer('test_topic', config)
                 consumer.connect()
                 consumer.close()
-                mock_consumer.return_value.commit.assert_called_once_with()
+                mock_commit.assert_called_once_with(consumer)
                 mock_client.return_value.close.assert_called_once_with()
 
     def test_close_no_commit(self, cluster):
@@ -193,15 +195,34 @@ class TestKafkaSimpleConsumer(object):
             auto_commit=False
         )
         with mock_kafka() as (mock_client, mock_consumer):
-            with mock.patch.object(KafkaSimpleConsumer,
-                                   '_validate_offsets'):
+            with contextlib.nested(
+                mock.patch.object(KafkaSimpleConsumer, '_validate_offsets', autospec=True),
+                mock.patch.object(KafkaSimpleConsumer, 'commit', autospec=True),
+            ) as (_, mock_commit):
                 mock_obj = mock_consumer.return_value
                 mock_obj.auto_commit = False
                 consumer = KafkaSimpleConsumer('test_topic', config)
                 consumer.connect()
                 consumer.close()
-                assert not mock_consumer.return_value.commit.called
+                assert not mock_commit.called
                 mock_client.return_value.close.assert_called_once_with()
+
+    def test_commit_all_partittions(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            with mock.patch.object(KafkaSimpleConsumer, '_validate_offsets', autospec=True):
+                consumer = KafkaSimpleConsumer('test_topic', config)
+                consumer.connect()
+                consumer.commit()
+                mock_consumer.return_value.commit.assert_called_once_with()
+
+    def test_commit_few_partitions(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            with mock.patch.object(KafkaSimpleConsumer, '_validate_offsets', autospec=True):
+                consumer = KafkaSimpleConsumer('test_topic', config)
+                consumer.connect()
+                topic_partitions = ['partition1', 'partition2']
+                consumer.commit(topic_partitions)
+                mock_consumer.return_value.commit.assert_called_once_with(topic_partitions)
 
 
 class TestKafkaConsumer(object):
@@ -215,9 +236,13 @@ class TestKafkaConsumer(object):
         with mock_kafka() as (mock_client, mock_consumer):
             with contextlib.nested(
                 mock.patch.object(KafkaSimpleConsumer, '_validate_offsets'),
-                mock.patch.object(KafkaSimpleConsumer, '__iter__',
-                                  return_value=message_iterator)
-            ):
+                mock.patch.object(
+                    KafkaSimpleConsumer,
+                    '__iter__',
+                    return_value=message_iterator
+                ),
+                mock.patch.object(KafkaSimpleConsumer, 'commit'),
+            ) as (_, _, mock_commit):
                 consumer = KafkaConsumerBase('test_topic', config)
                 consumer.process = mock.Mock()
                 consumer.initialize = mock.Mock()
@@ -234,7 +259,7 @@ class TestKafkaConsumer(object):
                     Message(1, 12346, 'key2', 'value2'),
                 ])
                 consumer.dispose.assert_called_once_with()
-                mock_consumer.return_value.commit.assert_called_once_with()
+                mock_commit.assert_called_once_with()
                 mock_client.return_value.close.assert_called_once_with()
 
     def test_process_error(self, config):
