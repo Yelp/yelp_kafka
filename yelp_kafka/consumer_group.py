@@ -133,8 +133,9 @@ class ConsumerGroup(object):
            The partitioner executes _release when it has to release the
            acquired partitions.
         """
-        self.consumer.close()
-        self.consumer = None
+        if self.consumer:
+            self.consumer.close()
+            self.consumer = None
 
 
 class MultiprocessingConsumerGroup(object):
