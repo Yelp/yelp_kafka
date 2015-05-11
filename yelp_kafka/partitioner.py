@@ -16,6 +16,9 @@ MAX_START_TIME_SECS = 300
 # number of partitions every 120 seconds.
 PARTITIONS_REFRESH_TIMEOUT = 120
 
+# Define connection retry policy for kazoo in case of flaky
+# zookeeper connections. This ensures we don't keep indefinitely
+# trying to connect and masking failures from the application.
 KAZOO_RETRY_DEFAULTS = dict(
     max_tries=10,
     delay=0.1,
