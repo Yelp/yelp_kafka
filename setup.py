@@ -40,7 +40,7 @@ setup(
     setup_requires=['setuptools'],
     install_requires=[
         'kafka-python==0.9.3',
-        'kazoo',
+        'kazoo==2.0.post2',
         'python-snappy',
         'PyYAML',
         'setproctitle'
