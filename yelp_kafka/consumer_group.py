@@ -94,14 +94,15 @@ class ConsumerGroup(object):
         :param refresh_timeout: refresh period for consumer group
         """
         timeout = time.time() + refresh_timeout
-        for message in self.consumer:
-            try:
-                self.process(message)
-            except:
-                self.log.exception("Error processing message: %s", message)
-                raise ProcessMessageError("Error processing message: %s", message)
-            if time.time() > timeout:
-                break
+        if self.consumer:
+            for message in self.consumer:
+                try:
+                    self.process(message)
+                except:
+                    self.log.exception("Error processing message: %s", message)
+                    raise ProcessMessageError("Error processing message: %s", message)
+                if time.time() > timeout:
+                    break
         try:
             self.partitioner.refresh()
         except (PartitionerZookeeperError, PartitionerError):
@@ -115,16 +116,17 @@ class ConsumerGroup(object):
            The partitioner executes _acquire when the partition group
            changes and the partitions have been acquired.
         """
-        self.consumer = KafkaSimpleConsumer(self.topic, self.config,
-                                            partitions[self.topic])
-        try:
-            # We explicitly catch and log the exception.
-            self.consumer.connect()
-        except:
-            self.log.exception("Consumer topic %s, partition %s, config %s:"
-                               " failed connecting to kafka", self.topic,
-                               partitions, self.config)
-            raise
+        if partitions.get(self.topic):
+            self.consumer = KafkaSimpleConsumer(self.topic, self.config,
+                                                partitions[self.topic])
+            try:
+                # We explicitly catch and log the exception.
+                self.consumer.connect()
+            except:
+                self.log.exception("Consumer topic %s, partition %s, config %s:"
+                                   " failed connecting to kafka", self.topic,
+                                   partitions, self.config)
+                raise
 
     def _release(self, partitions):
         """Release the consumer.
