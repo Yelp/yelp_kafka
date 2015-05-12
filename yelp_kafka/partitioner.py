@@ -6,6 +6,7 @@ from kafka.client import KafkaClient
 from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
 from kazoo.recipe.partitioner import PartitionState
+from kazoo.retry import KazooRetry
 
 from yelp_kafka.error import PartitionerError, PartitionerZookeeperError
 from yelp_kafka.utils import get_kafka_topics
@@ -14,6 +15,17 @@ MAX_START_TIME_SECS = 300
 # The java kafka api updates every 600s by default. We update the
 # number of partitions every 120 seconds.
 PARTITIONS_REFRESH_TIMEOUT = 120
+
+# Define the connection retry policy for kazoo in case of flaky
+# zookeeper connections. This ensures we don't keep indefinitely
+# trying to connect and masking failures from the application.
+KAZOO_RETRY_DEFAULTS = dict(
+    max_tries=10,
+    delay=0.1,
+    backoff=2,
+    max_jitter=0.8,
+    max_delay=60,
+)
 
 
 class Partitioner(object):
@@ -48,6 +60,7 @@ class Partitioner(object):
             PartitionState.RELEASE: self._release,
             PartitionState.FAILURE: self._fail
         }
+        self.kazoo_retry = None
 
     def start(self):
         """Create a new group and wait until the partitions have been
@@ -57,7 +70,8 @@ class Partitioner(object):
 
         .. note: This is a blocking operation.
         """
-        self.kazoo_client = KazooClient(self.config.zookeeper)
+        self.kazoo_retry = KazooRetry(**KAZOO_RETRY_DEFAULTS)
+        self.kazoo_client = KazooClient(self.config.zookeeper, connection_retry=self.kazoo_retry)
         self.kafka_client = KafkaClient(self.config.broker_list)
         self.log.debug("Starting a new group for topics %s", self.topics)
         self._refresh()
@@ -160,6 +174,7 @@ class Partitioner(object):
             self._partitioner = None
         self.kazoo_client.stop()
         self.kazoo_client.close()
+        self.kazoo_retry = None
 
     def _handle_group(self, partitioner):
         """Handle group status changes, for example when a new

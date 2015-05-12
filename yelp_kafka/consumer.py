@@ -104,7 +104,7 @@ class KafkaSimpleConsumer(object):
         """
         if self.kafka_consumer.auto_commit is True:
             try:
-                self.kafka_consumer.commit()
+                self.commit()
             except:
                 self.log.exception("Commit error. "
                                    "Offsets may not have been committed")
@@ -119,7 +119,7 @@ class KafkaSimpleConsumer(object):
         :param block: If True, the API will block till at least a message is fetched.
         :type block: boolean
         :param timeout: If block is True, the function will block for the specified
-                        time (in seconds) ultil count messages is fetched.
+                        time (in seconds).
                         If None, it will block forever.
 
         :returns: a Kafka message
@@ -195,6 +195,16 @@ class KafkaSimpleConsumer(object):
             self.kafka_consumer.offsets = group_offsets.copy()
             self.kafka_consumer.fetch_offsets = group_offsets.copy()
         self.kafka_consumer.auto_commit = saved_auto_commit
+
+    def commit(self, partitions=None):
+        """Commit offset for this consumer
+        :param partitions: list of partitions to commit, default commits to all
+                           partitions
+        """
+        if partitions:
+            self.kafka_consumer.commit(partitions)
+        else:
+            self.kafka_consumer.commit()
 
 
 class KafkaConsumerBase(KafkaSimpleConsumer):
@@ -287,6 +297,6 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
         """Commit offsets and terminate the consumer.
         """
         self.log.info("Terminating consumer topic %s ", self.topic)
-        self.kafka_consumer.commit()
+        self.commit()
         self.client.close()
         self.dispose()

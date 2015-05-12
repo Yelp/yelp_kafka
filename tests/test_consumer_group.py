@@ -68,6 +68,13 @@ class TestConsumerGroup(object):
         mock_consumer.return_value.connect.assert_called_once_with()
 
     @mock.patch('yelp_kafka.consumer_group.KafkaSimpleConsumer', autospec=True)
+    def test__acquire_no_partitions_assigned(self, mock_consumer, _, config):
+        group = ConsumerGroup(self.topic, config, mock.Mock())
+        partitions = {}
+        group._acquire(partitions)
+        assert not mock_consumer.called
+
+    @mock.patch('yelp_kafka.consumer_group.KafkaSimpleConsumer', autospec=True)
     def test__release(self, mock_consumer, _, config):
         group = ConsumerGroup(self.topic, config, mock.Mock())
         partitions = {self.topic: [0, 1]}
