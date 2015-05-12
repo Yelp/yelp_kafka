@@ -201,6 +201,7 @@ class Partitioner(object):
         """
         acquired_partitions = self._get_acquired_partitions(partitioner)
         if acquired_partitions != self.acquired_partitions:
+            # TODO: Decrease logging level
             self.log.warning(
                 "Total number of acquired partitions = %s"
                 "It was %s before. Added partitions %s. Removed partitions %s",
@@ -216,7 +217,6 @@ class Partitioner(object):
                 ],
             )
             self.acquired_partitions = acquired_partitions
-            self.log.warning("Total acquired partitions: %s", self.acquired_partitions)
             self.acquire(self.acquired_partitions)
 
     def _release(self, partitioner):
