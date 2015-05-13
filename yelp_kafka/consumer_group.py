@@ -281,7 +281,7 @@ class MultiprocessingConsumerGroup(object):
 
     def release(self, partitions):
         """Terminate all the consumer processes"""
-        self.log.warning("Terminating consumer group")
+        self.log.info("Terminating consumer group")
         for consumer in self.consumer_procs.itervalues():
             consumer.terminate()
 
