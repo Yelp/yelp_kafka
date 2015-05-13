@@ -14,8 +14,8 @@ def get_kafka_topics(kafkaclient):
         # Sometimes the kafka server closes the connection for inactivity
         # in this case the second call should succeed otherwise the kafka
         # server is down and we should fail
-        log.warning("First call to kafka for loading metadata failed."
-                    " Trying again.")
+        log.debug("First call to kafka for loading metadata failed."
+                  " Trying again.")
         kafkaclient.load_metadata_for_topics()
     return kafkaclient.topic_partitions
 

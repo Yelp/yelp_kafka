@@ -158,9 +158,9 @@ class KafkaSimpleConsumer(object):
         # We fallback in SimpleConsumer behavior if the auto_offsets_reset is
         # not a valid value.
         if auto_offset_reset not in ('smallest', 'largest'):
-            self.log.warning("auto_offset_reset set to %s."
-                             "Offset validation is disabled.",
-                             auto_offset_reset)
+            self.log.info("auto_offset_reset set to %s."
+                          "Offset validation is disabled.",
+                          auto_offset_reset)
             return
         # Disable autocommit to avoid committing offsets during seek
         saved_auto_commit = self.kafka_consumer.auto_commit

@@ -130,7 +130,7 @@ class Partitioner(object):
             if partitions != self.partitions_set:
                 # If partitions changed we release the consumers, destroy the
                 # partitioner and disconnect from zookeeper.
-                self.log.warning(
+                self.log.info(
                     "Partitions set changed. New partitions: %s. "
                     "Old partitions %s. Rebalancing...",
                     [p for p in partitions if p not in self.partitions_set],
@@ -199,9 +199,24 @@ class Partitioner(object):
         """Acquire kafka topics-[partitions] and start the
         consumers for them.
         """
-        if not self.acquired_partitions:
-            self.acquired_partitions = self._get_acquired_partitions(partitioner)
-            self.log.info("Acquired partitions: %s", self.acquired_partitions)
+        acquired_partitions = self._get_acquired_partitions(partitioner)
+        if acquired_partitions != self.acquired_partitions:
+            # TODO: Decrease logging level
+            self.log.info(
+                "Total number of acquired partitions = %s"
+                "It was %s before. Added partitions %s. Removed partitions %s",
+                len(acquired_partitions),
+                len(self.acquired_partitions),
+                [
+                    p for p in acquired_partitions
+                    if p not in self.acquired_partitions
+                ],
+                [
+                    p for p in self.acquired_partitions
+                    if p not in acquired_partitions
+                ],
+            )
+            self.acquired_partitions = acquired_partitions
             self.acquire(self.acquired_partitions)
 
     def _release(self, partitioner):
@@ -209,7 +224,7 @@ class Partitioner(object):
         This function is executed either at termination time or
         whenever there is a group change.
         """
-        self.log.warning("Releasing partitions")
+        self.log.debug("Releasing partitions")
         self.release(self.acquired_partitions)
         partitioner.release_set()
         self.acquired_partitions.clear()
@@ -255,7 +270,7 @@ class Partitioner(object):
                 partitions += ["{0}-{1}".format(topic, p)
                                for p in topic_partitions[topic]]
         if missing_topics:
-            self.log.warning("Missing topics: %s", missing_topics)
+            self.log.info("Missing topics: %s", missing_topics)
         if not partitions:
             self._destroy_partitioner(self._partitioner)
             raise PartitionerError(
