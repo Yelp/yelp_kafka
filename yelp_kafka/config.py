@@ -7,6 +7,7 @@ from kafka.consumer.base import AUTO_COMMIT_MSG_COUNT
 from kafka.consumer.base import AUTO_COMMIT_INTERVAL
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
+from kafka.util import kafka_bytestring
 
 from yelp_kafka.error import ConfigurationError
 
@@ -156,7 +157,7 @@ class KafkaConsumerConfig(object):
     ):
         self._config = config
         self.cluster = cluster
-        self.group_id = group_id
+        self.group_id = kafka_bytestring(group_id)
 
     def get_simple_consumer_args(self):
         """Get the configuration args for kafka-python SimpleConsumer."""
