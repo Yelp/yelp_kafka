@@ -19,7 +19,7 @@ class TestPartitioner(object):
 
     topics = ["topic1", "topic2"]
 
-    sha = hashlib.sha1(repr(topics)).hexdigest()
+    sha = hashlib.sha1(repr(sorted(topics))).hexdigest()
 
     @pytest.fixture
     @mock.patch('yelp_kafka.partitioner.KazooClient', autospec=True)

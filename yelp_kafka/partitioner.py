@@ -32,7 +32,7 @@ KAZOO_RETRY_DEFAULTS = {
 def build_zk_group_path(group_path, topics):
     return "{group_path}/{sha}".format(
         group_path=group_path,
-        sha=hashlib.sha1(repr(topics)).hexdigest(),
+        sha=hashlib.sha1(repr(sorted(topics))).hexdigest(),
     )
 
 
