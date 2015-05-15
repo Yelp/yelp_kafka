@@ -1,4 +1,5 @@
 from collections import defaultdict
+import hashlib
 import logging
 import time
 
@@ -19,13 +20,20 @@ PARTITIONS_REFRESH_TIMEOUT = 120
 # Define the connection retry policy for kazoo in case of flaky
 # zookeeper connections. This ensures we don't keep indefinitely
 # trying to connect and masking failures from the application.
-KAZOO_RETRY_DEFAULTS = dict(
-    max_tries=10,
-    delay=0.1,
-    backoff=2,
-    max_jitter=0.8,
-    max_delay=60,
-)
+KAZOO_RETRY_DEFAULTS = {
+    'max_tries': 10,
+    'delay': 0.1,
+    'backoff': 2,
+    'max_jitter': 0.8,
+    'max_delay': 60,
+}
+
+
+def build_zk_group_path(group_path, topics):
+    return "{group_path}/{sha}".format(
+        group_path=group_path,
+        sha=hashlib.sha1(repr(topics)).hexdigest(),
+    )
 
 
 class Partitioner(object):
@@ -61,6 +69,10 @@ class Partitioner(object):
             PartitionState.FAILURE: self._fail
         }
         self.kazoo_retry = None
+        self.zk_group_path = build_zk_group_path(
+            self.config.group_path,
+            self.topics
+        )
 
     def start(self):
         """Create a new group and wait until the partitions have been
@@ -71,7 +83,10 @@ class Partitioner(object):
         .. note: This is a blocking operation.
         """
         self.kazoo_retry = KazooRetry(**KAZOO_RETRY_DEFAULTS)
-        self.kazoo_client = KazooClient(self.config.zookeeper, connection_retry=self.kazoo_retry)
+        self.kazoo_client = KazooClient(
+            self.config.zookeeper,
+            connection_retry=self.kazoo_retry,
+        )
         self.kafka_client = KafkaClient(self.config.broker_list)
         self.log.debug("Starting a new group for topics %s", self.topics)
         self._refresh()
@@ -158,9 +173,9 @@ class Partitioner(object):
                        " partitions set %s", self.config.group_id,
                        self.topics, partitions)
         return self.kazoo_client.SetPartitioner(
-            path=self.config.group_path,
+            path=self.zk_group_path,
             set=partitions,
-            time_boundary=self.config.partitioner_cooldown
+            time_boundary=self.config.partitioner_cooldown,
         )
 
     def _destroy_partitioner(self, partitioner):
