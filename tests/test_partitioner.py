@@ -1,6 +1,7 @@
 import contextlib
 import mock
 import pytest
+import hashlib
 
 from kazoo.recipe.partitioner import SetPartitioner
 from kazoo.recipe.partitioner import PartitionState
@@ -17,6 +18,8 @@ def get_partitioner_state(status):
 class TestPartitioner(object):
 
     topics = ["topic1", "topic2"]
+
+    sha = hashlib.sha1(repr(sorted(topics))).hexdigest()
 
     @pytest.fixture
     @mock.patch('yelp_kafka.partitioner.KazooClient', autospec=True)
@@ -181,12 +184,12 @@ class TestPartitioner(object):
         with mock.patch.object(Partitioner, '_refresh') as mock_refresh:
             partitioner.start()
             mock_refresh.assert_called_once_with()
-            expected_partitions = set(['top-1', 'top1-2'])
+            expected_partitions = set(['topic1-1', 'topic1-2'])
             assert mock_kpartitioner == partitioner._create_partitioner(
                 expected_partitions
             )
             mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
-                path='/yelp-kafka/test_group',
+                path='/yelp-kafka/test_group/{sha}'.format(sha=self.sha),
                 set=expected_partitions,
                 time_boundary=0.5
             )
@@ -205,12 +208,12 @@ class TestPartitioner(object):
         with mock.patch.object(Partitioner, '_refresh') as mock_refresh:
             partitioner.start()
             mock_refresh.assert_called_once_with()
-            expected_partitions = set(['top-1', 'top1-2'])
+            expected_partitions = set(['topic1-1', 'topic1-2'])
             assert mock_kpartitioner == partitioner._create_partitioner(
                 expected_partitions
             )
             mock_kazoo.return_value.SetPartitioner.assert_called_once_with(
-                path='/yelp-kafka/test_group',
+                path='/yelp-kafka/test_group/{sha}'.format(sha=self.sha),
                 set=expected_partitions,
                 time_boundary=0.5
             )
