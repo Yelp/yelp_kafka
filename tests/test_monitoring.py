@@ -1,23 +1,31 @@
 import mock
 import pytest
+import copy
 
 from kafka.common import (
     OffsetResponse,
     OffsetFetchResponse,
+    OffsetCommitResponse,
+    RequestTimedOutError,
     KafkaUnavailableError,
 )
 
 from yelp_kafka.consumer import KafkaClient
 from yelp_kafka.monitoring import (
     ConsumerPartitionOffsets,
-    get_consumer_offsets_metadata,
+    ConsumerPartitionOffsetUpdate,
     get_topics_watermarks,
     get_current_consumer_offsets,
-    offset_distance,
     PartitionOffsets,
-    topics_offset_distance,
     UnknownPartitions,
     UnknownTopic,
+    _verify_commit_offsets_requests,
+    advance_consumer_offsets,
+    rewind_consumer_offsets,
+    set_consumer_offsets,
+    get_consumer_offsets_metadata,
+    offset_distance,
+    topics_offset_distance,
 )
 
 
@@ -30,7 +38,7 @@ def topics(request):
     return request.param
 
 
-class TestOffsetDifference(object):
+class TestOffsetsBase(object):
     topics = {
         'topic1': [0, 1, 2],
         'topic2': [0, 1]
@@ -55,7 +63,7 @@ class TestOffsetDifference(object):
         },
         'topic2': {
             0: 5,
-            1: 5
+            1: 5,
         }
     }
     group_offsets = {
@@ -65,11 +73,18 @@ class TestOffsetDifference(object):
             2: 10,
         },
         'topic2': {
-            0: 15
+            0: 15,
         }
     }
 
-    def kafka_client_mock(self):
+    def reset_group_offsets(self):
+        self.group_offsets['topic1'][0] = 30
+        self.group_offsets['topic1'][1] = 20
+        self.group_offsets['topic1'][2] = 10
+        self.group_offsets['topic2'][0] = 15
+        del self.group_offsets['topic2'][1]
+
+    def kafka_client_mock(self, commit_error=False):
         """A mock configured to support the happy path."""
         kafka_client_mock = mock.Mock(KafkaClient)
 
@@ -78,7 +93,10 @@ class TestOffsetDifference(object):
 
         kafka_client_mock.topic_partitions = self.topics
 
-        def send_offset_request(payloads=[], fail_on_error=True, callback=None):
+        def send_offset_request(payloads=None, fail_on_error=True, callback=None):
+            if payloads is None:
+                payloads = []
+
             resps = []
             for req in payloads:
                 if req.time == -1:
@@ -92,6 +110,37 @@ class TestOffsetDifference(object):
                     (offset,)
                 ))
             return resps
+
+        def send_offset_commit_request(
+            group, payloads=None,
+            fail_on_error=True, callback=None
+        ):
+            if payloads is None:
+                payloads = []
+
+            resps = []
+            for req in payloads:
+                if not commit_error:
+                    self.group_offsets[req.topic][req.partition] = req.offset
+                    resps.append(
+                        OffsetCommitResponse(
+                            req.topic,
+                            req.partition,
+                            0
+                        )
+                    )
+                else:
+                    resps.append(
+                        OffsetCommitResponse(
+                            req.topic,
+                            req.partition,
+                            7
+                        )
+                    )
+            return [resp if not callback else callback(resp) for resp in resps]
+
+        kafka_client_mock.send_offset_commit_request.side_effect = \
+            send_offset_commit_request
 
         kafka_client_mock.send_offset_request.side_effect = \
             send_offset_request
@@ -115,139 +164,8 @@ class TestOffsetDifference(object):
 
         return kafka_client_mock
 
-    def test_get_current_consumer_offsets_invalid_arguments(self):
-        with pytest.raises(TypeError):
-            get_current_consumer_offsets(
-                self.kafka_client_mock(),
-                "this won't even be consulted",
-                "this should be a list or dict",
-            )
 
-    def test_get_current_consumer_offsets_unknown_topic(self):
-        with pytest.raises(UnknownTopic):
-            get_current_consumer_offsets(
-                self.kafka_client_mock(),
-                "this won't even be consulted",
-                ["something that doesn't exist"],
-            )
-
-    def test_get_current_consumer_offsets_unknown_topic_no_fail(self):
-        actual = get_current_consumer_offsets(
-            self.kafka_client_mock(),
-            "this won't even be consulted",
-            ["something that doesn't exist"],
-            fail_on_error=False
-        )
-        assert not actual
-
-    def test_get_current_consumer_offsets_unknown_partitions(self):
-        with pytest.raises(UnknownPartitions):
-            get_current_consumer_offsets(
-                self.kafka_client_mock(),
-                self.group,
-                {'topic1': [99]},
-            )
-
-    def test_get_current_consumer_offsets_unknown_partitions_no_fail(self):
-        actual = get_current_consumer_offsets(
-            self.kafka_client_mock(),
-            self.group,
-            {'topic1': [99]},
-            fail_on_error=False
-        )
-        assert not actual
-
-    def test_get_current_consumer_offsets_invalid_partition_subset(self):
-        with pytest.raises(UnknownPartitions):
-            get_current_consumer_offsets(
-                self.kafka_client_mock(),
-                self.group,
-                {'topic1': [1, 99]},
-            )
-
-    def test_get_current_consumer_offsets_invalid_partition_subset_no_fail(self):
-        actual = get_current_consumer_offsets(
-            self.kafka_client_mock(),
-            self.group,
-            {'topic1': [1, 99]},
-            fail_on_error=False
-        )
-        assert actual['topic1'][1] == 20
-        # Partition 99 does not exist so it shouldn't be in the result
-        assert 99 not in actual['topic1']
-
-    def test_get_current_consumer_offsets(self, topics):
-        actual = get_current_consumer_offsets(
-            self.kafka_client_mock(),
-            self.group,
-            topics
-        )
-        assert actual == {'topic1': {0: 30, 1: 20, 2: 10}}
-
-    def test_get_topics_watermarks_invalid_arguments(self):
-        with pytest.raises(TypeError):
-            get_topics_watermarks(
-                self.kafka_client_mock(),
-                "this should be a list or dict",
-            )
-
-    def test_get_topics_watermarks_unknown_topic(self):
-        with pytest.raises(UnknownTopic):
-            get_topics_watermarks(
-                self.kafka_client_mock(),
-                ["something that doesn't exist"],
-            )
-
-    def test_get_topics_watermarks_unknown_topic_no_fail(self):
-        actual = get_topics_watermarks(
-            self.kafka_client_mock(),
-            ["something that doesn't exist"],
-            fail_on_error=False,
-        )
-        assert not actual
-
-    def test_get_topics_watermarks_unknown_partitions(self):
-        with pytest.raises(UnknownPartitions):
-            get_topics_watermarks(
-                self.kafka_client_mock(),
-                {'topic1': [99]},
-            )
-
-    def test_get_topics_watermarks_unknown_partitions_no_fail(self):
-        actual = get_topics_watermarks(
-            self.kafka_client_mock(),
-            {'topic1': [99]},
-            fail_on_error=False,
-        )
-        assert not actual
-
-    def test_get_topics_watermarks_invalid_partition_subset(self):
-        with pytest.raises(UnknownPartitions):
-            get_topics_watermarks(
-                self.kafka_client_mock(),
-                {'topic1': [1, 99]},
-            )
-
-    def test_get_topics_watermarks_invalid_partition_subset_no_fail(self):
-        actual = get_topics_watermarks(
-            self.kafka_client_mock(),
-            {'topic1': [1, 99]},
-            fail_on_error=False,
-        )
-        assert actual['topic1'][1] == PartitionOffsets('topic1', 1, 30, 5)
-        assert 99 not in actual['topic1']
-
-    def test_get_topics_watermarks(self, topics):
-        actual = get_topics_watermarks(
-            self.kafka_client_mock(),
-            topics,
-        )
-        assert actual == {'topic1': {
-            0: PartitionOffsets('topic1', 0, 30, 10),
-            1: PartitionOffsets('topic1', 1, 30, 5),
-            2: PartitionOffsets('topic1', 2, 30, 3),
-        }}
-
+class TestMonitoring(TestOffsetsBase):
     def test_offset_metadata_invalid_arguments(self):
         with pytest.raises(TypeError):
             get_consumer_offsets_metadata(
@@ -269,7 +187,7 @@ class TestOffsetDifference(object):
             self.kafka_client_mock(),
             "this won't even be consulted",
             ["something that doesn't exist"],
-            fail_on_error=False
+            raise_on_error=False
         )
         assert not actual
 
@@ -286,7 +204,7 @@ class TestOffsetDifference(object):
             self.kafka_client_mock(),
             self.group,
             {'topic1': [99]},
-            fail_on_error=False
+            raise_on_error=False
         )
         assert not actual
 
@@ -309,7 +227,7 @@ class TestOffsetDifference(object):
             self.kafka_client_mock(),
             self.group,
             {'topic1': [1, 99]},
-            fail_on_error=False
+            raise_on_error=False
         )
         assert 'topic1' in actual
         assert actual['topic1'] == expected
@@ -403,3 +321,434 @@ class TestOffsetDifference(object):
             self.group,
             {'topic1': [0, 1]},
         )
+
+
+class TestOffsets(TestOffsetsBase):
+    def test_get_current_consumer_offsets_invalid_arguments(self):
+        with pytest.raises(TypeError):
+            get_current_consumer_offsets(
+                self.kafka_client_mock(),
+                "this won't even be consulted",
+                "this should be a list or dict",
+            )
+
+    def test_get_current_consumer_offsets_unknown_topic(self):
+        with pytest.raises(UnknownTopic):
+            get_current_consumer_offsets(
+                self.kafka_client_mock(),
+                "this won't even be consulted",
+                ["something that doesn't exist"],
+            )
+
+    def test_get_current_consumer_offsets_unknown_topic_no_fail(self):
+        actual = get_current_consumer_offsets(
+            self.kafka_client_mock(),
+            "this won't even be consulted",
+            ["something that doesn't exist"],
+            raise_on_error=False
+        )
+        assert not actual
+
+    def test_get_current_consumer_offsets_unknown_partitions(self):
+        with pytest.raises(UnknownPartitions):
+            get_current_consumer_offsets(
+                self.kafka_client_mock(),
+                self.group,
+                {'topic1': [99]},
+            )
+
+    def test_get_current_consumer_offsets_unknown_partitions_no_fail(self):
+        actual = get_current_consumer_offsets(
+            self.kafka_client_mock(),
+            self.group,
+            {'topic1': [99]},
+            raise_on_error=False
+        )
+        assert not actual
+
+    def test_get_current_consumer_offsets_invalid_partition_subset(self):
+        with pytest.raises(UnknownPartitions):
+            get_current_consumer_offsets(
+                self.kafka_client_mock(),
+                self.group,
+                {'topic1': [1, 99]},
+            )
+
+    def test_get_current_consumer_offsets_invalid_partition_subset_no_fail(self):
+        actual = get_current_consumer_offsets(
+            self.kafka_client_mock(),
+            self.group,
+            {'topic1': [1, 99]},
+            raise_on_error=False
+        )
+        assert actual['topic1'][1] == 20
+        # Partition 99 does not exist so it shouldn't be in the result
+        assert 99 not in actual['topic1']
+
+    def test_get_current_consumer_offsets(self, topics):
+        actual = get_current_consumer_offsets(
+            self.kafka_client_mock(),
+            self.group,
+            topics
+        )
+        assert actual == {'topic1': {0: 30, 1: 20, 2: 10}}
+
+    def test_get_topics_watermarks_invalid_arguments(self):
+        with pytest.raises(TypeError):
+            get_topics_watermarks(
+                self.kafka_client_mock(),
+                "this should be a list or dict",
+            )
+
+    def test_get_topics_watermarks_unknown_topic(self):
+        with pytest.raises(UnknownTopic):
+            get_topics_watermarks(
+                self.kafka_client_mock(),
+                ["something that doesn't exist"],
+            )
+
+    def test_get_topics_watermarks_unknown_topic_no_fail(self):
+        actual = get_topics_watermarks(
+            self.kafka_client_mock(),
+            ["something that doesn't exist"],
+            raise_on_error=False,
+        )
+        assert not actual
+
+    def test_get_topics_watermarks_unknown_partitions(self):
+        with pytest.raises(UnknownPartitions):
+            get_topics_watermarks(
+                self.kafka_client_mock(),
+                {'topic1': [99]},
+            )
+
+    def test_get_topics_watermarks_unknown_partitions_no_fail(self):
+        actual = get_topics_watermarks(
+            self.kafka_client_mock(),
+            {'topic1': [99]},
+            raise_on_error=False,
+        )
+        assert not actual
+
+    def test_get_topics_watermarks_invalid_partition_subset(self):
+        with pytest.raises(UnknownPartitions):
+            get_topics_watermarks(
+                self.kafka_client_mock(),
+                {'topic1': [1, 99]},
+            )
+
+    def test_get_topics_watermarks_invalid_partition_subset_no_fail(self):
+        actual = get_topics_watermarks(
+            self.kafka_client_mock(),
+            {'topic1': [1, 99]},
+            raise_on_error=False,
+        )
+        assert actual['topic1'][1] == PartitionOffsets('topic1', 1, 30, 5)
+        assert 99 not in actual['topic1']
+
+    def test_get_topics_watermarks(self, topics):
+        actual = get_topics_watermarks(
+            self.kafka_client_mock(),
+            topics,
+        )
+        assert actual == {'topic1': {
+            0: PartitionOffsets('topic1', 0, 30, 10),
+            1: PartitionOffsets('topic1', 1, 30, 5),
+            2: PartitionOffsets('topic1', 2, 30, 3),
+        }}
+
+    def test__verify_commit_offsets_requests(self):
+        new_offsets = {
+            'topic1': [
+                ConsumerPartitionOffsetUpdate('topic1', 0, 123),
+                ConsumerPartitionOffsetUpdate('topic1', 1, 456),
+            ],
+            'topic2': [
+                ConsumerPartitionOffsetUpdate('topic2', 0, 12),
+            ],
+        }
+        assert _verify_commit_offsets_requests(
+            self.kafka_client_mock(),
+            new_offsets,
+            True
+        )
+
+    def test__verify_commit_offsets_requests_invalid_types(self):
+        new_offsets = "my_str"
+        with pytest.raises(TypeError):
+            _verify_commit_offsets_requests(
+                self.kafka_client_mock(),
+                new_offsets,
+                True
+            )
+
+        new_offsets = {'topic1': 2, 'topic2': 1}
+        with pytest.raises(TypeError):
+            _verify_commit_offsets_requests(
+                self.kafka_client_mock(),
+                new_offsets,
+                True
+            )
+
+        new_offsets = {
+            'topic1': [
+                PartitionOffsets('topic1', 0, 1, 2),
+                PartitionOffsets('topic2', 0, 1, 2),
+            ],
+            'topic2': [
+                ConsumerPartitionOffsets('topic1', 0, 1, 2, 3),
+            ],
+        }
+        with pytest.raises(TypeError):
+            _verify_commit_offsets_requests(
+                self.kafka_client_mock(),
+                new_offsets,
+                True
+            )
+
+    def test__verify_commit_offsets_requests_invalid_types_no_fail(self):
+        new_offsets = "my_str"
+        assert not _verify_commit_offsets_requests(
+            self.kafka_client_mock(),
+            new_offsets,
+            False
+        )
+
+        new_offsets = {'topic1': 2, 'topic2': 1}
+        assert not _verify_commit_offsets_requests(
+            self.kafka_client_mock(),
+            new_offsets,
+            False
+        )
+
+        new_offsets = {
+            'topic1': [
+                PartitionOffsets('topic1', 0, 1, 2),
+                PartitionOffsets('topic2', 0, 1, 2),
+            ],
+            'topic2': [
+                ConsumerPartitionOffsets('topic1', 0, 1, 2, 3),
+            ],
+        }
+        assert not _verify_commit_offsets_requests(
+            self.kafka_client_mock(),
+            new_offsets,
+            False
+        )
+
+    def test__verify_commit_offsets_requests_bad_metadata(self):
+        new_offsets = {
+            'topic1': [
+                ConsumerPartitionOffsetUpdate('topic1', 23, 123),
+                ConsumerPartitionOffsetUpdate('topic1', 11, 456),
+            ],
+            'topic2': [
+                ConsumerPartitionOffsetUpdate('topic2', 21, 12),
+            ],
+        }
+        with pytest.raises(UnknownPartitions):
+            _verify_commit_offsets_requests(
+                self.kafka_client_mock(),
+                new_offsets,
+                True
+            )
+
+        new_offsets = {
+            'topic32': [
+                ConsumerPartitionOffsetUpdate('topic32', 23, 123),
+                ConsumerPartitionOffsetUpdate('topic32', 11, 456),
+            ],
+            'topic33': [
+                ConsumerPartitionOffsetUpdate('topic33', 21, 12),
+            ],
+        }
+        with pytest.raises(UnknownTopic):
+            _verify_commit_offsets_requests(
+                self.kafka_client_mock(),
+                new_offsets,
+                True
+            )
+
+    def test__verify_commit_offsets_requests_bad_metadata_no_fail(self):
+        new_offsets = {
+            'topic1': [
+                ConsumerPartitionOffsetUpdate('topic1', 23, 123),
+                ConsumerPartitionOffsetUpdate('topic1', 11, 456),
+            ],
+            'topic2': [
+                ConsumerPartitionOffsetUpdate('topic2', 21, 12),
+            ],
+        }
+        _verify_commit_offsets_requests(
+            self.kafka_client_mock(),
+            new_offsets,
+            False
+        )
+
+        new_offsets = {
+            'topic3': [
+                ConsumerPartitionOffsetUpdate('topic3', 23, 123),
+                ConsumerPartitionOffsetUpdate('topic3', 11, 456),
+            ],
+            'topic3': [
+                ConsumerPartitionOffsetUpdate('topic3', 21, 12),
+            ],
+        }
+        _verify_commit_offsets_requests(
+            self.kafka_client_mock(),
+            new_offsets,
+            False
+        )
+
+    def test_advance_consumer_offsets(self):
+        topics = {
+            'topic1': [0, 1, 2],
+            'topic2': [0, 1],
+        }
+        assert advance_consumer_offsets(
+            self.kafka_client_mock(),
+            "group",
+            topics
+        )
+        assert self.group_offsets == self.high_offsets
+        self.reset_group_offsets()
+
+    def test_advance_consumer_offsets_fail(self):
+        group_offsets_old = copy.deepcopy(self.group_offsets)
+        topics = {
+            'topic1': [0, 1, 2],
+            'topic2': [0, 1],
+        }
+        with pytest.raises(RequestTimedOutError):
+            advance_consumer_offsets(
+                self.kafka_client_mock(commit_error=True),
+                "group",
+                topics
+            )
+        assert self.group_offsets == group_offsets_old
+
+    def test_advance_consumer_offsets_no_fail(self):
+        group_offsets_old = copy.deepcopy(self.group_offsets)
+        topics = {
+            'topic1': [0, 1, 2],
+            'topic2': [0, 1],
+        }
+        assert not advance_consumer_offsets(
+            self.kafka_client_mock(commit_error=True),
+            "group",
+            topics,
+            raise_on_error=False
+        )
+        assert self.group_offsets == group_offsets_old
+
+    def test_rewind_consumer_offsets(self):
+        topics = {
+            'topic1': [0, 1, 2],
+            'topic2': [0, 1],
+        }
+        assert rewind_consumer_offsets(
+            self.kafka_client_mock(),
+            "group",
+            topics
+        )
+        assert self.group_offsets == self.low_offsets
+        self.reset_group_offsets()
+
+    def test_rewind_consumer_offsets_fail(self):
+        group_offsets_old = copy.deepcopy(self.group_offsets)
+        topics = {
+            'topic1': [0, 1, 2],
+            'topic2': [0, 1],
+        }
+        with pytest.raises(RequestTimedOutError):
+            rewind_consumer_offsets(
+                self.kafka_client_mock(commit_error=True),
+                "group",
+                topics
+            )
+        assert self.group_offsets == group_offsets_old
+
+    def test_rewind_consumer_offsets_no_fail(self):
+        group_offsets_old = copy.deepcopy(self.group_offsets)
+        topics = {
+            'topic1': [0, 1, 2],
+            'topic2': [0, 1],
+        }
+        assert not rewind_consumer_offsets(
+            self.kafka_client_mock(commit_error=True),
+            "group",
+            topics,
+            raise_on_error=False
+        )
+        assert self.group_offsets == group_offsets_old
+
+    def test_set_consumer_offsets(self):
+        new_offsets = {
+            'topic1': [
+                ConsumerPartitionOffsetUpdate('topic1', 0, 100),
+                ConsumerPartitionOffsetUpdate('topic1', 1, 200),
+            ],
+            'topic2': [
+                ConsumerPartitionOffsetUpdate('topic2', 0, 150),
+                ConsumerPartitionOffsetUpdate('topic2', 1, 300),
+            ],
+        }
+        assert set_consumer_offsets(
+            self.kafka_client_mock(),
+            "group",
+            new_offsets
+        )
+        expected_offsets = {
+            'topic1': {
+                0: 100,
+                1: 200,
+                2: 10,
+            },
+            'topic2': {
+                0: 150,
+                1: 300,
+            }
+        }
+        assert self.group_offsets == expected_offsets
+        self.reset_group_offsets()
+
+    def test_set_consumer_offsets_fail(self):
+        group_offsets_old = copy.deepcopy(self.group_offsets)
+        new_offsets = {
+            'topic1': [
+                ConsumerPartitionOffsetUpdate('topic1', 0, 100),
+                ConsumerPartitionOffsetUpdate('topic1', 1, 200),
+            ],
+            'topic2': [
+                ConsumerPartitionOffsetUpdate('topic2', 0, 150),
+                ConsumerPartitionOffsetUpdate('topic2', 1, 300),
+            ],
+        }
+        with pytest.raises(RequestTimedOutError):
+            set_consumer_offsets(
+                self.kafka_client_mock(commit_error=True),
+                "group",
+                new_offsets,
+                raise_on_error=True
+            )
+        assert self.group_offsets == group_offsets_old
+
+    def test_set_consumer_offsets_no_fail(self):
+        group_offsets_old = copy.deepcopy(self.group_offsets)
+        new_offsets = {
+            'topic1': [
+                ConsumerPartitionOffsetUpdate('topic1', 0, 100),
+                ConsumerPartitionOffsetUpdate('topic1', 1, 200),
+            ],
+            'topic2': [
+                ConsumerPartitionOffsetUpdate('topic2', 0, 150),
+                ConsumerPartitionOffsetUpdate('topic2', 1, 300),
+            ],
+        }
+        assert not set_consumer_offsets(
+            self.kafka_client_mock(commit_error=True),
+            "group",
+            new_offsets,
+            raise_on_error=False
+        )
+        assert self.group_offsets == group_offsets_old
