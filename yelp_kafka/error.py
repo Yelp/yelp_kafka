@@ -45,3 +45,20 @@ class UnknownTopic(YelpKafkaError):
 
 class UnknownPartitions(YelpKafkaError):
     pass
+
+
+class OffsetCommitError(YelpKafkaError):
+
+    def __init__(self, topic, partition, error):
+        self.topic = topic
+        self.partition = partition
+        self.error = error
+
+    def __eq__(self, other):
+        if(self.topic != other.topic):
+            return False
+        if(self.partition != other.partition):
+            return False
+        if(self.error != other.error):
+            return False
+        return True

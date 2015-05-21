@@ -14,9 +14,11 @@ from kafka.common import (
     KafkaUnavailableError,
 )
 from kafka.util import kafka_bytestring
+
 from yelp_kafka.error import (
     UnknownPartitions,
     UnknownTopic,
+    OffsetCommitError,
 )
 
 ConsumerPartitionOffsets = namedtuple('ConsumerPartitionOffsets',
@@ -40,15 +42,6 @@ PartitionOffsets = namedtuple('PartitionOffsets',
 * **partition**\(``int``): Partition number
 * **highmark**\(``int``): high watermark
 * **lowmark**\(``int``): low watermark
-"""
-
-ConsumerPartitionOffsetUpdate = namedtuple('ConsumerPartitionOffsetUpdate',
-                                           ['topic', 'partition', 'offset'])
-"""Tuple representing the intended new consumer offset for a topic partition.
-
-* **topic**\(``str``): Name of the topic
-* **partition**\(``int``): Partition number
-* **offset**\(``int``): Intended new consumer offset
 """
 
 log = logging.getLogger(__name__)
@@ -75,7 +68,7 @@ def pluck_topic_offset_or_zero_on_unknown(resp):
     return resp
 
 
-def check_fetch_response_error(resp):
+def _check_fetch_response_error(resp):
     try:
         check_error(resp)
     except BrokerResponseError:
@@ -90,14 +83,17 @@ def check_fetch_response_error(resp):
     return resp
 
 
-def check_commit_response_error(resp):
+def _check_commit_response_error(resp):
     try:
         check_error(resp)
-    except:
-        log.exception("Error encountered when attempting advance consumer offsets")
-        raise
-    else:
-        return True
+    except BrokerResponseError as e:
+        log.exception("Error encountered when attempting to commit consumer offsets")
+        exception = OffsetCommitError(
+            resp.topic,
+            resp.partition,
+            e.message
+        )
+        return exception
 
 
 def _validate_topics_list_or_dict(topics):
@@ -149,15 +145,12 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
     type_error_str = str(
         "Invalid new_offsets: {new_offsets}. It must be a "
         "dict of the format: "
-        "topic:[ConsumerPartitionOffsetsUpdates]"
+        "<topic>: <partition>: <offset>"
     ).format(new_offsets=new_offsets)
 
     # Is it a dict?
     if not isinstance(new_offsets, dict):
-        if raise_on_error:
-            raise TypeError(type_error_str)
-        else:
-            return False
+        raise TypeError(type_error_str)
 
     for topic, new_partition_offsets in new_offsets.iteritems():
         # Is it a valid topic in Kafka?
@@ -168,37 +161,25 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
                     "kafka".format(topic=topic)
                 )
             else:
-                return False
+                continue
 
-        if not isinstance(new_partition_offsets, list):
-            if raise_on_error:
-                raise TypeError(type_error_str)
-            else:
-                return False
+        if not isinstance(new_partition_offsets, dict):
+            raise TypeError(type_error_str)
 
         partitions_set = set(kafka_client.get_partition_ids_for_topic(topic))
-        for partition_offset in new_partition_offsets:
-            # Is this an instance of the expected tuple?
-            if not isinstance(partition_offset, ConsumerPartitionOffsetUpdate):
-                if raise_on_error:
-                    raise TypeError(type_error_str)
-                else:
-                    return False
+        for partition, offset in new_partition_offsets.iteritems():
             # Is this a valid partition within the topic?
-            if partition_offset.partition not in partitions_set:
+            if partition not in partitions_set:
                 if raise_on_error:
                     raise UnknownPartitions(
                         "Partition {partition} for topic {topic} do not"
                         "exist in kafka".format(
-                            partition=partition_offset.partition,
+                            partition=partition,
                             topic=topic,
                         )
                     )
                 else:
-                    return False
-
-    # it succeeded, phew!
-    return True
+                    continue
 
 
 def get_current_consumer_offsets(kafka_client, group, topics,
@@ -236,7 +217,7 @@ def get_current_consumer_offsets(kafka_client, group, topics,
     group_offsets = {}
 
     if group_offset_reqs:
-        # raise_on_error = False does not prevent network errors
+        # fail_on_error = False does not prevent network errors
         group_resps = kafka_client.send_offset_fetch_request(
             kafka_bytestring(group),
             group_offset_reqs,
@@ -302,16 +283,16 @@ def get_topics_watermarks(kafka_client, topics, raise_on_error=True):
     if not (len(highmark_offset_reqs) + len(lowmark_offset_reqs)):
         return watermark_offsets
 
-    # raise_on_error = False does not prevent network errors
+    # fail_on_error = False does not prevent network errors
     highmark_resps = kafka_client.send_offset_request(
         highmark_offset_reqs,
         fail_on_error=False,
-        callback=check_fetch_response_error,
+        callback=_check_fetch_response_error,
     )
     lowmark_resps = kafka_client.send_offset_request(
         lowmark_offset_reqs,
         fail_on_error=False,
-        callback=check_fetch_response_error,
+        callback=_check_fetch_response_error,
     )
 
     # At this point highmark and lowmark should ideally have the same length.
@@ -373,20 +354,20 @@ def _commit_offsets_to_watermark(kafka_client, group, topics,
             "Unknown watermark: {watermark}".format(watermark=watermark)
         )
 
-    status = False
+    status = []
     if group_offset_reqs:
-        try:
-            status = kafka_client.send_offset_commit_request(
-                kafka_bytestring(group),
-                group_offset_reqs,
-                raise_on_error,
-                callback=check_commit_response_error
-            )
-        except:
-            if raise_on_error:
-                raise
-        else:
-            status = True
+        status = kafka_client.send_offset_commit_request(
+            kafka_bytestring(group),
+            group_offset_reqs,
+            raise_on_error,
+            callback=_check_commit_response_error
+        )
+
+    status = [
+        state
+        for state in status
+        if state is not None
+    ]
 
     return status
 
@@ -401,7 +382,8 @@ def advance_consumer_offsets(kafka_client, group, topics,
     :param topics: topic list or dict {<topic>: [partitions]}
     :param raise_on_error: if False the method does not raise exceptions
     on errors encountered, it shall return False instead.
-    :returns: True on success, False on failure
+    :returns: a list of errors for each partition offset update that failed.
+    :rtype: list [OffsetCommitError]
     It may fail on the request send. For example if any partition
     leader is not available the request fails for all the other topics.
     This is the tradeoff of sending all topic requests in batch and save
@@ -428,7 +410,8 @@ def rewind_consumer_offsets(kafka_client, group, topics,
     :param topics: topic list or dict {<topic>: [partitions]}
     :param raise_on_error: if False the method does not raise exceptions
     on errors encountered, it shall return False instead.
-    :returns: True on success, False on failure
+    :returns: a list of errors for each partition offset update that failed.
+    :rtype: list [OffsetCommitError]
     It may fail on the request send. For example if any partition
     leader is not available the request fails for all the other topics.
     This is the tradeoff of sending all topic requests in batch and save
@@ -453,10 +436,11 @@ def set_consumer_offsets(kafka_client, group, new_offsets,
 
     :param kafka_client: a connected KafkaClient
     :param group: kafka group_id
-    :param topics: dict {<topic>: [ConsumerPartitionOffsetUpdate]}
+    :param topics: dict {<topic>: {<partition>: <offset>}}
     :param raise_on_error: if False the method does not raise exceptions
     on errors encountered, it shall return False instead.
-    :returns: True on success, False on failure
+    :returns: a list of errors for each partition offset update that failed.
+    :rtype: list [OffsetCommitError]
     It may fail on the request send. For example if any partition
     leader is not available the request fails for all the other topics.
     This is the tradeoff of sending all topic requests in batch and save
@@ -469,39 +453,37 @@ def set_consumer_offsets(kafka_client, group, new_offsets,
     new_offsets
     :raises FailedPayloadsError: upon send request error.
     """
-    if not _verify_commit_offsets_requests(
+    _verify_commit_offsets_requests(
         kafka_client,
         new_offsets,
         raise_on_error
-    ):
-        return False
+    )
 
     group_offset_reqs = [
         OffsetCommitRequest(
             kafka_bytestring(topic),
-            partition_offset.partition,
-            partition_offset.offset,
+            partition,
+            offset,
             None
         )
         for topic, new_partition_offsets in new_offsets.iteritems()
-        for partition_offset in new_partition_offsets
+        for partition, offset in new_partition_offsets.iteritems()
     ]
 
-    status = False
+    status = []
     if group_offset_reqs:
-        try:
-            kafka_client.send_offset_commit_request(
-                kafka_bytestring(group),
-                group_offset_reqs,
-                raise_on_error,
-                callback=check_commit_response_error
-            )
-        except:
-            if raise_on_error:
-                raise
-        else:
-            status = True
+        status = kafka_client.send_offset_commit_request(
+            kafka_bytestring(group),
+            group_offset_reqs,
+            raise_on_error,
+            callback=_check_commit_response_error
+        )
 
+    status = [
+        state
+        for state in status
+        if state is not None
+    ]
     return status
 
 
