@@ -63,68 +63,68 @@ MOCK_NO_SCRIBE_YAML = {
 }
 
 
-def test_cluster_config_eq():
-    cluster_config1 = ClusterConfig(
-        name='some_cluster',
-        broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
-        zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-    )
-    cluster_config2 = ClusterConfig(
-        name='some_cluster',
-        broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
-        zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-    )
-    assert cluster_config1 == cluster_config2
+class TestClusterConfig():
+    def test___eq__(self):
+        cluster_config1 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+        )
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+        )
+        assert cluster_config1 == cluster_config2
 
-    cluster_config1 = ClusterConfig(
-        name='some_cluster',
-        broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
-        zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-    )
-    cluster_config2 = ClusterConfig(
-        name='some_cluster',
-        broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
-        zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-    )
-    assert cluster_config1 == cluster_config2
+        cluster_config1 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+        )
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+        )
+        assert cluster_config1 == cluster_config2
 
-    cluster_config1 = ClusterConfig(
-        name='some_cluster',
-        broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
-        zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-    )
-    cluster_config2 = ClusterConfig(
-        name='some_cluster',
-        broker_list=['kafka-cluster-2:9092', 'kafka-cluster-1:9092'],
-        zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-    )
-    assert cluster_config1 == cluster_config2
+        cluster_config1 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+        )
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-2:9092', 'kafka-cluster-1:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+        )
+        assert cluster_config1 == cluster_config2
 
+    def test___ne__(self):
+        cluster_config1 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+        )
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-2:9092,kafka-cluster-1:9092',
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+        )
+        assert cluster_config1 != cluster_config2
 
-def test_cluster_config_ne():
-    cluster_config1 = ClusterConfig(
-        name='some_cluster',
-        broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
-        zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-    )
-    cluster_config2 = ClusterConfig(
-        name='some_cluster',
-        broker_list='kafka-cluster-2:9092,kafka-cluster-1:9092',
-        zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-    )
-    assert cluster_config1 != cluster_config2
-
-    cluster_config1 = ClusterConfig(
-        name='some_cluster',
-        broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
-        zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-    )
-    cluster_config2 = ClusterConfig(
-        name='some_cluster',
-        broker_list=['kafka-cluster-1:9092', 'kafka-cluster-3:9092'],
-        zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-    )
-    assert cluster_config1 != cluster_config2
+        cluster_config1 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+        )
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-3:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+        )
+        assert cluster_config1 != cluster_config2
 
 
 @pytest.yield_fixture
