@@ -29,13 +29,34 @@ DEFAULT_CLIENT_ID = 'yelp-kafka'
 cluster_configuration = {}
 
 
-ClusterConfig = namedtuple('ClusterConfig', ['name', 'broker_list', 'zookeeper'])
+ClusterConfigTuple = namedtuple('ClusterConfig', ['name', 'broker_list', 'zookeeper'])
 """Tuple representing the cluster configuration.
 
 * **name**\(``str``): Name of the cluster
 * **broker_list**\(``list``): List of brokers
 * **zookeeper**\(``str``): Zookeeper cluster
 """
+
+
+class ClusterConfig(ClusterConfigTuple):
+    def __ne__(self, other):
+        return self.__hash__() != other.__hash__()
+
+    def __eq__(self, other):
+        return self.__hash__() == other.__hash__()
+
+    def __hash__(self):
+        if isinstance(self.broker_list, list):
+            self.broker_list.sort()
+            broker_list_str = ""
+            for host in self.broker_list:
+                broker_list_str = broker_list_str + host + ","
+            broker_list_str = broker_list_str[:-1]
+            my_hash = hash((self.name, broker_list_str, self.zookeeper))
+        else:
+            my_hash = hash((self.name, self.broker_list, self.zookeeper))
+
+        return my_hash
 
 
 def load_yaml_config(config_path):
@@ -53,17 +74,31 @@ class TopologyConfiguration(object):
     :param kafka_topology_path: path of the directory containing
         the kafka topology.yaml config
     :type kafka_topology_path: string
-    :type zk_topology_path: string
     """
 
     def __init__(self, kafka_id,
                  kafka_topology_path=DEFAULT_KAFKA_TOPOLOGY_BASE_PATH):
+        if kafka_topology_path[len(kafka_topology_path) - 1] == '/':
+            kafka_topology_path = kafka_topology_path[:-1]
         self.kafka_topology_path = kafka_topology_path
         self.kafka_id = kafka_id
         self.log = logging.getLogger(self.__class__.__name__)
         self.clusters = None
         self.local_config = None
         self.load_topology_config()
+
+    def __eq__(self, other):
+        if self.kafka_id != other.kafka_id:
+            return False
+        if self.kafka_topology_path != other.kafka_topology_path:
+            return False
+        return True
+
+    def __ne__(self, other):
+        if self.kafka_id == other.kafka_id:
+            if self.kafka_topology_path == other.kafka_topology_path:
+                return False
+        return True
 
     def load_topology_config(self):
         """Load the topology configuration"""
@@ -126,6 +161,9 @@ class KafkaConsumerConfig(object):
     :param config: keyword arguments, configuration arguments from kafka-python
         SimpleConsumer are accepted.
         See valid keyword arguments in: http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.simple
+        Note: Please do NOT specify topics and partitions as part of config. These should
+        be specified when initializing the consumer.
+        See: :py:mod:`yelp_kafka.consumer.py` or :py:mod:`yelp_kafka.consumer_group`
 
         Yelp_kafka specific configuration arguments are:
 
@@ -158,6 +196,22 @@ class KafkaConsumerConfig(object):
         self._config = config
         self.cluster = cluster
         self.group_id = kafka_bytestring(group_id)
+
+    def __eq__(self, other):
+        if self._config != other._config:
+            return False
+        if self.cluster != other.cluster:
+            return False
+        if self.group_id != self.group_id:
+            return False
+        return True
+
+    def __ne__(self, other):
+        if self._config == other._config:
+            if self.cluster == other.cluster:
+                if self.group_id == other.group_id:
+                    return False
+        return True
 
     def get_simple_consumer_args(self):
         """Get the configuration args for kafka-python SimpleConsumer."""
