@@ -468,11 +468,13 @@ class TestOffsets(TestOffsetsBase):
                 0: 12,
             },
         }
-        _verify_commit_offsets_requests(
+        valid_new_offsets = _verify_commit_offsets_requests(
             self.kafka_client_mock(),
             new_offsets,
             True
         )
+
+        assert new_offsets == valid_new_offsets
 
     def test__verify_commit_offsets_requests_invalid_types(self):
         new_offsets = "my_str"
@@ -543,6 +545,7 @@ class TestOffsets(TestOffsetsBase):
     def test__verify_commit_offsets_requests_bad_metadata_no_fail(self):
         new_offsets = {
             'topic1': {
+                0: 32,
                 23: 123,
                 11: 456,
             },
@@ -550,11 +553,18 @@ class TestOffsets(TestOffsetsBase):
                 21: 12,
             },
         }
-        _verify_commit_offsets_requests(
+        valid_new_offsets = _verify_commit_offsets_requests(
             self.kafka_client_mock(),
             new_offsets,
             False
         )
+        expected_valid_offsets = {
+            'topic1': {
+                0: 32,
+            },
+        }
+
+        assert valid_new_offsets == expected_valid_offsets
 
         new_offsets = {
             'topic32': {
@@ -565,11 +575,12 @@ class TestOffsets(TestOffsetsBase):
                 0: 12,
             },
         }
-        _verify_commit_offsets_requests(
+        valid_new_offsets = _verify_commit_offsets_requests(
             self.kafka_client_mock(),
             new_offsets,
             False
         )
+        assert valid_new_offsets == {}
 
     def test_advance_consumer_offsets(self):
         topics = {

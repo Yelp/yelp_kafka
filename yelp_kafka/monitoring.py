@@ -44,6 +44,9 @@ PartitionOffsets = namedtuple('PartitionOffsets',
 * **lowmark**\(``int``): low watermark
 """
 
+HIGH_WATERMARK = "high"
+LOW_WATERMARK = "low"
+
 log = logging.getLogger(__name__)
 
 
@@ -142,44 +145,52 @@ def _verify_topics_and_partitions(kafka_client, topics, raise_on_error):
 
 
 def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
-    type_error_str = str(
+    type_error_str = (
         "Invalid new_offsets: {new_offsets}. It must be a "
         "dict of the format: "
-        "<topic>: <partition>: <offset>"
+        "{{<topic>: {{<partition>: <offset>}}}}"
     ).format(new_offsets=new_offsets)
 
     # Is it a dict?
     if not isinstance(new_offsets, dict):
         raise TypeError(type_error_str)
 
-    for topic, new_partition_offsets in new_offsets.iteritems():
-        # Is it a valid topic in Kafka?
-        if not kafka_client.has_metadata_for_topic(topic):
-            if raise_on_error:
-                raise UnknownTopic(
-                    "Topic {topic!r} does not exist in "
-                    "kafka".format(topic=topic)
-                )
-            else:
-                continue
-
-        if not isinstance(new_partition_offsets, dict):
+    for topic in new_offsets.keys():
+        if not isinstance(new_offsets[topic], dict):
             raise TypeError(type_error_str)
 
-        partitions_set = set(kafka_client.get_partition_ids_for_topic(topic))
-        for partition, offset in new_partition_offsets.iteritems():
-            # Is this a valid partition within the topic?
-            if partition not in partitions_set:
-                if raise_on_error:
-                    raise UnknownPartitions(
-                        "Partition {partition} for topic {topic} do not"
-                        "exist in kafka".format(
-                            partition=partition,
-                            topic=topic,
-                        )
-                    )
+    topics = dict(
+        (topic, partitions.keys())
+        for topic, partitions in new_offsets.iteritems()
+    )
+
+    valid_topics = _verify_topics_and_partitions(kafka_client, topics, raise_on_error)
+
+    to_delete = {}
+    # Let's figure out all the items that must be purged from
+    # the dict, so that we only have valid topics and partitions.
+    for topic, partition_offsets in new_offsets.iteritems():
+        partitions = partition_offsets.keys()
+        # If the topic is invalid, delete all partition entries.
+        if topic not in valid_topics:
+            to_delete[topic] = partitions
+            continue
+
+        for partition in partitions:
+            if partition not in valid_topics[topic]:
+                if topic not in to_delete:
+                    to_delete[topic] = [partition]
                 else:
-                    continue
+                    to_delete[topic].append(partition)
+
+    # Now let's actually purge these entries.
+    for topic, partitions in to_delete.iteritems():
+        for partition in partitions:
+            del new_offsets[topic][partition]
+            if new_offsets[topic] == {}:
+                del new_offsets[topic]
+
+    return new_offsets
 
 
 def get_current_consumer_offsets(kafka_client, group, topics,
@@ -323,15 +334,9 @@ def _commit_offsets_to_watermark(kafka_client, group, topics,
                                  watermark, raise_on_error):
     topics = _verify_topics_and_partitions(kafka_client, topics, raise_on_error)
 
-    # If Kafka is unavailable, let's retry loading client metadata (YELPKAFKA-30)
-    try:
-        kafka_client.load_metadata_for_topics()
-    except KafkaUnavailableError:
-        kafka_client.load_metadata_for_topics()
-
     watermark_offsets = get_topics_watermarks(kafka_client, topics, raise_on_error)
 
-    if watermark == "high":
+    if watermark == HIGH_WATERMARK:
         group_offset_reqs = [
             OffsetCommitRequest(
                 kafka_bytestring(topic), partition,
@@ -340,7 +345,7 @@ def _commit_offsets_to_watermark(kafka_client, group, topics,
             for topic, partitions in topics.iteritems()
             for partition in partitions
         ]
-    elif watermark == "low":
+    elif watermark == LOW_WATERMARK:
         group_offset_reqs = [
             OffsetCommitRequest(
                 kafka_bytestring(topic), partition,
@@ -363,25 +368,21 @@ def _commit_offsets_to_watermark(kafka_client, group, topics,
             callback=_check_commit_response_error
         )
 
-    status = [
-        state
-        for state in status
-        if state is not None
-    ]
-
-    return status
+    return filter(None, status)
 
 
 def advance_consumer_offsets(kafka_client, group, topics,
                              raise_on_error=True):
     """Advances consumer offsets to the latest message in the topic
     partition (the high watermark).
+    This method shall refresh the client metadata prior to updating
+    the offsets.
 
     :param kafka_client: a connected KafkaClient
     :param group: kafka group_id
     :param topics: topic list or dict {<topic>: [partitions]}
     :param raise_on_error: if False the method does not raise exceptions
-    on errors encountered, it shall return False instead.
+    on missing topics/partitions.
     :returns: a list of errors for each partition offset update that failed.
     :rtype: list [OffsetCommitError]
     It may fail on the request send. For example if any partition
@@ -394,6 +395,8 @@ def advance_consumer_offsets(kafka_client, group, topics,
     partitions and raise_on_error=True
     :raises FailedPayloadsError: upon send request error.
     """
+    kafka_client.load_metadata_for_topics()
+
     return _commit_offsets_to_watermark(
         kafka_client, group, topics,
         "high", raise_on_error
@@ -404,12 +407,14 @@ def rewind_consumer_offsets(kafka_client, group, topics,
                             raise_on_error=True):
     """Rewinds consumer offsets to the earliest message in the topic
     partition (the low watermark).
+    This method shall refresh the client metadata prior to updating
+    the offsets.
 
     :param kafka_client: a connected KafkaClient
     :param group: kafka group_id
     :param topics: topic list or dict {<topic>: [partitions]}
     :param raise_on_error: if False the method does not raise exceptions
-    on errors encountered, it shall return False instead.
+    on missing topics/partitions.
     :returns: a list of errors for each partition offset update that failed.
     :rtype: list [OffsetCommitError]
     It may fail on the request send. For example if any partition
@@ -422,6 +427,8 @@ def rewind_consumer_offsets(kafka_client, group, topics,
     partitions and raise_on_error=True
     :raises FailedPayloadsError: upon send request error.
     """
+    kafka_client.load_metadata_for_topics()
+
     return _commit_offsets_to_watermark(
         kafka_client, group, topics,
         "low", raise_on_error
@@ -431,7 +438,7 @@ def rewind_consumer_offsets(kafka_client, group, topics,
 def set_consumer_offsets(kafka_client, group, new_offsets,
                          raise_on_error=True):
     """Sets consumer offsets to the specified offsets.
-    This method does not validate the specified offsets, it is upto
+    This method does not validate the specified offsets, it is up to
     the caller to specify valid offsets within a topic partition.
 
     :param kafka_client: a connected KafkaClient
@@ -479,12 +486,7 @@ def set_consumer_offsets(kafka_client, group, new_offsets,
             callback=_check_commit_response_error
         )
 
-    status = [
-        state
-        for state in status
-        if state is not None
-    ]
-    return status
+    return filter(None, status)
 
 
 def get_consumer_offsets_metadata(kafka_client, group,
