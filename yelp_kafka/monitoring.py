@@ -155,8 +155,8 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
     if not isinstance(new_offsets, dict):
         raise TypeError(type_error_str)
 
-    for topic in new_offsets.keys():
-        if not isinstance(new_offsets[topic], dict):
+    for topic, partitions in new_offsets.iteritems():
+        if not isinstance(partitions, dict):
             raise TypeError(type_error_str)
 
     topics = dict(
@@ -166,31 +166,14 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
 
     valid_topics = _verify_topics_and_partitions(kafka_client, topics, raise_on_error)
 
-    to_delete = {}
-    # Let's figure out all the items that must be purged from
-    # the dict, so that we only have valid topics and partitions.
-    for topic, partition_offsets in new_offsets.iteritems():
-        partitions = partition_offsets.keys()
-        # If the topic is invalid, delete all partition entries.
-        if topic not in valid_topics:
-            to_delete[topic] = partitions
-            continue
-
-        for partition in partitions:
-            if partition not in valid_topics[topic]:
-                if topic not in to_delete:
-                    to_delete[topic] = [partition]
-                else:
-                    to_delete[topic].append(partition)
-
-    # Now let's actually purge these entries.
-    for topic, partitions in to_delete.iteritems():
-        for partition in partitions:
-            del new_offsets[topic][partition]
-            if new_offsets[topic] == {}:
-                del new_offsets[topic]
-
-    return new_offsets
+    return dict([
+        (topic, dict([
+            (partition, new_offsets[topic][partition])
+            for partition in partitions
+        ]))
+        for topic, partitions in valid_topics.iteritems()
+        if partitions
+    ])
 
 
 def get_current_consumer_offsets(kafka_client, group, topics,
@@ -399,7 +382,7 @@ def advance_consumer_offsets(kafka_client, group, topics,
 
     return _commit_offsets_to_watermark(
         kafka_client, group, topics,
-        "high", raise_on_error
+        HIGH_WATERMARK, raise_on_error
     )
 
 
@@ -431,7 +414,7 @@ def rewind_consumer_offsets(kafka_client, group, topics,
 
     return _commit_offsets_to_watermark(
         kafka_client, group, topics,
-        "low", raise_on_error
+        LOW_WATERMARK, raise_on_error
     )
 
 
