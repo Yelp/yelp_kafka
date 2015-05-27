@@ -4,10 +4,10 @@ import pytest
 from StringIO import StringIO
 
 from yelp_kafka.config import (
-    TopologyConfiguration,
-    load_yaml_config,
     ClusterConfig,
     KafkaConsumerConfig,
+    load_yaml_config,
+    TopologyConfiguration,
 )
 from yelp_kafka.error import ConfigurationError
 
@@ -64,65 +64,65 @@ MOCK_NO_SCRIBE_YAML = {
 
 
 class TestClusterConfig():
-    def test___eq__(self):
-        cluster_config1 = ClusterConfig(
-            name='some_cluster',
-            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-        )
-        cluster_config2 = ClusterConfig(
-            name='some_cluster',
-            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-        )
-        assert cluster_config1 == cluster_config2
-
+    def test___eq___broker_list(self):
         cluster_config1 = ClusterConfig(
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         cluster_config2 = ClusterConfig(
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         assert cluster_config1 == cluster_config2
 
-        cluster_config1 = ClusterConfig(
-            name='some_cluster',
-            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
-        )
+        # Re-ordering the list of brokers
         cluster_config2 = ClusterConfig(
             name='some_cluster',
             broker_list=['kafka-cluster-2:9092', 'kafka-cluster-1:9092'],
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         assert cluster_config1 == cluster_config2
 
-    def test___ne__(self):
+    def test___eq___broker_str(self):
         cluster_config1 = ClusterConfig(
             name='some_cluster',
             broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        assert cluster_config1 == cluster_config2
+
+    def test___ne___broker_str(self):
+        cluster_config1 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        # Re-order the comma separated pair of brokers
         cluster_config2 = ClusterConfig(
             name='some_cluster',
             broker_list='kafka-cluster-2:9092,kafka-cluster-1:9092',
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         assert cluster_config1 != cluster_config2
 
+    def test___ne___broker_list(self):
         cluster_config1 = ClusterConfig(
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
+        # Different broker list
         cluster_config2 = ClusterConfig(
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-3:9092'],
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         assert cluster_config1 != cluster_config2
 
@@ -224,6 +224,24 @@ class TestTopologyConfig(object):
         ]
         assert sorted(expected_clusters) == sorted(actual_clusters)
 
+    def test___eq__(self):
+        topology1 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
+        topology2 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
+        assert topology1 == topology2
+
+        topology1 = TopologyConfiguration("scribe")
+        topology2 = TopologyConfiguration("scribe")
+        assert topology1 == topology2
+
+    def test___ne__(self):
+        topology1 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
+        topology2 = TopologyConfiguration("scribe", "/nail/etc/kafka_discovery")
+        assert topology1 != topology2
+
+        topology1 = TopologyConfiguration("standard")
+        topology2 = TopologyConfiguration("spam")
+        assert topology1 != topology2
+
 
 class TestKafkaConsumerConfig(object):
     def test___eq__(self):
@@ -239,9 +257,10 @@ class TestKafkaConsumerConfig(object):
         cluster_config = ClusterConfig(
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
 
+        # Re-ordered consumer config dict
         consumer_config_reordered = {
             'fetch_size_bytes': 4096,
             'auto_commit_every_t': 20,
@@ -254,15 +273,26 @@ class TestKafkaConsumerConfig(object):
         cluster_config_reordered = ClusterConfig(
             name='some_cluster',
             broker_list=['kafka-cluster-2:9092', 'kafka-cluster-1:9092'],
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
 
-        config1 = KafkaConsumerConfig("some_group", cluster_config, **consumer_config)
-        config2 = KafkaConsumerConfig("some_group", cluster_config, **consumer_config)
+        config1 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config,
+            **consumer_config)
+        config2 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config,
+            **consumer_config
+        )
         assert config1 == config2
 
-        config1 = KafkaConsumerConfig("some_group", cluster_config, **consumer_config)
-        config2 = KafkaConsumerConfig("some_group", cluster_config_reordered, **consumer_config_reordered)
+        # Let's use a re-ordered map with the same config
+        config2 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config_reordered,
+            **consumer_config_reordered
+        )
         assert config1 == config2
 
     def test___ne__(self):
@@ -278,7 +308,7 @@ class TestKafkaConsumerConfig(object):
         cluster_config = ClusterConfig(
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
 
         consumer_config_1 = {
@@ -293,39 +323,44 @@ class TestKafkaConsumerConfig(object):
         cluster_config_1 = ClusterConfig(
             name='some_cluster',
             broker_list=['kafka-cluster-4:9092', 'kafka-cluster-1:9092'],
-            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181'
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
 
-        config1 = KafkaConsumerConfig("some_group", cluster_config, **consumer_config)
-        config2 = KafkaConsumerConfig("some_group", cluster_config_1, **consumer_config)
+        # Different cluster config
+        config1 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config,
+            **consumer_config
+        )
+        config2 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config_1,
+            **consumer_config
+        )
         assert config1 != config2
 
-        config1 = KafkaConsumerConfig("some_group", cluster_config, **consumer_config)
-        config2 = KafkaConsumerConfig("some_group", cluster_config, **consumer_config_1)
+        # Different consumer config
+        config1 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config,
+            **consumer_config
+        )
+        config2 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config,
+            **consumer_config_1
+        )
         assert config1 != config2
 
-        config1 = KafkaConsumerConfig("some_group1", cluster_config, **consumer_config)
-        config2 = KafkaConsumerConfig("some_group2", cluster_config, **consumer_config)
+        # Different group ID
+        config1 = KafkaConsumerConfig(
+            "some_group1",
+            cluster_config,
+            **consumer_config
+        )
+        config2 = KafkaConsumerConfig(
+            "some_group2",
+            cluster_config,
+            **consumer_config
+        )
         assert config1 != config2
-
-
-class TestTopologyConfiguration(object):
-    def test___eq__(self):
-        with mock.patch.object(TopologyConfiguration, 'load_topology_config'):
-            topology1 = TopologyConfiguration("standard", "/nail/etc/some/path")
-            topology2 = TopologyConfiguration("standard", "/nail/etc/some/path")
-            assert topology1 == topology2
-
-            topology1 = TopologyConfiguration("standard", "/nail/etc/some/path")
-            topology2 = TopologyConfiguration("standard", "/nail/etc/some/path/")
-            assert topology1 == topology2
-
-    def test___ne__(self):
-        with mock.patch.object(TopologyConfiguration, 'load_topology_config'):
-            topology1 = TopologyConfiguration("standard", "/nail/etc/some/path")
-            topology2 = TopologyConfiguration("scribe", "/nail/etc/some/path")
-            assert topology1 != topology2
-
-            topology1 = TopologyConfiguration("standard", "/nail/etc/some/path")
-            topology2 = TopologyConfiguration("standard", "/nail/etc/some/other/path")
-            assert topology1 != topology2

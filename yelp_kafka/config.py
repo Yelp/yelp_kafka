@@ -29,16 +29,14 @@ DEFAULT_CLIENT_ID = 'yelp-kafka'
 cluster_configuration = {}
 
 
-ClusterConfigTuple = namedtuple('ClusterConfig', ['name', 'broker_list', 'zookeeper'])
-"""Tuple representing the cluster configuration.
+class ClusterConfig(namedtuple('ClusterConfig', ['name', 'broker_list', 'zookeeper'])):
+    """Tuple representing the cluster configuration.
 
-* **name**\(``str``): Name of the cluster
-* **broker_list**\(``list``): List of brokers
-* **zookeeper**\(``str``): Zookeeper cluster
-"""
+    * **name**\(``str``): Name of the cluster
+    * **broker_list**\(``list``): List of brokers
+    * **zookeeper**\(``str``): Zookeeper cluster
+    """
 
-
-class ClusterConfig(ClusterConfigTuple):
     def __ne__(self, other):
         return self.__hash__() != other.__hash__()
 
@@ -48,10 +46,7 @@ class ClusterConfig(ClusterConfigTuple):
     def __hash__(self):
         if isinstance(self.broker_list, list):
             self.broker_list.sort()
-            broker_list_str = ""
-            for host in self.broker_list:
-                broker_list_str = broker_list_str + host + ","
-            broker_list_str = broker_list_str[:-1]
+            broker_list_str = ",".join(sorted(self.broker_list))
             my_hash = hash((self.name, broker_list_str, self.zookeeper))
         else:
             my_hash = hash((self.name, self.broker_list, self.zookeeper))
@@ -78,8 +73,6 @@ class TopologyConfiguration(object):
 
     def __init__(self, kafka_id,
                  kafka_topology_path=DEFAULT_KAFKA_TOPOLOGY_BASE_PATH):
-        if kafka_topology_path[len(kafka_topology_path) - 1] == '/':
-            kafka_topology_path = kafka_topology_path[:-1]
         self.kafka_topology_path = kafka_topology_path
         self.kafka_id = kafka_id
         self.log = logging.getLogger(self.__class__.__name__)
@@ -90,15 +83,14 @@ class TopologyConfiguration(object):
     def __eq__(self, other):
         if self.kafka_id != other.kafka_id:
             return False
-        if self.kafka_topology_path != other.kafka_topology_path:
+        if self.clusters != other.clusters:
+            return False
+        if self.local_config != other.local_config:
             return False
         return True
 
     def __ne__(self, other):
-        if self.kafka_id == other.kafka_id:
-            if self.kafka_topology_path == other.kafka_topology_path:
-                return False
-        return True
+        return not self.__eq__(other)
 
     def load_topology_config(self):
         """Load the topology configuration"""
@@ -202,16 +194,12 @@ class KafkaConsumerConfig(object):
             return False
         if self.cluster != other.cluster:
             return False
-        if self.group_id != self.group_id:
+        if self.group_id != other.group_id:
             return False
         return True
 
     def __ne__(self, other):
-        if self._config == other._config:
-            if self.cluster == other.cluster:
-                if self.group_id == other.group_id:
-                    return False
-        return True
+        return not self.__eq__(other)
 
     def get_simple_consumer_args(self):
         """Get the configuration args for kafka-python SimpleConsumer."""
