@@ -45,18 +45,15 @@ class ClusterConfig(namedtuple('ClusterConfig', ['name', 'broker_list', 'zookeep
 
     def __hash__(self):
         if isinstance(self.broker_list, list):
-            self.broker_list.sort()
-            broker_list_str = ",".join(sorted(self.broker_list))
-            my_hash = hash((self.name, broker_list_str, self.zookeeper))
+            broker_list = self.broker_list
         else:
             broker_list = self.broker_list.split(',')
-            zk_list = self.zookeeper.split(',')
-            my_hash = hash((
-                self.name,
-                ",".join(sorted(filter(None, broker_list))),
-                ",".join(sorted(filter(None, zk_list)))
-            ))
-        return my_hash
+        zk_list = self.zookeeper.split(',')
+        return hash((
+            self.name,
+            ",".join(sorted(filter(None, broker_list))),
+            ",".join(sorted(filter(None, zk_list)))
+        ))
 
 
 def load_yaml_config(config_path):
@@ -89,7 +86,7 @@ class TopologyConfiguration(object):
         if all([
             self.kafka_id == other.kafka_id,
             self.clusters == other.clusters,
-            self.local_config == other.local_config
+            self.local_config == other.local_config,
         ]):
             return True
         return False
@@ -198,7 +195,7 @@ class KafkaConsumerConfig(object):
         if all([
             self._config == other._config,
             self.cluster == other.cluster,
-            self.group_id == other.group_id
+            self.group_id == other.group_id,
         ]):
             return True
         return False
