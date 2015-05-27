@@ -460,7 +460,7 @@ def set_consumer_offsets(kafka_client, group, new_offsets,
     new_offsets
     :raises FailedPayloadsError: upon send request error.
     """
-    _verify_commit_offsets_requests(
+    valid_new_offsets = _verify_commit_offsets_requests(
         kafka_client,
         new_offsets,
         raise_on_error
@@ -473,7 +473,7 @@ def set_consumer_offsets(kafka_client, group, new_offsets,
             offset,
             None
         )
-        for topic, new_partition_offsets in new_offsets.iteritems()
+        for topic, new_partition_offsets in valid_new_offsets.iteritems()
         for partition, offset in new_partition_offsets.iteritems()
     ]
 
