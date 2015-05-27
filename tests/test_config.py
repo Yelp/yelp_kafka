@@ -76,7 +76,6 @@ class TestClusterConfig():
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         assert cluster_config1 == cluster_config2
-
         # Re-ordering the list of brokers
         cluster_config2 = ClusterConfig(
             name='some_cluster',
@@ -97,6 +96,13 @@ class TestClusterConfig():
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         assert cluster_config1 == cluster_config2
+        # Re-order the comma separated pair of brokers and zookeeper nodes
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-2:9092,kafka-cluster-1:9092',
+            zookeeper='zookeeper-cluster-2:2181,zookeeper-cluster-1:2181,'
+        )
+        assert cluster_config1 == cluster_config2
 
     def test___ne___broker_str(self):
         cluster_config1 = ClusterConfig(
@@ -104,11 +110,18 @@ class TestClusterConfig():
             broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
-        # Re-order the comma separated pair of brokers
+        # Different comma separated pair of brokers
         cluster_config2 = ClusterConfig(
             name='some_cluster',
-            broker_list='kafka-cluster-2:9092,kafka-cluster-1:9092',
+            broker_list='kafka-cluster-2:9092,kafka-cluster-3:9092',
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        assert cluster_config1 != cluster_config2
+        # Different comma separated pair of zookeeper nodes
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
+            zookeeper='zookeeper-cluster-2:2181,zookeeper-cluster-3:2181,'
         )
         assert cluster_config1 != cluster_config2
 

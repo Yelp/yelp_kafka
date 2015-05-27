@@ -49,8 +49,13 @@ class ClusterConfig(namedtuple('ClusterConfig', ['name', 'broker_list', 'zookeep
             broker_list_str = ",".join(sorted(self.broker_list))
             my_hash = hash((self.name, broker_list_str, self.zookeeper))
         else:
-            my_hash = hash((self.name, self.broker_list, self.zookeeper))
-
+            broker_list = self.broker_list.split(',')
+            zk_list = self.zookeeper.split(',')
+            my_hash = hash((
+                self.name,
+                ",".join(sorted(filter(None, broker_list))),
+                ",".join(sorted(filter(None, zk_list)))
+            ))
         return my_hash
 
 
@@ -81,13 +86,13 @@ class TopologyConfiguration(object):
         self.load_topology_config()
 
     def __eq__(self, other):
-        if self.kafka_id != other.kafka_id:
-            return False
-        if self.clusters != other.clusters:
-            return False
-        if self.local_config != other.local_config:
-            return False
-        return True
+        if all([
+            self.kafka_id == other.kafka_id,
+            self.clusters == other.clusters,
+            self.local_config == other.local_config
+        ]):
+            return True
+        return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
@@ -190,13 +195,13 @@ class KafkaConsumerConfig(object):
         self.group_id = kafka_bytestring(group_id)
 
     def __eq__(self, other):
-        if self._config != other._config:
-            return False
-        if self.cluster != other.cluster:
-            return False
-        if self.group_id != other.group_id:
-            return False
-        return True
+        if all([
+            self._config == other._config,
+            self.cluster == other.cluster,
+            self.group_id == other.group_id
+        ]):
+            return True
+        return False
 
     def __ne__(self, other):
         return not self.__eq__(other)
