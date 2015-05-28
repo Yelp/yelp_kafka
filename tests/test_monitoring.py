@@ -2,8 +2,8 @@ import mock
 import pytest
 
 from kafka.common import (
-    OffsetFetchResponse,
     KafkaUnavailableError,
+    OffsetFetchResponse,
 )
 
 from yelp_kafka.error import(
@@ -17,8 +17,8 @@ from yelp_kafka.monitoring import (
     topics_offset_distance,
 )
 from test_offsets import(
-    TestOffsetsBase,
     MyKafkaClient,
+    TestOffsetsBase,
 )
 
 

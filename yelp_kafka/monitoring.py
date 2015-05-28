@@ -1,9 +1,7 @@
 from collections import namedtuple
 import logging
 
-from kafka.common import (
-    KafkaUnavailableError,
-)
+from kafka.common import KafkaUnavailableError
 
 from yelp_kafka.offsets import(
     get_current_consumer_offsets,

@@ -4,20 +4,20 @@ import logging
 
 from kafka.common import (
     BrokerResponseError,
-    OffsetFetchRequest,
-    OffsetRequest,
+    check_error,
     OffsetCommitRequest,
+    OffsetFetchRequest,
     OffsetFetchResponse,
+    OffsetRequest,
     OffsetResponse,
     UnknownTopicOrPartitionError,
-    check_error,
 )
 from kafka.util import kafka_bytestring
 
 from yelp_kafka.error import (
+    OffsetCommitError,
     UnknownPartitions,
     UnknownTopic,
-    OffsetCommitError,
 )
 
 

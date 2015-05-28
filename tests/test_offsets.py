@@ -2,23 +2,23 @@ import pytest
 import copy
 
 from kafka.common import (
-    OffsetResponse,
-    OffsetFetchResponse,
     OffsetCommitResponse,
+    OffsetFetchResponse,
+    OffsetResponse,
     RequestTimedOutError,
 )
 
 from yelp_kafka.offsets import (
-    get_topics_watermarks,
-    get_current_consumer_offsets,
-    PartitionOffsets,
-    UnknownPartitions,
-    UnknownTopic,
-    OffsetCommitError,
-    _verify_commit_offsets_requests,
     advance_consumer_offsets,
+    get_current_consumer_offsets,
+    get_topics_watermarks,
+    OffsetCommitError,
+    PartitionOffsets,
     rewind_consumer_offsets,
     set_consumer_offsets,
+    UnknownPartitions,
+    UnknownTopic,
+    _verify_commit_offsets_requests,
 )
 
 
