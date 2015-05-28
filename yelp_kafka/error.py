@@ -55,10 +55,10 @@ class OffsetCommitError(YelpKafkaError):
         self.error = error
 
     def __eq__(self, other):
-        if(self.topic != other.topic):
-            return False
-        if(self.partition != other.partition):
-            return False
-        if(self.error != other.error):
-            return False
-        return True
+        if all([
+            self.topic == other.topic,
+            self.partition == other.partition,
+            self.error == other.error,
+        ]):
+            return True
+        return False

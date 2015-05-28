@@ -151,7 +151,6 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
         "{{<topic>: {{<partition>: <offset>}}}}"
     ).format(new_offsets=new_offsets)
 
-    # Is it a dict?
     if not isinstance(new_offsets, dict):
         raise TypeError(type_error_str)
 
@@ -166,14 +165,14 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
 
     valid_topics = _verify_topics_and_partitions(kafka_client, topics, raise_on_error)
 
-    return dict([
-        (topic, dict([
+    return dict(
+        (topic, dict(
             (partition, new_offsets[topic][partition])
             for partition in partitions
-        ]))
+        ))
         for topic, partitions in valid_topics.iteritems()
         if partitions
-    ])
+    )
 
 
 def get_current_consumer_offsets(kafka_client, group, topics,
