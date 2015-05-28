@@ -28,9 +28,10 @@ class ConsumerGroup(object):
     to the group will be able to consume messages. The other consumers will
     stay idle, ready to take over the active consumer in case of failures.
     If the topic consists of many partitions and only one consumer has
-    joined the group, the consumer will consume messages from all the partitions.
-    Finally if the topic consists of many partitions and there are many consumers,
-    each consumer will pick up a subset of partitions and consume from them.
+    joined the group, the consumer will consume messages
+    from all the partitions. Finally if the topic consists of many
+    partitions and there are many consumers, each consumer will pick up
+    a subset of partitions and consume from them.
 
     Example:
 
@@ -80,7 +81,8 @@ class ConsumerGroup(object):
         :param refresh_timeout: waiting timeout in secs to refresh
             the consumer group. It should never be greater than
             'zk_partitioner_cooldown' to avoid wasting time resetting
-            the partitioner many times upon changes. See :py:mod:`yelp_kafka.config`
+            the partitioner many times upon changes.
+            See :py:mod:`yelp_kafka.config`
             Default: 5 seconds.
         """
         self.partitioner.start()
@@ -99,8 +101,14 @@ class ConsumerGroup(object):
                 try:
                     self.process(message)
                 except:
-                    self.log.exception("Error processing message: %s", message)
-                    raise ProcessMessageError("Error processing message: %s", message)
+                    self.log.exception(
+                        "Error processing message: %s",
+                        message,
+                    )
+                    raise ProcessMessageError(
+                        "Error processing message: %s",
+                        message,
+                    )
                 if time.time() > timeout:
                     break
         try:
@@ -123,9 +131,13 @@ class ConsumerGroup(object):
                 # We explicitly catch and log the exception.
                 self.consumer.connect()
             except:
-                self.log.exception("Consumer topic %s, partition %s, config %s:"
-                                   " failed connecting to kafka", self.topic,
-                                   partitions, self.config)
+                self.log.exception(
+                    "Consumer topic %s, partition %s, config %s:"
+                    " failed connecting to kafka",
+                    self.topic,
+                    partitions,
+                    self.config,
+                )
                 raise
 
     def _release(self, partitions):
@@ -177,7 +189,11 @@ class MultiprocessingConsumerGroup(object):
        cluster = discovery.get_local_cluster('standard')
        config = KafkaConsumerConfig('my_group', cluster)
 
-       group = MultiprocessingConsumerGroup(['topic1', 'topic2'], config, MyConsumer)
+       group = MultiprocessingConsumerGroup(
+           ['topic1', 'topic2'],
+           config,
+           MyConsumer,
+       )
        group_thread = Thread(target=group.start_group)
        group_thread.start()
        # Do some other cool stuff here like sleep
@@ -191,12 +207,18 @@ class MultiprocessingConsumerGroup(object):
     :param consumer_factory: the function used to instantiate the consumer.
         the consumer_factory must have the same argument list of
         :py:class:`yelp_kafka.consumer.KafkaConsumerBase`. It has to return
-        an instance of a subclass of :py:class:`yelp_kafka.consumer.KafkaConsumerBase`.
+        an instance of a subclass of
+        :py:class:`yelp_kafka.consumer.KafkaConsumerBase`.
     """
     def __init__(self, topics, config, consumer_factory):
         self.config = config
         self.termination_flag = None
-        self.partitioner = Partitioner(config, topics, self.acquire, self.release)
+        self.partitioner = Partitioner(
+            config,
+            topics,
+            self.acquire,
+            self.release,
+        )
         self.consumers = None
         self.consumers_lock = Lock()
         self.consumer_procs = {}
@@ -209,7 +231,8 @@ class MultiprocessingConsumerGroup(object):
         :param refresh_timeout: waiting timeout in secs to refresh
             the consumer group. It should never be greater than
             'zk_partitioner_cooldown' to avoid wasting time resetting
-            the partitioner many times upon changes. See :py:mod:`yelp_kafka.config`
+            the partitioner many times upon changes.
+            See :py:mod:`yelp_kafka.config`
             Default: 5 seconds.
 
         .. note: this function does not return. You may want to run it into
@@ -275,8 +298,31 @@ class MultiprocessingConsumerGroup(object):
 
     def start_consumer(self, consumer):
         """Create a new consumer process"""
-        proc = Process(target=consumer.run, name='Consumer-{0}-{1}'.format(consumer.topic, consumer.partitions))
-        proc.start()
+        try:
+            proc = Process(
+                target=consumer.run,
+                name='Consumer-{0}-{1}'.format(
+                    consumer.topic,
+                    consumer.partitions,
+                ),
+            )
+            proc.daemon = True
+            proc.start()
+        except Exception:
+            self.log.error(
+                "Impossible to start a new consumer."
+                "Topic: %s. Partition: %s.",
+                consumer.topic,
+                consumer.partitions,
+            )
+            self.partitioner.stop()
+            raise ConsumerGroupError(
+                "Error starting a new consumer."
+                "Topic: {topic}. Partition: {partitions}.".format(
+                    topic=consumer.topic,
+                    partitions=consumer.partitions,
+                ),
+            )
         return proc
 
     def release(self, partitions):
@@ -286,16 +332,22 @@ class MultiprocessingConsumerGroup(object):
             consumer.terminate()
 
         timeout = time.time() + self.config.max_termination_timeout_secs
-        while (time.time() <= timeout and
-               any([proc.is_alive() for proc in self.consumer_procs.iterkeys()])):
+        while (
+            time.time() <= timeout and any(
+                [proc.is_alive() for proc in self.consumer_procs.iterkeys()]
+            )
+        ):
             continue
 
         for proc, consumer in self.consumer_procs.iteritems():
             if proc.is_alive():
                 os.kill(proc.pid, signal.SIGKILL)
                 self.log.error(
-                    "Process %s, topic %s, partitions %s: killed due to timeout", proc.name,
-                    consumer.topic, consumer.partitions
+                    "Process %s, topic %s, partitions %s:"
+                    "killed due to timeout",
+                    proc.name,
+                    consumer.topic,
+                    consumer.partitions,
                 )
         self.consumer_procs.clear()
         with self.consumers_lock:
@@ -306,9 +358,13 @@ class MultiprocessingConsumerGroup(object):
         # We don't use the iterator because the dict may change during the loop
         for proc, consumer in self.consumer_procs.items():
             if not proc.is_alive():
-                self.log.error("consumer process %s topic %s partitions %s: "
-                               "died exit status %s", proc.name, consumer.topic,
-                               consumer.partitions, proc.exitcode)
+                self.log.error(
+                    "consumer process %s topic %s partitions %s: "
+                    "died exit status %s",
+                    proc.name,
+                    consumer.topic,
+                    consumer.partitions, proc.exitcode,
+                )
                 # Restart consumer process
                 self.consumer_procs[self.start_consumer(consumer)] = consumer
                 # Remove dead process

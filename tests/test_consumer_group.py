@@ -10,6 +10,7 @@ from yelp_kafka.error import (
     ProcessMessageError,
     PartitionerError,
     PartitionerZookeeperError,
+    ConsumerGroupError,
 )
 
 
@@ -123,6 +124,16 @@ class TestMultiprocessingConsumerGroup(object):
             assert consumer_factory.call_count == 4
             assert mock_process.call_count == 4
             assert mock_process.return_value.start.call_count == 4
+
+    def test_start_consumer_fail(self, group):
+        consumer = mock.Mock(topic='Test', partitions=[1, 2, 3])
+        with mock.patch(
+            'yelp_kafka.consumer_group.Process',
+            autospec=True,
+        ) as mock_process:
+            mock_process.return_value.start.side_effect = Exception("Boom!")
+            with pytest.raises(ConsumerGroupError):
+                group.start_consumer(consumer)
 
     def test_release(self, group):
         consumer = mock.Mock()
