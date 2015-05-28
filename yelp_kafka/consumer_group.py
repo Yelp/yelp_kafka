@@ -306,6 +306,7 @@ class MultiprocessingConsumerGroup(object):
                     consumer.partitions,
                 ),
             )
+            proc.daemon = True
             proc.start()
         except Exception:
             self.log.error(
