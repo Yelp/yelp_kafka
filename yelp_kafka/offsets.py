@@ -44,7 +44,6 @@ def pluck_topic_offset_or_zero_on_unknown(resp):
     except UnknownTopicOrPartitionError:
         # If the server doesn't have any commited offsets by this group for
         # this topic, assume it's zero.
-        log.exception("Error in OffsetFetchResponse")
         pass
     # The API spec says server wont set an error, but 0.8.1.1 does. The actual
     # check is if the offset is -1.
@@ -54,7 +53,7 @@ def pluck_topic_offset_or_zero_on_unknown(resp):
             resp.partition,
             0,
             resp.metadata,
-            0,
+            resp.error,
         )
     return resp
 
