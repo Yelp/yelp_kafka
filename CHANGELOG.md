@@ -17,3 +17,6 @@ This changelog only guarantees backward incompatible changes will be listed.
   - moved to `yelp_kafka.offsets.get_topics_watermarks`
 - `yelp_kafka.monitoring.PartitionOffsets` namedtuple moved to
   `yelp_kafka.offsets.PartitionOffsets`
+## added
+- `yelp_kafka.offsets` new functions added:
+  advance_consumer_offsets, rewind_consumer_offsets, set_consumer_offsets
