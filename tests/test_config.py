@@ -3,9 +3,12 @@ import mock
 import pytest
 from StringIO import StringIO
 
-from yelp_kafka.config import TopologyConfiguration
-from yelp_kafka.config import load_yaml_config
-from yelp_kafka.config import ClusterConfig
+from yelp_kafka.config import (
+    ClusterConfig,
+    KafkaConsumerConfig,
+    load_yaml_config,
+    TopologyConfiguration,
+)
 from yelp_kafka.error import ConfigurationError
 
 TEST_BASE_KAFKA = '/base/kafka_discovery'
@@ -58,6 +61,83 @@ MOCK_NO_SCRIBE_YAML = {
         'cluster': 'cluster1',
     }
 }
+
+
+class TestClusterConfig():
+    def test___eq___broker_list(self):
+        cluster_config1 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        assert cluster_config1 == cluster_config2
+        # Re-ordering the list of brokers
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-2:9092', 'kafka-cluster-1:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        assert cluster_config1 == cluster_config2
+
+    def test___eq___broker_str(self):
+        cluster_config1 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        assert cluster_config1 == cluster_config2
+        # Re-order the comma separated pair of brokers and zookeeper nodes
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-2:9092,kafka-cluster-1:9092',
+            zookeeper='zookeeper-cluster-2:2181,zookeeper-cluster-1:2181,'
+        )
+        assert cluster_config1 == cluster_config2
+
+    def test___ne___broker_str(self):
+        cluster_config1 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        # Different comma separated pair of brokers
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-2:9092,kafka-cluster-3:9092',
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        assert cluster_config1 != cluster_config2
+        # Different comma separated pair of zookeeper nodes
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
+            zookeeper='zookeeper-cluster-2:2181,zookeeper-cluster-3:2181,'
+        )
+        assert cluster_config1 != cluster_config2
+
+    def test___ne___broker_list(self):
+        cluster_config1 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        # Different broker list
+        cluster_config2 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-3:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+        assert cluster_config1 != cluster_config2
 
 
 @pytest.yield_fixture
@@ -156,3 +236,144 @@ class TestTopologyConfig(object):
             )
         ]
         assert sorted(expected_clusters) == sorted(actual_clusters)
+
+    def test___eq__(self):
+        topology1 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
+        topology2 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
+        assert topology1 == topology2
+
+        topology1 = TopologyConfiguration("scribe")
+        topology2 = TopologyConfiguration("scribe")
+        assert topology1 == topology2
+
+    def test___ne__(self):
+        topology1 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
+        topology2 = TopologyConfiguration("scribe", "/nail/etc/kafka_discovery")
+        assert topology1 != topology2
+
+        topology1 = TopologyConfiguration("standard")
+        topology2 = TopologyConfiguration("spam")
+        assert topology1 != topology2
+
+
+class TestKafkaConsumerConfig(object):
+    def test___eq__(self):
+        consumer_config = {
+            'buffer_size': 1024,
+            'auto_commit_every_n': 100,
+            'auto_commit_every_t': 20,
+            'auto_commit': True,
+            'fetch_size_bytes': 4096,
+            'max_buffer_size': None,
+            'iter_timeout': 120,
+        }
+        cluster_config = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+
+        # Re-ordered consumer config dict
+        consumer_config_reordered = {
+            'fetch_size_bytes': 4096,
+            'auto_commit_every_t': 20,
+            'auto_commit': True,
+            'max_buffer_size': None,
+            'buffer_size': 1024,
+            'iter_timeout': 120,
+            'auto_commit_every_n': 100,
+        }
+        cluster_config_reordered = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-2:9092', 'kafka-cluster-1:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+
+        config1 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config,
+            **consumer_config)
+        config2 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config,
+            **consumer_config
+        )
+        assert config1 == config2
+
+        # Let's use a re-ordered map with the same config
+        config2 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config_reordered,
+            **consumer_config_reordered
+        )
+        assert config1 == config2
+
+    def test___ne__(self):
+        consumer_config = {
+            'buffer_size': 1024,
+            'auto_commit_every_n': 100,
+            'auto_commit_every_t': 20,
+            'auto_commit': True,
+            'fetch_size_bytes': 4096,
+            'max_buffer_size': None,
+            'iter_timeout': 120,
+        }
+        cluster_config = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+
+        consumer_config_1 = {
+            'fetch_size_bytes': 496,
+            'auto_commit_every_t': 20,
+            'auto_commit': True,
+            'max_buffer_size': None,
+            'buffer_size': 104,
+            'iter_timeout': 12,
+            'auto_commit_every_n': 10,
+        }
+        cluster_config_1 = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka-cluster-4:9092', 'kafka-cluster-1:9092'],
+            zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
+        )
+
+        # Different cluster config
+        config1 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config,
+            **consumer_config
+        )
+        config2 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config_1,
+            **consumer_config
+        )
+        assert config1 != config2
+
+        # Different consumer config
+        config1 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config,
+            **consumer_config
+        )
+        config2 = KafkaConsumerConfig(
+            "some_group",
+            cluster_config,
+            **consumer_config_1
+        )
+        assert config1 != config2
+
+        # Different group ID
+        config1 = KafkaConsumerConfig(
+            "some_group1",
+            cluster_config,
+            **consumer_config
+        )
+        config2 = KafkaConsumerConfig(
+            "some_group2",
+            cluster_config,
+            **consumer_config
+        )
+        assert config1 != config2
