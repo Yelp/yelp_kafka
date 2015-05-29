@@ -53,7 +53,7 @@ def pluck_topic_offset_or_zero_on_unknown(resp):
             resp.partition,
             0,
             resp.metadata,
-            resp.error,
+            0,
         )
     return resp
 
@@ -63,7 +63,6 @@ def _check_fetch_response_error(resp):
         check_error(resp)
     except BrokerResponseError:
         # In case of error we set the offset to -1
-        log.exception("Error in OffsetResponse")
         return OffsetResponse(
             resp.topic,
             resp.partition,
@@ -77,7 +76,6 @@ def _check_commit_response_error(resp):
     try:
         check_error(resp)
     except BrokerResponseError as e:
-        log.exception("Error encountered when attempting to commit consumer offsets")
         exception = OffsetCommitError(
             resp.topic,
             resp.partition,
