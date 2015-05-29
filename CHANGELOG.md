@@ -11,7 +11,6 @@ This changelog only guarantees backward incompatible changes will be listed.
   - function signature changed from (client, group, topics, fail_on_error)
     to (client, group, topics, raise_on_error)
   - moved to `yelp_kafka.offsets.get_current_consumer_offsets`
-    get_current_consumer_offsets, get_topics_watermarks)
 - `yelp_kafka.monitoring.get_topics_watermarks`:
   - function signature changed from (client, topics, fail_on_error)
     to (client, topics, raise_on_error)
