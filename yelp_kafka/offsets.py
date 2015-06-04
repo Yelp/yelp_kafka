@@ -1,6 +1,5 @@
 from collections import defaultdict
 from collections import namedtuple
-import logging
 
 from kafka.common import (
     BrokerResponseError,
@@ -34,8 +33,6 @@ PartitionOffsets = namedtuple('PartitionOffsets',
 
 HIGH_WATERMARK = "high"
 LOW_WATERMARK = "low"
-
-log = logging.getLogger(__name__)
 
 
 def pluck_topic_offset_or_zero_on_unknown(resp):
