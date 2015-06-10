@@ -2,11 +2,16 @@ from collections import namedtuple
 import logging
 from multiprocessing import Event
 
-from kafka import KafkaClient
-from kafka import SimpleConsumer
+from kafka import (
+    KafkaClient,
+    SimpleConsumer,
+)
 from kafka.util import kafka_bytestring
+from setproctitle import (
+    setproctitle,
+    getproctitle,
+)
 
-from setproctitle import setproctitle, getproctitle
 from yelp_kafka.offsets import get_topics_watermarks
 from yelp_kafka.error import ProcessMessageError
 

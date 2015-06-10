@@ -5,9 +5,11 @@ import pytest
 from setproctitle import getproctitle
 
 from yelp_kafka.config import KafkaConsumerConfig
-from yelp_kafka.consumer import KafkaSimpleConsumer
-from yelp_kafka.consumer import KafkaConsumerBase
-from yelp_kafka.consumer import Message
+from yelp_kafka.consumer import(
+    KafkaConsumerBase,
+    KafkaSimpleConsumer,
+    Message,
+)
 from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.offsets import PartitionOffsets
 
