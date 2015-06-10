@@ -210,7 +210,7 @@ Yelp_Kafka currently provides two *consumer group* interfaces for consuming from
 
    consumer = ConsumerGroup(
        topic,
-       KafkaSimpleConsumer(
+       KafkaConsumerConfig(
            group_id='my_app',
            cluster=cluster
         ),
