@@ -349,7 +349,7 @@ def _commit_offsets_to_watermark(kafka_client, group, topics,
 
 def advance_consumer_offsets(kafka_client, group, topics,
                              raise_on_error=True):
-    """Advances consumer offsets to the latest message in the topic
+    """Advance consumer offsets to the latest message in the topic
     partition (the high watermark).
 
     This method shall refresh the client metadata prior to updating
@@ -385,7 +385,7 @@ def advance_consumer_offsets(kafka_client, group, topics,
 
 def rewind_consumer_offsets(kafka_client, group, topics,
                             raise_on_error=True):
-    """Rewinds consumer offsets to the earliest message in the topic
+    """Rewind consumer offsets to the earliest message in the topic
     partition (the low watermark).
 
     This method shall refresh the client metadata prior to updating
@@ -421,7 +421,7 @@ def rewind_consumer_offsets(kafka_client, group, topics,
 
 def set_consumer_offsets(kafka_client, group, new_offsets,
                          raise_on_error=True):
-    """Sets consumer offsets to the specified offsets.
+    """Set consumer offsets to the specified offsets.
 
     This method does not validate the specified offsets, it is up to
     the caller to specify valid offsets within a topic partition.
