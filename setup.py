@@ -41,7 +41,6 @@ setup(
     install_requires=[
         'kafka-python==0.9.3',
         'kazoo==2.0.post2',
-        'python-snappy',
         'PyYAML',
         'setproctitle'
     ],
