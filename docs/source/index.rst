@@ -1,7 +1,7 @@
 Yelp_Kafka v\ |version|
 =======================
 
-Yelp_Kafka is a library to interact with Kafka at Yelp. Before reading about Yelp_Kafka you should at least have clear what a Kafka topic and a topic partitions are. If these are obscure concepts to you, we recommend you to read the introduction of `Kafka documentation`_.
+Yelp_Kafka is a library to interact with Kafka at Yelp. Before reading about Yelp_Kafka, you should at least have a clear idea about what a Kafka topic and topic partitions are. If these are obscure concepts to you, we recommend you to read the introduction of `Kafka documentation`_.
 Yelp_Kafka is a wrapper around kafka-python, it fixes some of the issues still present in
 the official kafka-python release (such as offset validation) and provides some Yelp
 specific functions for cluster discovery.
@@ -210,7 +210,7 @@ Yelp_Kafka currently provides two *consumer group* interfaces for consuming from
 
    consumer = ConsumerGroup(
        topic,
-       KafkaSimpleConsumer(
+       KafkaConsumerConfig(
            group_id='my_app',
            cluster=cluster
         ),

@@ -164,21 +164,24 @@ def get_current_consumer_offsets(kafka_client, group, topics,
     NOTE: This method does not refresh client metadata. It is up to the caller
     to avoid using stale metadata.
 
+    If any partition leader is not available, the request fails for all the
+    other topics. This is the tradeoff of sending all topic requests in batch
+    and save both in performance and Kafka load.
+
     :param kafka_client: a connected KafkaClient
     :param group: kafka group_id
     :param topics: topic list or dict {<topic>: [partitions]}
-    :param raise_on_error: if False the method ignore missing topics and
-    missing partitions.
+    :param raise_on_error: if False the method ignores missing topics and
+      missing partitions. It still may fail on the request send.
     :returns: a dict topic: partition: offset
-    It still may fail on the request send. For example if any partition
-    leader is not available the request fails for all the other topics.
-    This is the tradeoff of sending all topic requests in batch and save
-    both in performance and Kafka load.
-    :raises :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
-    topics and raise_on_error=True
-    :raises :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
-    partitions and raise_on_error=True
-    :raises FailedPayloadsError: upon send request error.
+    :raises:
+      :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
+      topics and raise_on_error=True
+
+      :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
+      partitions and raise_on_error=True
+
+      FailedPayloadsError: upon send request error.
     """
 
     topics = _verify_topics_and_partitions(kafka_client, topics, raise_on_error)
@@ -214,20 +217,23 @@ def get_topics_watermarks(kafka_client, topics, raise_on_error=True):
     NOTE: This method does not refresh client metadata. It is up to the caller
     to use avoid using stale metadata.
 
+    If any partition leader is not available, the request fails for all the
+    other topics. This is the tradeoff of sending all topic requests in batch
+    and save both in performance and Kafka load.
+
     :param kafka_client: a connected KafkaClient
     :param topics: topic list or dict {<topic>: [partitions]}
-    :param raise_on_error: if False the method ignore missing topics
-    and missing partitions.
+    :param raise_on_error: if False the method ignores missing topics
+      and missing partitions. It still may fail on the request send.
     :returns: a dict topic: partition: Part
-    It still may fail on the request send. For example if any partition
-    leader is not available the request fails for all the other topics.
-    This is the tradeoff of sending all topic requests in batch and save
-    both in performance and Kafka load.
-    :raises :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
-    topics and raise_on_error=True
-    :raises :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
-    partitions and raise_on_error=True
-    :raises FailedPayloadsError: upon send request error.
+    :raises:
+      :py:class:`~yelp_kafka.error.UnknownTopic`: upon missing
+      topics and raise_on_error=True
+
+      :py:class:`~yelp_kafka.error.UnknownPartition`: upon missing
+      partitions and raise_on_error=True
+
+      FailedPayloadsError: upon send request error.
     """
     topics = _verify_topics_and_partitions(
         kafka_client,
@@ -337,27 +343,31 @@ def _commit_offsets_to_watermark(kafka_client, group, topics,
 
 def advance_consumer_offsets(kafka_client, group, topics,
                              raise_on_error=True):
-    """Advances consumer offsets to the latest message in the topic
+    """Advance consumer offsets to the latest message in the topic
     partition (the high watermark).
+
     This method shall refresh the client metadata prior to updating
     the offsets.
+
+    If any partition leader is not available, the request fails for all the
+    other topics. This is the tradeoff of sending all topic requests in batch
+    and save both in performance and Kafka load.
 
     :param kafka_client: a connected KafkaClient
     :param group: kafka group_id
     :param topics: topic list or dict {<topic>: [partitions]}
     :param raise_on_error: if False the method does not raise exceptions
-    on missing topics/partitions.
+      on missing topics/partitions. It may still fail on the request send.
     :returns: a list of errors for each partition offset update that failed.
     :rtype: list [OffsetCommitError]
-    It may fail on the request send. For example if any partition
-    leader is not available the request fails for all the other topics.
-    This is the tradeoff of sending all topic requests in batch and save
-    both in performance and Kafka load.
-    :raises :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
-    topics and raise_on_error=True
-    :raises :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
-    partitions and raise_on_error=True
-    :raises FailedPayloadsError: upon send request error.
+    :raises:
+      :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
+      topics and raise_on_error=True
+
+      :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
+      partitions and raise_on_error=True
+
+      FailedPayloadsError: upon send request error.
     """
     kafka_client.load_metadata_for_topics()
 
@@ -369,27 +379,31 @@ def advance_consumer_offsets(kafka_client, group, topics,
 
 def rewind_consumer_offsets(kafka_client, group, topics,
                             raise_on_error=True):
-    """Rewinds consumer offsets to the earliest message in the topic
+    """Rewind consumer offsets to the earliest message in the topic
     partition (the low watermark).
+
     This method shall refresh the client metadata prior to updating
     the offsets.
+
+    If any partition leader is not available, the request fails for all the
+    other topics. This is the tradeoff of sending all topic requests in batch
+    and save both in performance and Kafka load.
 
     :param kafka_client: a connected KafkaClient
     :param group: kafka group_id
     :param topics: topic list or dict {<topic>: [partitions]}
     :param raise_on_error: if False the method does not raise exceptions
-    on missing topics/partitions.
+      on missing topics/partitions. It may still fail on the request send.
     :returns: a list of errors for each partition offset update that failed.
     :rtype: list [OffsetCommitError]
-    It may fail on the request send. For example if any partition
-    leader is not available the request fails for all the other topics.
-    This is the tradeoff of sending all topic requests in batch and save
-    both in performance and Kafka load.
-    :raises :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
-    topics and raise_on_error=True
-    :raises :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
-    partitions and raise_on_error=True
-    :raises FailedPayloadsError: upon send request error.
+    :raises:
+      :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
+      topics and raise_on_error=True
+
+      :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
+      partitions and raise_on_error=True
+
+      FailedPayloadsError: upon send request error.
     """
     kafka_client.load_metadata_for_topics()
 
@@ -401,28 +415,33 @@ def rewind_consumer_offsets(kafka_client, group, topics,
 
 def set_consumer_offsets(kafka_client, group, new_offsets,
                          raise_on_error=True):
-    """Sets consumer offsets to the specified offsets.
+    """Set consumer offsets to the specified offsets.
+
     This method does not validate the specified offsets, it is up to
     the caller to specify valid offsets within a topic partition.
+
+    If any partition leader is not available, the request fails for all the
+    other topics. This is the tradeoff of sending all topic requests in batch
+    and save both in performance and Kafka load.
 
     :param kafka_client: a connected KafkaClient
     :param group: kafka group_id
     :param topics: dict {<topic>: {<partition>: <offset>}}
     :param raise_on_error: if False the method does not raise exceptions
-    on errors encountered, it shall return False instead.
+      on errors encountered. It may still fail on the request send.
     :returns: a list of errors for each partition offset update that failed.
     :rtype: list [OffsetCommitError]
-    It may fail on the request send. For example if any partition
-    leader is not available the request fails for all the other topics.
-    This is the tradeoff of sending all topic requests in batch and save
-    both in performance and Kafka load.
-    :raises :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
-    topics and raise_on_error=True
-    :raises :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
-    partitions and raise_on_error=True
-    :raises :py:class:`exceptions.TypeError`: upon badly formatted input
-    new_offsets
-    :raises FailedPayloadsError: upon send request error.
+    :raises:
+      :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
+      topics and raise_on_error=True
+
+      :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
+      partitions and raise_on_error=True
+
+      :py:class:`exceptions.TypeError`: upon badly formatted input
+      new_offsets
+
+      FailedPayloadsError: upon send request error.
     """
     valid_new_offsets = _verify_commit_offsets_requests(
         kafka_client,
