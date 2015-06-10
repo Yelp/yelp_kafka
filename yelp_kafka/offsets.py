@@ -1,6 +1,5 @@
 from collections import defaultdict
 from collections import namedtuple
-import logging
 
 from kafka.common import (
     BrokerResponseError,
@@ -35,8 +34,6 @@ PartitionOffsets = namedtuple('PartitionOffsets',
 HIGH_WATERMARK = "high"
 LOW_WATERMARK = "low"
 
-log = logging.getLogger(__name__)
-
 
 def pluck_topic_offset_or_zero_on_unknown(resp):
     try:
@@ -44,7 +41,6 @@ def pluck_topic_offset_or_zero_on_unknown(resp):
     except UnknownTopicOrPartitionError:
         # If the server doesn't have any commited offsets by this group for
         # this topic, assume it's zero.
-        log.exception("Error in OffsetFetchResponse")
         pass
     # The API spec says server wont set an error, but 0.8.1.1 does. The actual
     # check is if the offset is -1.
@@ -64,7 +60,6 @@ def _check_fetch_response_error(resp):
         check_error(resp)
     except BrokerResponseError:
         # In case of error we set the offset to -1
-        log.exception("Error in OffsetResponse")
         return OffsetResponse(
             resp.topic,
             resp.partition,
@@ -78,7 +73,6 @@ def _check_commit_response_error(resp):
     try:
         check_error(resp)
     except BrokerResponseError as e:
-        log.exception("Error encountered when attempting to commit consumer offsets")
         exception = OffsetCommitError(
             resp.topic,
             resp.partition,
