@@ -5,6 +5,7 @@ from multiprocessing import Process
 import time
 import os
 import signal
+import traceback
 
 from yelp_kafka.error import (
     ConsumerGroupError,
@@ -101,13 +102,16 @@ class ConsumerGroup(object):
                 try:
                     self.process(message)
                 except:
+                    trace = traceback.format_exc()
                     self.log.exception(
                         "Error processing message: %s",
                         message,
                     )
                     raise ProcessMessageError(
-                        "Error processing message: %s",
+                        "Error processing message: %s\n\nException caught inside processing message function:\n%s" % (
                         message,
+                        trace,
+                    )
                     )
                 if time.time() > timeout:
                     break
