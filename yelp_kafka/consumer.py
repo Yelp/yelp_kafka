@@ -2,12 +2,18 @@ from collections import namedtuple
 import logging
 from multiprocessing import Event
 
-from kafka import KafkaClient
-from kafka import SimpleConsumer
+from kafka import (
+    KafkaClient,
+    SimpleConsumer,
+)
 from kafka.util import kafka_bytestring
+from setproctitle import (
+    setproctitle,
+    getproctitle,
+)
 
-from setproctitle import setproctitle, getproctitle
 from yelp_kafka.error import ProcessMessageError
+from yelp_kafka.offsets import get_topics_watermarks
 
 
 Message = namedtuple("Message", ["partition", "offset", "key", "value"])
@@ -162,39 +168,28 @@ class KafkaSimpleConsumer(object):
                           "Offset validation is disabled.",
                           auto_offset_reset)
             return
-        # Disable autocommit to avoid committing offsets during seek
-        saved_auto_commit = self.kafka_consumer.auto_commit
-        self.kafka_consumer.auto_commit = False
 
+        topics_watermarks = get_topics_watermarks(
+            self.client,
+            [self.topic]
+        )
+        partition_watermarks = topics_watermarks[self.topic]
         group_offsets = self.kafka_consumer.fetch_offsets
-        # Fetch the earliest available offset (the older message)
-        self.kafka_consumer.seek(0, 0)
-        available = self.kafka_consumer.fetch_offsets
+        for k, offset in group_offsets.iteritems():
+            if(
+                offset < partition_watermarks[k].lowmark or
+                offset > partition_watermarks[k].highmark
+            ):
+                if auto_offset_reset == 'largest':
+                    group_offsets[k] = partition_watermarks[k].highmark
+                else:
+                    group_offsets[k] = partition_watermarks[k].lowmark
 
-        # Validate the group offsets checking that they are > than the earliest
-        # available offset
-        if any([offset < available[k]
-                for k, offset in group_offsets.iteritems()]):
-            if auto_offset_reset == 'largest':
-                # Fetch the tail of the queue. There are no messages at this
-                # position, yet.
-                self.log.warning("Group offset for %s is too old..."
-                                 "Resetting to latest offsets", self.topic)
-                self.kafka_consumer.seek(0, 2)
-            else:
-                # We don't need to seek the offset again to the earliest
-                # offset. Because the first seek call already changed the
-                # offsets.
-                self.log.warning("Group offset for %s is too old..."
-                                 "Resetting to earliest offsets", self.topic)
-        else:
-            # self.fetch_offsets is used for the kafka fetch request,
-            # while self.offsets is used to store the last processed message
-            # offsets. When we bootstrap the kafka consumer we need these two
-            # dicts to be in sync with one other.
-            self.kafka_consumer.offsets = group_offsets.copy()
-            self.kafka_consumer.fetch_offsets = group_offsets.copy()
-        self.kafka_consumer.auto_commit = saved_auto_commit
+        self.kafka_consumer.offsets = group_offsets.copy()
+        self.kafka_consumer.fetch_offsets = group_offsets.copy()
+
+        if self.kafka_consumer.auto_commit:
+            self.commit()
 
     def commit(self, partitions=None):
         """Commit offset for this consumer
