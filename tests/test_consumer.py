@@ -137,9 +137,9 @@ class TestKafkaSimpleConsumer(object):
         with mock_kafka() as (mock_client, mock_consumer):
             with self.mock_yelpkafka_consumer(
             ) as (mock_get_watermarks, mock_commit):
+
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 consumer = KafkaSimpleConsumer('test_topic', config)
-
                 consumer.connect()
 
                 mock_get_watermarks.assert_called_with(
@@ -155,10 +155,10 @@ class TestKafkaSimpleConsumer(object):
         with mock_kafka() as (mock_client, mock_consumer):
             with self.mock_yelpkafka_consumer(
             ) as (mock_get_watermarks, mock_commit):
+
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 mock_consumer.return_value.auto_commit = False
                 consumer = KafkaSimpleConsumer('test_topic', config)
-
                 consumer.connect()
 
                 mock_get_watermarks.assert_called_with(
@@ -175,9 +175,9 @@ class TestKafkaSimpleConsumer(object):
         with mock_kafka() as (mock_client, mock_consumer):
             with self.mock_yelpkafka_consumer(
             ) as (mock_get_watermarks, mock_commit):
+
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 consumer = KafkaSimpleConsumer('test_topic', config)
-
                 consumer.connect()
 
                 mock_get_watermarks.assert_called_with(
@@ -200,9 +200,9 @@ class TestKafkaSimpleConsumer(object):
         with mock_kafka() as (mock_client, mock_consumer):
             with self.mock_yelpkafka_consumer(
             ) as (mock_get_watermarks, mock_commit):
+
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 consumer = KafkaSimpleConsumer('test_topic', config)
-
                 consumer.connect()
 
                 mock_get_watermarks.assert_called_with(
@@ -219,9 +219,9 @@ class TestKafkaSimpleConsumer(object):
         with mock_kafka() as (mock_client, mock_consumer):
             with self.mock_yelpkafka_consumer(
             ) as (mock_get_watermarks, mock_commit):
+
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 consumer = KafkaSimpleConsumer('test_topic', config)
-
                 consumer.connect()
 
                 mock_get_watermarks.assert_called_with(
@@ -244,9 +244,9 @@ class TestKafkaSimpleConsumer(object):
         with mock_kafka() as (mock_client, mock_consumer):
             with self.mock_yelpkafka_consumer(
             ) as (mock_get_watermarks, mock_commit):
+
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 consumer = KafkaSimpleConsumer('test_topic', config)
-
                 consumer.connect()
 
                 mock_get_watermarks.assert_called_with(
