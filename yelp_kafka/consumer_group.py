@@ -109,9 +109,9 @@ class ConsumerGroup(object):
                     )
                     raise ProcessMessageError(
                         "Error processing message: %s\n\nException caught inside processing message function:\n%s" % (
-                        message,
-                        trace,
-                    )
+                            message,
+                            trace,
+                        )
                     )
                 if time.time() > timeout:
                     break
