@@ -32,6 +32,22 @@ class TestKafkaSimpleConsumer(object):
         }
     }
 
+    @contextlib.contextmanager
+    def mock_yelpkafka_consumer(self):
+        with contextlib.nested(
+            mock.patch(
+                "yelp_kafka.consumer.get_topics_watermarks",
+                return_value=self.topics_watermarks,
+                autospec=True
+            ),
+            mock.patch.object(
+                KafkaSimpleConsumer,
+                "commit",
+                autospec=True
+            )
+        ) as (mock_get_watermarks, mock_commit):
+            yield mock_get_watermarks, mock_commit
+
     def test_topic_error(self, config):
         with pytest.raises(TypeError):
             KafkaSimpleConsumer(['test_topic'], config)
@@ -119,58 +135,58 @@ class TestKafkaSimpleConsumer(object):
     def test__valid_offsets(self, config):
         group_offsets = {0: 12, 1: 12}
         with mock_kafka() as (mock_client, mock_consumer):
-            with mock.patch(
-                "yelp_kafka.consumer.get_topics_watermarks",
-                return_value=self.topics_watermarks,
-                autospec=True
-            ) as mock_get_watermarks:
+            with self.mock_yelpkafka_consumer(
+            ) as (mock_get_watermarks, mock_commit):
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 consumer = KafkaSimpleConsumer('test_topic', config)
+
                 consumer.connect()
+
                 mock_get_watermarks.assert_called_with(
                     mock_client.return_value,
-                    {consumer.topic: []}
+                    [consumer.topic]
                 )
                 assert mock_consumer.return_value.fetch_offsets == group_offsets
                 assert mock_consumer.return_value.offsets == group_offsets
+                mock_commit.assert_called_once_with(consumer)
 
     def test_valid_offsets_no_auto_commit(self, config):
         group_offsets = {0: 12, 1: 12}
         with mock_kafka() as (mock_client, mock_consumer):
-            with mock.patch(
-                "yelp_kafka.consumer.get_topics_watermarks",
-                return_value=self.topics_watermarks,
-                autospec=True
-            ) as mock_get_watermarks:
+            with self.mock_yelpkafka_consumer(
+            ) as (mock_get_watermarks, mock_commit):
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 mock_consumer.return_value.auto_commit = False
                 consumer = KafkaSimpleConsumer('test_topic', config)
+
                 consumer.connect()
+
                 mock_get_watermarks.assert_called_with(
                     mock_client.return_value,
-                    {consumer.topic: []}
+                    [consumer.topic]
                 )
                 assert mock_consumer.return_value.fetch_offsets == group_offsets
                 assert mock_consumer.return_value.offsets == group_offsets
+                assert not mock_commit.called
 
     def test_invalid_offsets_below_lowmark_get_latest(self, config):
         group_offsets = {0: 2, 1: 3}
         expected_offsets = {0: 30, 1: 20}
         with mock_kafka() as (mock_client, mock_consumer):
-            with mock.patch(
-                "yelp_kafka.consumer.get_topics_watermarks",
-                return_value=self.topics_watermarks,
-                autospec=True
-            ) as mock_get_watermarks:
+            with self.mock_yelpkafka_consumer(
+            ) as (mock_get_watermarks, mock_commit):
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 consumer = KafkaSimpleConsumer('test_topic', config)
+
                 consumer.connect()
+
                 mock_get_watermarks.assert_called_with(
                     mock_client.return_value,
-                    {consumer.topic: []}
+                    [consumer.topic]
                 )
                 assert mock_consumer.return_value.fetch_offsets == expected_offsets
                 assert mock_consumer.return_value.offsets == expected_offsets
+                mock_commit.assert_called_once_with(consumer)
 
     def test__invalid_offsets_below_lowmark_get_earliest(self, cluster):
         config = KafkaConsumerConfig(
@@ -182,39 +198,39 @@ class TestKafkaSimpleConsumer(object):
         group_offsets = {0: 12, 1: 3}
         expected_offsets = {0: 12, 1: 6}
         with mock_kafka() as (mock_client, mock_consumer):
-            with mock.patch(
-                "yelp_kafka.consumer.get_topics_watermarks",
-                return_value=self.topics_watermarks,
-                autospec=True
-            ) as mock_get_watermarks:
+            with self.mock_yelpkafka_consumer(
+            ) as (mock_get_watermarks, mock_commit):
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 consumer = KafkaSimpleConsumer('test_topic', config)
+
                 consumer.connect()
+
                 mock_get_watermarks.assert_called_with(
                     mock_client.return_value,
-                    {consumer.topic: []}
+                    [consumer.topic]
                 )
                 assert mock_consumer.return_value.fetch_offsets == expected_offsets
                 assert mock_consumer.return_value.offsets == expected_offsets
+                mock_commit.assert_called_once_with(consumer)
 
     def test_invalid_offsets_above_highmark_get_latest(self, config):
         group_offsets = {0: 345, 1: 12}
         expected_offsets = {0: 30, 1: 12}
         with mock_kafka() as (mock_client, mock_consumer):
-            with mock.patch(
-                "yelp_kafka.consumer.get_topics_watermarks",
-                return_value=self.topics_watermarks,
-                autospec=True
-            ) as mock_get_watermarks:
+            with self.mock_yelpkafka_consumer(
+            ) as (mock_get_watermarks, mock_commit):
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 consumer = KafkaSimpleConsumer('test_topic', config)
+
                 consumer.connect()
+
                 mock_get_watermarks.assert_called_with(
                     mock_client.return_value,
-                    {consumer.topic: []}
+                    [consumer.topic]
                 )
                 assert mock_consumer.return_value.fetch_offsets == expected_offsets
                 assert mock_consumer.return_value.offsets == expected_offsets
+                mock_commit.assert_called_once_with(consumer)
 
     def test_invalid_offsets_above_highmark_get_earliest(self, cluster):
         config = KafkaConsumerConfig(
@@ -226,20 +242,20 @@ class TestKafkaSimpleConsumer(object):
         group_offsets = {0: 47, 1: 53}
         expected_offsets = {0: 5, 1: 6}
         with mock_kafka() as (mock_client, mock_consumer):
-            with mock.patch(
-                "yelp_kafka.consumer.get_topics_watermarks",
-                return_value=self.topics_watermarks,
-                autospec=True
-            ) as mock_get_watermarks:
+            with self.mock_yelpkafka_consumer(
+            ) as (mock_get_watermarks, mock_commit):
                 mock_consumer.return_value.fetch_offsets = group_offsets
                 consumer = KafkaSimpleConsumer('test_topic', config)
+
                 consumer.connect()
+
                 mock_get_watermarks.assert_called_with(
                     mock_client.return_value,
-                    {consumer.topic: []}
+                    [consumer.topic]
                 )
                 assert mock_consumer.return_value.fetch_offsets == expected_offsets
                 assert mock_consumer.return_value.offsets == expected_offsets
+                mock_commit.assert_called_once_with(consumer)
 
     def test_close(self, config):
         with mock_kafka() as (mock_client, mock_consumer):

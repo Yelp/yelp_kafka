@@ -12,8 +12,8 @@ from setproctitle import (
     getproctitle,
 )
 
-from yelp_kafka.offsets import get_topics_watermarks
 from yelp_kafka.error import ProcessMessageError
+from yelp_kafka.offsets import get_topics_watermarks
 
 
 Message = namedtuple("Message", ["partition", "offset", "key", "value"])
@@ -168,20 +168,17 @@ class KafkaSimpleConsumer(object):
                           "Offset validation is disabled.",
                           auto_offset_reset)
             return
-        # Disable autocommit to avoid committing offsets during seek
-        saved_auto_commit = self.kafka_consumer.auto_commit
-        self.kafka_consumer.auto_commit = False
 
         topics_watermarks = get_topics_watermarks(
             self.client,
-            {self.topic: []}
+            [self.topic]
         )
         partition_watermarks = topics_watermarks[self.topic]
         group_offsets = self.kafka_consumer.fetch_offsets
         for k, offset in group_offsets.iteritems():
             if(
-                (offset < partition_watermarks[k].lowmark) or
-                (offset > partition_watermarks[k].highmark)
+                offset < partition_watermarks[k].lowmark or
+                offset > partition_watermarks[k].highmark
             ):
                 if auto_offset_reset == 'largest':
                     group_offsets[k] = partition_watermarks[k].highmark
@@ -190,7 +187,9 @@ class KafkaSimpleConsumer(object):
 
         self.kafka_consumer.offsets = group_offsets.copy()
         self.kafka_consumer.fetch_offsets = group_offsets.copy()
-        self.kafka_consumer.auto_commit = saved_auto_commit
+
+        if self.kafka_consumer.auto_commit:
+            self.commit()
 
     def commit(self, partitions=None):
         """Commit offset for this consumer
