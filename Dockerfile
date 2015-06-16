@@ -21,5 +21,7 @@ RUN apt-get install -qq python-setuptools
 
 RUN pip install tox
 
-ADD . /work
+ENV PATH="$PATH:$JAVA_HOME/bin"
+
 WORKDIR /work
+

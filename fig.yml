@@ -1,0 +1,12 @@
+zookeeper:
+  build: docker/zookeeper
+  expose:
+    - 2181
+
+kafka:
+  build: docker/kafka
+  expose:
+    - 9092
+  links:
+    - zookeeper
+

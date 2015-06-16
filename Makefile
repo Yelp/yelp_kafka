@@ -1,13 +1,13 @@
 MOUNT_DIR := /work
 IMAGE_NAME := yelp_kafka_lucid
-DOCKER_RUN := docker run -t -v $(CURDIR):$(MOUNT_DIR):rw $(IMAGE_NAME)
+DOCKER_RUN := docker run --rm -t -v $(CURDIR):$(MOUNT_DIR):rw $(IMAGE_NAME)
 
 .DELETE_ON_ERROR:
 
 all: test
 
 test: .build_image
-	$(DOCKER_RUN) tox tests
+	$(DOCKER_RUN) /work/start_kafka.sh
 
 sdist:
 	python setup.py sdist
