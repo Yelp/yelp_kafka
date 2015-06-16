@@ -1,12 +1,19 @@
-zookeeper:
-  build: docker/zookeeper
-  expose:
-    - 2181
+itest:
+  build: docker/itest
+  links:
+    - kafka
+  volumes:
+    - .:/work
 
 kafka:
   build: docker/kafka
-  expose:
-    - 9092
+  ports:
+    - "9092:9092"
   links:
     - zookeeper
+
+zookeeper:
+  build: docker/zookeeper
+  ports:
+    - "2181:2181"
 
