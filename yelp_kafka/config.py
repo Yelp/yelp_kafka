@@ -29,7 +29,12 @@ DEFAULT_CLIENT_ID = 'yelp-kafka'
 cluster_configuration = {}
 
 
-class ClusterConfig(namedtuple('ClusterConfig', ['name', 'broker_list', 'zookeeper'])):
+class ClusterConfig(
+    namedtuple(
+        'ClusterConfig',
+        ['name', 'broker_list', 'zookeeper'],
+    ),
+):
     """Tuple representing the cluster configuration.
 
     * **name**\(``str``): Name of the cluster
@@ -154,14 +159,15 @@ class KafkaConsumerConfig(object):
     :param cluster: cluster config from :py:mod:`yelp_kafka.discovery`
     :param config: keyword arguments, configuration arguments from kafka-python
         SimpleConsumer are accepted.
-        See valid keyword arguments in: http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.simple
+        See valid keyword arguments in:
+        http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.simple
         Note: Please do NOT specify topics and partitions as part of config. These should
         be specified when initializing the consumer.
         See: :py:mod:`yelp_kafka.consumer.py` or :py:mod:`yelp_kafka.consumer_group`
 
         Yelp_kafka specific configuration arguments are:
 
-        * **auto_offset_reset**: Used by KafkaSimpleConsumer for offset validation.
+        * **auto_offset_reset**: Used for offset validation.
           if 'largest' reset the offset to the latest available
           message (tail). If 'smallest' uses consumes from the
           earliest (head). Default: 'largest'.
@@ -180,6 +186,7 @@ class KafkaConsumerConfig(object):
         'fetch_size_bytes': FETCH_MIN_BYTES,
         'max_buffer_size': None,
         'iter_timeout': MAX_ITERATOR_TIMEOUT_SECS,
+        'auto_offset_reset': DEFAULT_OFFSET_RESET,
     }
     """Default SimpleConsumer configuration"""
 
@@ -221,7 +228,7 @@ class KafkaConsumerConfig(object):
                 key, DEFAULT_CONSUMER_CONFIG[key]
             )
         config['group_id'] = self.group_id
-        config['metadata_broker_list'] = self.cluster.broker_list
+        config['bootstrap_servers'] = self.cluster.broker_list
         return config
 
     @property
@@ -249,15 +256,15 @@ class KafkaConsumerConfig(object):
                                 MAX_ITERATOR_TIMEOUT_SECS)
 
     @property
-    def auto_offset_reset(self):
-        return self._config.get('auto_offset_reset', DEFAULT_OFFSET_RESET)
-
-    @property
     def client_id(self):
         return self._config.get('client_id', DEFAULT_CLIENT_ID)
 
     def __repr__(self):
-        return ("KafkaConsumerConfig: cluster {cluster}, group {group} "
-                "config: {config}".format(cluster=self.cluster,
-                                          group=self.group_id,
-                                          config=self._config))
+        return (
+            "KafkaConsumerConfig: cluster {cluster}, group {group} "
+            "config: {config}".format(
+                cluster=self.cluster,
+                group=self.group_id,
+                config=self._config
+            )
+        )
