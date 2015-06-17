@@ -30,7 +30,7 @@ def test_itest_works():
     producer = kafka.SimpleProducer(kafka.KafkaClient('kafka:9092'))
     producer.send_messages(topic, 'foobar')
 
-    consumer = kafka.KafkaConsumer(topic, group_id='ucarion-test',
+    consumer = kafka.KafkaConsumer(topic, group_id='test',
                                    metadata_broker_list='kafka:9092',
                                    auto_offset_reset='smallest')
     messages = [message.value for message in consumer.fetch_messages()]
