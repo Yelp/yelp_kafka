@@ -1,11 +1,38 @@
-def test_foobar():
+import os
+import kafka
+import uuid
 
-    import os
-    print "About to create topic"
-    os.system('/usr/bin/kafka-topics --create --zookeeper zookeeper:2181 --replication-factor 1 --partitions 1 --topic test')
 
-    print "About to list topics"
-    os.system('/usr/bin/kafka-topics --list --zookeeper zookeeper:2181')
+ZOOKEEPER_URL = 'zookeeper:2181'
+KAFKA_URL = 'kafka:9092'
 
-    assert False
 
+def create_topic(topic_name, replication_factor, partitions):
+    cmd = ' '.join(['/usr/bin/kafka-topics', '--create',
+                    '--zookeeper', ZOOKEEPER_URL,
+                    '--replication-factor', str(replication_factor),
+                    '--partitions', str(partitions),
+                    '--topic', topic_name])
+    os.system(cmd)
+
+
+def create_random_topic(replication_factor, partitions):
+    topic_name = str(uuid.uuid1())
+    create_topic(topic_name, replication_factor, partitions)
+    return topic_name
+
+
+# This test does not test any yelp_kafka code. It only tests if the integration
+# test setup is done properly.
+def test_itest_works():
+    topic = create_random_topic(1, 1)
+
+    producer = kafka.SimpleProducer(kafka.KafkaClient('kafka:9092'))
+    producer.send_messages(topic, 'foobar')
+
+    consumer = kafka.KafkaConsumer(topic, group_id='ucarion-test',
+                                   metadata_broker_list='kafka:9092',
+                                   auto_offset_reset='smallest')
+    messages = [message.value for message in consumer.fetch_messages()]
+
+    assert messages == ['foobar']
