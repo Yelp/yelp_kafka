@@ -32,6 +32,3 @@ pip-log.txt
 
 # Editors
 .*.sw?
-
-# Used by Makefile to indicate last time Dockerfile was built
-.build_image
