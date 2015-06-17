@@ -2,6 +2,7 @@ itest:
   build: docker/itest
   links:
     - kafka
+    - zookeeper
   volumes:
     - .:/work
 
