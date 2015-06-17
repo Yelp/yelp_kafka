@@ -8,4 +8,3 @@ ADD config.properties /server.properties
 
 EXPOSE 9092
 CMD echo "Kafka starting" && /usr/bin/kafka-server-start /server.properties
-

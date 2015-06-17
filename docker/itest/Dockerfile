@@ -12,4 +12,3 @@ RUN pip install tox
 
 WORKDIR /work
 CMD tox tests/integration
-

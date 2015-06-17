@@ -17,4 +17,3 @@ zookeeper:
   build: docker/zookeeper
   ports:
     - "2181:2181"
-
