@@ -1,13 +1,9 @@
-MOUNT_DIR := /work
-IMAGE_NAME := yelp_kafka_lucid
-DOCKER_RUN := docker run --rm -t -v $(CURDIR):$(MOUNT_DIR):rw $(IMAGE_NAME)
-
 .DELETE_ON_ERROR:
 
 all: test
 
-test: .build_image
-	$(DOCKER_RUN) /work/start_kafka.sh
+test:
+	tox tests
 
 sdist:
 	python setup.py sdist
@@ -15,14 +11,14 @@ sdist:
 bdist_wheel:
 	python setup.py bdist_wheel
 
-docs: .build_image
-	$(DOCKER_RUN) tox -e docs
+docs:
+	tox -e docs
 
-clean: .build_image
-	$(DOCKER_RUN) $(MOUNT_DIR)/clean.sh
-
-.build_image: Dockerfile
-	docker build -t $(IMAGE_NAME) .
-	touch .build_image
+clean:
+	make -C docs clean
+	rm -rf build/ dist/ yelp_kafka.egg-info/ .tox/
+	find . -name '*.pyc' -delete
+	find . -name '__pycache__' -delete
+	rm -rf docs/build/
 
 .PHONY: docs
