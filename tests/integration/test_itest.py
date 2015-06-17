@@ -27,11 +27,11 @@ def create_random_topic(replication_factor, partitions):
 def test_itest_works():
     topic = create_random_topic(1, 1)
 
-    producer = kafka.SimpleProducer(kafka.KafkaClient('kafka:9092'))
+    producer = kafka.SimpleProducer(kafka.KafkaClient(KAFKA_URL))
     producer.send_messages(topic, 'foobar')
 
     consumer = kafka.KafkaConsumer(topic, group_id='test',
-                                   metadata_broker_list='kafka:9092',
+                                   metadata_broker_list=[KAFKA_URL],
                                    auto_offset_reset='smallest')
     messages = [message.value for message in consumer.fetch_messages()]
 
