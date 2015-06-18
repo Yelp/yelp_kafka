@@ -162,9 +162,11 @@ class ConsumerGroup(object):
 
 
 class KafkaConsumerGroup(object):
-    def __init__(self, topics, config):
+    def __init__(self, topics, config,
+                 refresh_timeout=DEFAULT_REFRESH_TIMEOUT_IN_SEC):
         self.topics = topics
         self.config = config
+        self.refresh_timeout = refresh_timeout
 
         self.partition_lock = Lock()
         self.partitioner = Partitioner(config, topics, self._acquire, self._release)
@@ -177,7 +179,7 @@ class KafkaConsumerGroup(object):
             self.partitioner.refresh()
             self._create_partition_timer()
 
-        Timer(DEFAULT_REFRESH_TIMEOUT_IN_SEC, loop).start()
+        Timer(self.refresh_timeout, loop).start()
 
     def _acquire(self, partitions):
         with self.partition_lock:
