@@ -28,7 +28,7 @@ def get_local_cluster(cluster_type):
     :param cluster_type: kafka cluster type
         (ex.'scribe' or 'standard').
     :type cluster_type: string
-    :returns: (cluster_name, cluster config)
+    :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
     topology = TopologyConfiguration(kafka_id=cluster_type)
     return topology.get_local_cluster()
@@ -41,7 +41,7 @@ def get_all_clusters(cluster_type):
     :param cluster_type: kafka cluster type
         (ex.'scribe' or 'standard').
     :type cluster_type: string
-    :returns: list (cluster_name, cluster config)
+    :returns: list of py:class:`yelp_kafka.config.ClusterConfig`
     """
     topology = TopologyConfiguration(kafka_id=cluster_type)
     return topology.get_all_clusters()

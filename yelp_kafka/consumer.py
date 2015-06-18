@@ -13,7 +13,6 @@ from setproctitle import (
 )
 
 from yelp_kafka.error import ProcessMessageError
-from yelp_kafka.offsets import get_topics_watermarks
 
 
 Message = namedtuple("Message", ["partition", "offset", "key", "value"])
@@ -56,7 +55,7 @@ class KafkaSimpleConsumer(object):
         self.config = config
 
     def connect(self):
-        """ Connect to kafka and validate the offsets for a topic.
+        """ Connect to kafka and create a consumer.
         It uses config parameters to create a kafka-python
         KafkaClient and SimpleConsumer.
         """
@@ -77,26 +76,15 @@ class KafkaSimpleConsumer(object):
                       self.config.get_simple_consumer_args().iteritems()])
         )
         self.kafka_consumer.provide_partition_info()
-        if not self.kafka_consumer.auto_commit:
-            self.kafka_consumer.fetch_last_known_offsets(
-                self.partitions,
-            )
-        self._validate_offsets(self.config.auto_offset_reset)
 
     def __iter__(self):
         for partition, kafka_message in self.kafka_consumer:
-            # We need to filter out possible old messages.
-            # See https://github.com/mumrah/kafka-python/issues/322
-            # kafka-python increments the offsets value just before returning the
-            # message, so we need to compare the message offset with the
-            # current - 1
-            if kafka_message[0] >= self.kafka_consumer.offsets[partition] - 1:
-                yield Message(
-                    partition=partition,
-                    offset=kafka_message[0],
-                    key=kafka_message[1].key,
-                    value=kafka_message[1].value
-                )
+            yield Message(
+                partition=partition,
+                offset=kafka_message[0],
+                key=kafka_message[1].key,
+                value=kafka_message[1].value,
+            )
 
     def __enter__(self):
         self.connect()
@@ -139,57 +127,12 @@ class KafkaSimpleConsumer(object):
                 return None
             else:
                 partition, kafka_message = fetched_message
-                # We need to filter out possible old messages.
-                # See https://github.com/mumrah/kafka-python/issues/322
-                # kafka-python increments the offsets value just before returning the
-                # message, so we need to compare the message offset with the
-                # current - 1
-                if kafka_message[0] >= self.kafka_consumer.offsets[partition] - 1:
-                    return Message(partition=partition, offset=kafka_message[0],
-                                   key=kafka_message[1].key, value=kafka_message[1].value)
-
-    def _validate_offsets(self, auto_offset_reset):
-        """ Validate the offsets for a topics by comparing the earliest
-        available offsets with the consumer group offsets.
-        python-kafka api does not check for offsets validity.
-        When either a group does not exist yet or the saved offsets
-        are older than the tail of the queue the fetch request fails.
-
-        :param auto_offset_reset: If 'largest', the latest offsets (tail of the queue)
-                              are used as new valid offsets. Otherwise ('smallest'),
-                              the earliest offsets (head of the queue) are used.
-        :type auto_offset_reset: string
-        """
-
-        # We fallback in SimpleConsumer behavior if the auto_offsets_reset is
-        # not a valid value.
-        if auto_offset_reset not in ('smallest', 'largest'):
-            self.log.info("auto_offset_reset set to %s."
-                          "Offset validation is disabled.",
-                          auto_offset_reset)
-            return
-
-        topics_watermarks = get_topics_watermarks(
-            self.client,
-            [self.topic]
-        )
-        partition_watermarks = topics_watermarks[self.topic]
-        group_offsets = self.kafka_consumer.fetch_offsets
-        for k, offset in group_offsets.iteritems():
-            if(
-                offset < partition_watermarks[k].lowmark or
-                offset > partition_watermarks[k].highmark
-            ):
-                if auto_offset_reset == 'largest':
-                    group_offsets[k] = partition_watermarks[k].highmark
-                else:
-                    group_offsets[k] = partition_watermarks[k].lowmark
-
-        self.kafka_consumer.offsets = group_offsets.copy()
-        self.kafka_consumer.fetch_offsets = group_offsets.copy()
-
-        if self.kafka_consumer.auto_commit:
-            self.commit()
+                return Message(
+                    partition=partition,
+                    offset=kafka_message[0],
+                    key=kafka_message[1].key,
+                    value=kafka_message[1].value,
+                )
 
     def commit(self, partitions=None):
         """Commit offset for this consumer
@@ -283,7 +226,10 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
                     self.process(message)
                 except:
                     self.log.exception("Error processing message: %s", message)
-                    raise ProcessMessageError("Error processing message: %s", message)
+                    raise ProcessMessageError(
+                        "Error processing message: %s",
+                        message,
+                    )
             if self.termination_flag.is_set():
                 self._terminate()
                 break
