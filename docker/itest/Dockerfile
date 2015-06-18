@@ -2,6 +2,10 @@ FROM docker-dev.yelpcorp.com/lucid_yelp
 MAINTAINER Team Distributed Systems <team-dist-sys@yelp.com>
 
 RUN apt-get update
+
+# We need to install Java and Kafka in order to use Kafka CLI. The Kakfa server
+# will never run in this container; the Kafka server will run in the "kafka"
+# container.
 RUN apt-get install -y java-8u20-oracle confluent-kafka
 ENV JAVA_HOME="/usr/lib/jvm/java-8-oracle-1.8.0.20/"
 ENV PATH="$PATH:$JAVA_HOME/bin"
