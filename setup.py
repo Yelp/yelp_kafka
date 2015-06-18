@@ -41,8 +41,8 @@ setup(
     install_requires=[
         'kafka-python==0.9.4',
         'kazoo>=2.0.post2',
-        'PyYAML',
-        'setproctitle'
+        'PyYAML>=3.10',
+        'setproctitle>=1.1.8',
     ],
     cmdclass={
         'test': Tox,

@@ -35,11 +35,10 @@ class ClusterConfig(
         ['name', 'broker_list', 'zookeeper'],
     ),
 ):
-    """Tuple representing the cluster configuration.
-
-    * **name**\(``str``): Name of the cluster
-    * **broker_list**\(``list``): List of brokers
-    * **zookeeper**\(``str``): Zookeeper cluster
+    """Cluster configuration.
+    :param name: cluster name
+    :param broker_list: list of kafka brokers
+    :param zookeeper: zookeeper connection string
     """
 
     def __ne__(self, other):
@@ -261,10 +260,15 @@ class KafkaConsumerConfig(object):
 
     def __repr__(self):
         return (
-            "KafkaConsumerConfig: cluster {cluster}, group {group} "
-            "config: {config}".format(
+            "KafkaConsumerConfig(group_id={group_id!r}, cluster={cluster!r}, "
+            "{config})".format(
+                group_id=self.group_id,
                 cluster=self.cluster,
-                group=self.group_id,
-                config=self._config
+                config=", ".join(
+                    [
+                        "{key}={value!r}".format(key=key, value=value)
+                        for key, value in self._config.iteritems()
+                    ],
+                ),
             )
         )
