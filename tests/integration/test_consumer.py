@@ -1,10 +1,12 @@
 import subprocess
 import uuid
+import time
 
 import kafka
 
 from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
 from yelp_kafka.consumer import KafkaSimpleConsumer
+from yelp_kafka.consumer_group import KafkaConsumerGroup
 
 
 ZOOKEEPER_URL = 'zookeeper:2181'
@@ -18,6 +20,7 @@ def create_topic(topic_name, replication_factor, partitions):
            '--partitions', str(partitions),
            '--topic', topic_name]
     subprocess.check_call(cmd)
+    time.sleep(1)
 
 
 def create_random_topic(replication_factor, partitions):
@@ -46,3 +49,23 @@ def test_simple_consumer():
             assert message.offset == expected_offset
             assert message.partition == 0
             assert message.value == str(expected_offset)
+
+
+def test_consumer_group():
+    sent_messages = [str(i) for i in range(100)]
+
+    producer = kafka.SimpleProducer(kafka.KafkaClient(KAFKA_URL))
+
+    cluster_config = ClusterConfig(None, [KAFKA_URL], ZOOKEEPER_URL)
+    config = KafkaConsumerConfig('test', cluster_config,
+                                 auto_offset_reset='smallest')
+
+    for num_partitions in range(1, 4):
+        topic = create_random_topic(1, num_partitions)
+        producer.send_messages(topic, *sent_messages)
+
+        consumer = KafkaConsumerGroup([topic], config)
+        consumer.start()
+
+        received_messages = [consumer.next().value for _ in range(100)]
+        assert received_messages == sent_messages

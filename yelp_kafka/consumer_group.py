@@ -1,4 +1,5 @@
 import logging
+from threading import Timer
 from multiprocessing import Event
 from multiprocessing import Lock
 from multiprocessing import Process
@@ -6,6 +7,8 @@ import time
 import os
 import signal
 import traceback
+
+from kafka import KafkaConsumer
 
 from yelp_kafka.error import (
     ConsumerGroupError,
@@ -156,6 +159,69 @@ class ConsumerGroup(object):
         if self.consumer:
             self.consumer.close()
             self.consumer = None
+
+
+class KafkaConsumerGroup(object):
+    def __init__(self, topics, config):
+        self.topics = topics
+        self.config = config
+
+        self.partition_lock = Lock()
+        self.partitioner = Partitioner(config, topics, self._acquire, self._release)
+
+    def start(self):
+        self.partitioner.start()
+
+    def _create_partition_timer(self):
+        def loop():
+            self.partitioner.refresh()
+            self._create_partition_timer()
+
+        Timer(DEFAULT_REFRESH_TIMEOUT_IN_SEC, loop).start()
+
+    def _acquire(self, partitions):
+        with self.partition_lock:
+            consumer_config = self.config.get_kafka_consumer_config()
+            self.consumer = KafkaConsumer(*partitions, **consumer_config)
+
+    def _release(self):
+        with self.partition_lock:
+            self.consumer = None
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next()
+
+    # Functions from kafka-python KafkaConsumer.
+
+    def next(self):
+        with self.partition_lock:
+            return self.consumer.next()
+
+    def fetch_messages(self):
+        with self.partition_lock:
+            return self.consumer.fetch_messages()
+
+    def get_partition_offsets(self, topic, partition, request_time_ms,
+                              max_num_offsets):
+        with self.partition_lock:
+            return self.consumer.get_partition_offsets(topic, partition,
+                                                       request_time_ms,
+                                                       max_num_offsets)
+
+    def offsets(self, group=None):
+        with self.partition_lock:
+            return self.consumer.offsets(group)
+
+    def task_done(self, message):
+        with self.partition_lock:
+            return self.consumer.task_done(message)
+
+    def commit(self):
+        with self.partition_lock:
+            return self.consumer.commit()
 
 
 class MultiprocessingConsumerGroup(object):
