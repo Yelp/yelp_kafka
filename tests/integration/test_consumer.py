@@ -2,6 +2,9 @@ import os
 import kafka
 import uuid
 
+from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
+from yelp_kafka.consumer import KafkaSimpleConsumer
+
 
 ZOOKEEPER_URL = 'zookeeper:2181'
 KAFKA_URL = 'kafka:9092'
@@ -22,17 +25,20 @@ def create_random_topic(replication_factor, partitions):
     return topic_name
 
 
-# This test does not test any yelp_kafka code. It only tests if the integration
-# test setup is done properly.
-def test_itest_works():
+def test_simple_consumer():
     topic = create_random_topic(1, 1)
 
+    sent_messages = [str(i) for i in range(100)]
+
     producer = kafka.SimpleProducer(kafka.KafkaClient(KAFKA_URL))
-    producer.send_messages(topic, 'foobar')
+    producer.send_messages(topic, *sent_messages)
 
-    consumer = kafka.KafkaConsumer(topic, group_id='test',
-                                   metadata_broker_list=[KAFKA_URL],
-                                   auto_offset_reset='smallest')
-    messages = [message.value for message in consumer.fetch_messages()]
+    cluster_config = ClusterConfig(None, [KAFKA_URL], ZOOKEEPER_URL)
+    config = KafkaConsumerConfig('test', cluster_config,
+                                 auto_offset_reset='smallest')
+    consumer = KafkaSimpleConsumer(topic, config)
+    consumer.connect()
 
-    assert messages == ['foobar']
+    received_messages = [consumer.get_message().value for _ in range(100)]
+
+    assert received_messages == sent_messages
