@@ -1,4 +1,5 @@
 from collections import defaultdict
+import copy
 import hashlib
 import logging
 import time
@@ -96,6 +97,7 @@ class Partitioner(object):
         """Leave the group and release the partitions."""
         self.log.debug("Stopping group for topics %s", self.topics)
         self.release_and_destroy()
+        self._close_connections()
 
     def refresh(self):
         """Rebalance upon group changes, such as when a consumer
@@ -135,13 +137,15 @@ class Partitioner(object):
         if self.need_partitions_refresh() or not self._partitioner:
             try:
                 partitions = self.get_partitions_set()
-            except:
+            except Exception:
                 self.log.exception(
                     "Failed to get partitions set from Kafka."
                     "Releasing the group."
                 )
                 self.release_and_destroy()
-                raise PartitionerError("Failed to get partitions set from Kafka")
+                raise PartitionerError(
+                    "Failed to get partitions set from Kafka",
+                )
             self.force_partitions_refresh = False
             self.last_partitions_refresh = time.time()
             if partitions != self.partitions_set:
@@ -165,7 +169,7 @@ class Partitioner(object):
         if self.kazoo_client.state != KazooState.CONNECTED:
             try:
                 self.kazoo_client.start()
-            except:
+            except Exception:
                 self.log.exception("Impossible to connect to zookeeper")
                 self.release_and_destroy()
                 raise PartitionerError("Zookeeper connection failure")
@@ -181,10 +185,9 @@ class Partitioner(object):
 
     def release_and_destroy(self):
         """Release consumers and terminate the partitioner"""
-        if self._partitioners:
+        if self._partitioner:
             self._release(self._partitioner)
             self._partitioner.finish()
-        self._close_connections()
         self._partitioner = None
 
     def _close_connections(self):
@@ -205,6 +208,7 @@ class Partitioner(object):
             except KeyError:
                 self.log.exception("Unexpected partitioner state.")
                 self.release_and_destroy()
+                self._close_connections()
                 raise PartitionerError("Invalid partitioner state %s" %
                                        partitioner.state)
 
@@ -237,10 +241,11 @@ class Partitioner(object):
             )
             self.acquired_partitions = acquired_partitions
             try:
-                self.acquire(self.acquired_partitions)
+                self.acquire(copy.deepcopy(self.acquired_partitions))
             except Exception:
                 self.log.exception("Acquire action failed.")
                 self.release_and_destroy()
+                self._close_connections()
                 raise PartitionerError("Acquire action failed.")
 
     def _release(self, partitioner):
@@ -267,6 +272,7 @@ class Partitioner(object):
         """
         self.log.error("Lost or unable to acquire partitions")
         self.release_and_destroy()
+        self._close_connections()
         raise PartitionerZookeeperError
 
     def _get_acquired_partitions(self, partitioner):
@@ -302,6 +308,7 @@ class Partitioner(object):
             self.log.info("Missing topics: %s", missing_topics)
         if not partitions:
             self.release_and_destroy()
+            self._close_connections()
             raise PartitionerError(
                 "No partitions found for topics: {topics}".format(
                     topics=self.topics

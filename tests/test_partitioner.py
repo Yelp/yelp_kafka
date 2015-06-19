@@ -53,23 +53,33 @@ class TestPartitioner(object):
 
     def test_handle_failed_and_release(self, partitioner):
         mock_kpartitioner = mock.MagicMock(
-            spec=SetPartitioner, **get_partitioner_state(PartitionState.FAILURE)
+            spec=SetPartitioner,
+            **get_partitioner_state(PartitionState.FAILURE)
         )
         expected_partitions = {'topic1': [0, 1, 3]}
         partitioner.acquired_partitions = expected_partitions
-        with mock.patch.object(Partitioner, 'release_and_destroy') as mock_destroy:
+        with contextlib.nested(
+            mock.patch.object(Partitioner, 'release_and_destroy'),
+            mock.patch.object(Partitioner, '_close_connections'),
+        ) as (mock_destroy, mock_close):
             with pytest.raises(PartitionerZookeeperError):
                 partitioner._handle_group(mock_kpartitioner)
             mock_destroy.assert_called_once()
+            mock_close.assert_called_once()
 
     def test_handle_failed_and_release_no_acquired_partitions(self, partitioner):
         mock_kpartitioner = mock.MagicMock(
-            spec=SetPartitioner, **get_partitioner_state(PartitionState.FAILURE)
+            spec=SetPartitioner,
+            **get_partitioner_state(PartitionState.FAILURE)
         )
-        with mock.patch.object(Partitioner, 'release_and_destroy') as mock_destroy:
+        with contextlib.nested(
+            mock.patch.object(Partitioner, 'release_and_destroy'),
+            mock.patch.object(Partitioner, '_close_connections'),
+        ) as (mock_destroy, mock_close):
             with pytest.raises(PartitionerZookeeperError):
                 partitioner._handle_group(mock_kpartitioner)
             mock_destroy.assert_called_once()
+            mock_close.assert_called_once()
 
     def test_handle_acquired(self, partitioner):
         mock_kpartitioner = mock.MagicMock(
@@ -94,13 +104,12 @@ class TestPartitioner(object):
             mock.patch.object(Partitioner, '_create_partitioner',
                               side_effect=[mock.sentinel.partitioner1,
                                            mock.sentinel.partitioner2]),
-            mock.patch.object(Partitioner, '_destroy_partitioner'),
             mock.patch.object(Partitioner, 'get_partitions_set'),
-        ) as (mock_create, mock_destroy, mock_partitions):
+        ) as (mock_create, mock_partitions):
             mock_partitions.return_value = expected_partitions
-            # force partitions refresh is True when the partitioner starts
-            assert partitioner.need_partitions_refresh()
+
             actual = partitioner._get_partitioner()
+
             assert actual == mock.sentinel.partitioner1
             assert partitioner.partitions_set == expected_partitions
             assert not partitioner.need_partitions_refresh()
@@ -108,7 +117,9 @@ class TestPartitioner(object):
             # Call the partitioner again with the same partitions set and be sure
             # it does not create a new one
             partitioner.force_partitions_refresh = True
+
             actual = partitioner._get_partitioner()
+
             assert partitioner.partitions_set is expected_partitions
             assert actual == mock.sentinel.partitioner1
             assert mock_create.call_count == 1
@@ -148,7 +159,7 @@ class TestPartitioner(object):
 
     @mock.patch('yelp_kafka.partitioner.KafkaClient')
     @mock.patch('yelp_kafka.partitioner.KazooClient')
-    def test__destroy_partitioner(self, mock_kazoo, mock_kafka, config):
+    def test__close_connections(self, mock_kazoo, mock_kafka, config):
         mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
         with mock.patch.object(
@@ -158,7 +169,7 @@ class TestPartitioner(object):
             partitioner.start()
             mock_refresh.assert_called_once_with()
             # destroy the partitioner and ensure we cleanup all open handles.
-            partitioner._destroy_partitioner()
+            partitioner._close_connections()
             # did we release acquired partitions?
             # did we cleanup the kafka partitioner?
             mock_kpartitioner.finish.assert_called_once()
@@ -269,17 +280,11 @@ class TestPartitioner(object):
             assert mock_destroy.called
 
     def test_release_and_destroy(self, partitioner):
-        with contextlib.nested(
-            mock.patch.object(
-                Partitioner,
-                '_destroy_partitioner',
-            ),
-            mock.patch.object(
-                Partitioner,
-                '_release',
-            ),
-        ) as (mock_destroy, mock_release):
-            # Attach a mocked partitioner
+        with mock.patch.object(
+            Partitioner,
+            '_release',
+        ) as mock_release:
+            # Attach a mocked partitioner and kafka client
             mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
             partitioner._partitioner = mock_kpartitioner
 
@@ -288,4 +293,3 @@ class TestPartitioner(object):
             mock_kpartitioner.finish.assert_called_once_with()
             assert partitioner._partitioner is None
             mock_release.assert_called_once_with(mock_kpartitioner)
-            mock_destroy.assert_called_once_with()
