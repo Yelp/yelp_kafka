@@ -88,9 +88,9 @@ class ConsumerGroup(object):
         """
         self.partitioner.start()
         while True:
-            self._consume(refresh_timeout)
+            self.consume(refresh_timeout)
 
-    def _consume(self, refresh_timeout):
+    def consume(self, refresh_timeout):
         """Consume messages from kafka and refresh the group
         upon timeout expiration.
 
