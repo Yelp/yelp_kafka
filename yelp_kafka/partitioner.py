@@ -155,8 +155,7 @@ class Partitioner(object):
                 )
                 # We need to destroy the existing partitioner before creating
                 # a new one.
-                if self._partitioner:
-                    self.release_and_destroy()
+                self.release_and_destroy()
                 self._partitioner = self._create_partitioner(partitions)
                 self.partitions_set = partitions
         return self._partitioner
@@ -182,12 +181,13 @@ class Partitioner(object):
 
     def release_and_destroy(self):
         """Release consumers and terminate the partitioner"""
-        self._release(self._partitioner)
-        self._partitioner.finish()
+        if self._partitioners:
+            self._release(self._partitioner)
+            self._partitioner.finish()
+        self._close_connections()
         self._partitioner = None
-        self._destroy_partitioner()
 
-    def _destroy_partitioner(self):
+    def _close_connections(self):
         self.kafka_client.close()
         self.partitions_set = set()
         self.last_partitions_refresh = 0
