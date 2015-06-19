@@ -1,6 +1,7 @@
-import os
-import kafka
+import subprocess
 import uuid
+
+import kafka
 
 from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
 from yelp_kafka.consumer import KafkaSimpleConsumer
@@ -11,12 +12,12 @@ KAFKA_URL = 'kafka:9092'
 
 
 def create_topic(topic_name, replication_factor, partitions):
-    cmd = ' '.join(['/usr/bin/kafka-topics', '--create',
-                    '--zookeeper', ZOOKEEPER_URL,
-                    '--replication-factor', str(replication_factor),
-                    '--partitions', str(partitions),
-                    '--topic', topic_name])
-    os.system(cmd)
+    cmd = ['/usr/bin/kafka-topics', '--create',
+           '--zookeeper', ZOOKEEPER_URL,
+           '--replication-factor', str(replication_factor),
+           '--partitions', str(partitions),
+           '--topic', topic_name]
+    subprocess.call(cmd)
 
 
 def create_random_topic(replication_factor, partitions):
@@ -35,10 +36,11 @@ def test_simple_consumer():
 
     cluster_config = ClusterConfig(None, [KAFKA_URL], ZOOKEEPER_URL)
     config = KafkaConsumerConfig('test', cluster_config,
-                                 auto_offset_reset='smallest')
+                                 auto_offset_reset='smallest',
+                                 auto_commit=False)
     consumer = KafkaSimpleConsumer(topic, config)
-    consumer.connect()
 
-    received_messages = [consumer.get_message().value for _ in range(100)]
+    with consumer:
+        received_messages = [consumer.get_message().value for _ in xrange(100)]
 
-    assert received_messages == sent_messages
+        assert received_messages == sent_messages
