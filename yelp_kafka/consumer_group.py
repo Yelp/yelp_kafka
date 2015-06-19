@@ -108,7 +108,9 @@ class ConsumerGroup(object):
                         message,
                     )
                     raise ProcessMessageError(
-                        "Error processing message: %s\n\nException caught inside processing message function:\n%s" % (
+                        "Error processing message: {0}\n\nException "
+                        "caught inside processing message function:\n{1}"
+                        .format(
                             message,
                             trace,
                         )
