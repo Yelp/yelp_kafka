@@ -315,7 +315,6 @@ class MultiprocessingConsumerGroup(object):
                 consumer.topic,
                 consumer.partitions,
             )
-            self.partitioner.stop()
             raise ConsumerGroupError(
                 "Error starting a new consumer."
                 "Topic: {topic}. Partition: {partitions}.".format(
