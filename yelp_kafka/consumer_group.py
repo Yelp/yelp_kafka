@@ -1,5 +1,5 @@
 import logging
-from threading import Timer
+import threading
 from multiprocessing import Event
 from multiprocessing import Lock
 from multiprocessing import Process
@@ -171,24 +171,43 @@ class KafkaConsumerGroup(object):
         self.partition_lock = Lock()
         self.partitioner = Partitioner(config, topics, self._acquire, self._release)
 
+        self.running_event = threading.Event()
+
     def start(self):
         self.partitioner.start()
+        self._start_partitioner_timer()
 
-    def _create_partition_timer(self):
-        def loop():
-            self.partitioner.refresh()
-            self._create_partition_timer()
+    def stop(self):
+        self.partitioner.stop()
+        self._stop_partitioner_timer()
 
-        Timer(self.refresh_timeout, loop).start()
+    def _start_partitioner_timer(self):
+        def refresh():
+            while not self.running_event.wait(self.refresh_timeout):
+                self.partitioner.refresh()
 
+        t = threading.Thread(target=refresh)
+        t.daemon = True
+        t.start()
+
+    def _stop_partitioner_timer(self):
+        self.running_event.set()
+
+    # Decorator for acquiring partition_lock
+    def acquire_partition_lock(fn):
+        def wrapped(self, *args, **kwargs):
+            with self.partition_lock:
+                return fn(self, *args, **kwargs)
+        return wrapped
+
+    @acquire_partition_lock
     def _acquire(self, partitions):
-        with self.partition_lock:
-            consumer_config = self.config.get_kafka_consumer_config()
-            self.consumer = KafkaConsumer(*partitions, **consumer_config)
+        consumer_config = self.config.get_kafka_consumer_config()
+        self.consumer = KafkaConsumer(partitions, **consumer_config)
 
+    @acquire_partition_lock
     def _release(self):
-        with self.partition_lock:
-            self.consumer = None
+        self.consumer = None
 
     def __iter__(self):
         return self
@@ -198,32 +217,32 @@ class KafkaConsumerGroup(object):
 
     # Functions from kafka-python KafkaConsumer.
 
+    @acquire_partition_lock
     def next(self):
-        with self.partition_lock:
-            return self.consumer.next()
+        return self.consumer.next()
 
+    @acquire_partition_lock
     def fetch_messages(self):
-        with self.partition_lock:
-            return self.consumer.fetch_messages()
+        return self.consumer.fetch_messages()
 
+    @acquire_partition_lock
     def get_partition_offsets(self, topic, partition, request_time_ms,
                               max_num_offsets):
-        with self.partition_lock:
-            return self.consumer.get_partition_offsets(topic, partition,
-                                                       request_time_ms,
-                                                       max_num_offsets)
+        return self.consumer.get_partition_offsets(topic, partition,
+                                                   request_time_ms,
+                                                   max_num_offsets)
 
+    @acquire_partition_lock
     def offsets(self, group=None):
-        with self.partition_lock:
-            return self.consumer.offsets(group)
+        return self.consumer.offsets(group)
 
+    @acquire_partition_lock
     def task_done(self, message):
-        with self.partition_lock:
-            return self.consumer.task_done(message)
+        return self.consumer.task_done(message)
 
+    @acquire_partition_lock
     def commit(self):
-        with self.partition_lock:
-            return self.consumer.commit()
+        return self.consumer.commit()
 
 
 class MultiprocessingConsumerGroup(object):
