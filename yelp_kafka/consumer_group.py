@@ -14,6 +14,7 @@ from yelp_kafka.error import (
     ConsumerGroupError,
     PartitionerError,
     PartitionerZookeeperError,
+    PartitionerDiedError
 )
 from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
@@ -162,6 +163,21 @@ class ConsumerGroup(object):
 
 
 class KafkaConsumerGroup(object):
+    # Decorator that raises PartitionerDiedError if partitioner_daemon dies.
+    def check_partitioner_alive(fn):
+        def wrapped(self, *args, **kwargs):
+            if not self.partitioner_daemon.is_alive():
+                raise PartitionerDiedError()
+            return fn(self, *args, **kwargs)
+        return wrapped
+
+    # Decorator that acquires partition_lock
+    def acquire_partition_lock(fn):
+        def wrapped(self, *args, **kwargs):
+            with self.partition_lock:
+                return fn(self, *args, **kwargs)
+        return wrapped
+
     def __init__(self, topics, config,
                  refresh_timeout=DEFAULT_REFRESH_TIMEOUT_IN_SEC):
         self.topics = topics
@@ -186,19 +202,12 @@ class KafkaConsumerGroup(object):
             while not self.running_event.wait(self.refresh_timeout):
                 self.partitioner.refresh()
 
-        t = threading.Thread(target=refresh)
-        t.daemon = True
-        t.start()
+        self.partitioner_daemon = threading.Thread(target=refresh)
+        self.partitioner_daemon.daemon = True
+        self.partitioner_daemon.start()
 
     def _stop_partitioner_timer(self):
         self.running_event.set()
-
-    # Decorator for acquiring partition_lock
-    def acquire_partition_lock(fn):
-        def wrapped(self, *args, **kwargs):
-            with self.partition_lock:
-                return fn(self, *args, **kwargs)
-        return wrapped
 
     @acquire_partition_lock
     def _acquire(self, partitions):
@@ -217,14 +226,17 @@ class KafkaConsumerGroup(object):
 
     # Functions from kafka-python KafkaConsumer.
 
+    @check_partitioner_alive
     @acquire_partition_lock
     def next(self):
         return self.consumer.next()
 
+    @check_partitioner_alive
     @acquire_partition_lock
     def fetch_messages(self):
         return self.consumer.fetch_messages()
 
+    @check_partitioner_alive
     @acquire_partition_lock
     def get_partition_offsets(self, topic, partition, request_time_ms,
                               max_num_offsets):
@@ -232,14 +244,17 @@ class KafkaConsumerGroup(object):
                                                    request_time_ms,
                                                    max_num_offsets)
 
+    @check_partitioner_alive
     @acquire_partition_lock
     def offsets(self, group=None):
         return self.consumer.offsets(group)
 
+    @check_partitioner_alive
     @acquire_partition_lock
     def task_done(self, message):
         return self.consumer.task_done(message)
 
+    @check_partitioner_alive
     @acquire_partition_lock
     def commit(self):
         return self.consumer.commit()

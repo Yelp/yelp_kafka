@@ -39,6 +39,11 @@ class PartitionerZookeeperError(YelpKafkaError):
     pass
 
 
+class PartitionerDiedError(YelpKafkaError):
+    """KafkaConsumerGroup's underlying partitioner raised an exception."""
+    pass
+
+
 class UnknownTopic(YelpKafkaError):
     pass
 
