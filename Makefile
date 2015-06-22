@@ -6,9 +6,7 @@ test:
 	tox tests
 
 itest:
-	fig rm --force
-	fig build
-	fig up
+	tox -e integration
 
 sdist:
 	python setup.py sdist
