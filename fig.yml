@@ -1,0 +1,19 @@
+itest:
+  build: docker/itest
+  links:
+    - kafka
+    - zookeeper
+  volumes:
+    - .:/work
+
+kafka:
+  build: docker/kafka
+  ports:
+    - "9092:9092"
+  links:
+    - zookeeper
+
+zookeeper:
+  build: docker/zookeeper
+  ports:
+    - "2181:2181"

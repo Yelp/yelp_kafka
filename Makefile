@@ -5,6 +5,11 @@ all: test
 test:
 	tox tests
 
+itest:
+	fig rm --force
+	fig build
+	fig up
+
 sdist:
 	python setup.py sdist
 
