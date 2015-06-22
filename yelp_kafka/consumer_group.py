@@ -183,6 +183,7 @@ class KafkaConsumerGroup(object):
         self.topics = topics
         self.config = config
         self.refresh_timeout = refresh_timeout
+        self.consumer = None
 
         self.partition_lock = Lock()
         self.partitioner = Partitioner(config, topics, self._acquire, self._release)
@@ -211,12 +212,15 @@ class KafkaConsumerGroup(object):
 
     @acquire_partition_lock
     def _acquire(self, partitions):
-        consumer_config = self.config.get_kafka_consumer_config()
-        self.consumer = KafkaConsumer(partitions, **consumer_config)
+        if not self.consumer:
+            consumer_config = self.config.get_kafka_consumer_config()
+            self.consumer = KafkaConsumer(partitions, **consumer_config)
+        else:
+            self.consumer.set_topic_partitions(partitions)
 
     @acquire_partition_lock
-    def _release(self):
-        self.consumer = None
+    def _release(self, partitions):
+        self.consumer.set_topic_partitions({})
 
     def __iter__(self):
         return self
