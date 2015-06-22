@@ -41,6 +41,8 @@ def test_simple_consumer():
     consumer = KafkaSimpleConsumer(topic, config)
 
     with consumer:
-        # If we don't get any exceptions here, we're good.
-        for _ in xrange(100):
-            consumer.get_message()
+        for expected_offset in xrange(100):
+            message = consumer.get_message()
+            assert message.offset == expected_offset
+            assert message.partition == 0
+            assert message.value == str(expected_offset)
