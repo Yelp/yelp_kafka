@@ -230,6 +230,8 @@ class KafkaConsumerGroup(object):
 
     @acquire_partition_lock
     def _release(self, partitions):
+        if self.config.get_kafka_consumer_config()['auto_commit_enable']:
+            self.consumer.commit()
         self.consumer.set_topic_partitions({})
 
     def __iter__(self):
