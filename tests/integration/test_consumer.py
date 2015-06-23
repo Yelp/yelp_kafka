@@ -41,8 +41,7 @@ def test_simple_consumer():
 
     cluster_config = ClusterConfig(None, [KAFKA_URL], ZOOKEEPER_URL)
     config = KafkaConsumerConfig('test', cluster_config,
-                                 auto_offset_reset='smallest',
-                                 auto_commit=False)
+                                 auto_offset_reset='smallest')
     consumer = KafkaSimpleConsumer(topic, config)
 
     with consumer:
