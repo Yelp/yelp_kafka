@@ -256,7 +256,8 @@ class KafkaConsumerGroup(object):
     @acquire_partition_lock
     def get_partition_offsets(self, topic, partition, request_time_ms,
                               max_num_offsets):
-        return self.consumer.get_partition_offsets(topic, partition,
+        return self.consumer.get_partition_offsets(topic,
+                                                   partition,
                                                    request_time_ms,
                                                    max_num_offsets)
 
