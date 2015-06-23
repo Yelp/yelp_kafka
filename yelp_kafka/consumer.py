@@ -2,11 +2,16 @@ from collections import namedtuple
 import logging
 from multiprocessing import Event
 
-from kafka import KafkaClient
-from kafka import SimpleConsumer
+from kafka import (
+    KafkaClient,
+    SimpleConsumer,
+)
 from kafka.util import kafka_bytestring
+from setproctitle import (
+    setproctitle,
+    getproctitle,
+)
 
-from setproctitle import setproctitle, getproctitle
 from yelp_kafka.error import ProcessMessageError
 
 
@@ -50,7 +55,7 @@ class KafkaSimpleConsumer(object):
         self.config = config
 
     def connect(self):
-        """ Connect to kafka and validate the offsets for a topic.
+        """ Connect to kafka and create a consumer.
         It uses config parameters to create a kafka-python
         KafkaClient and SimpleConsumer.
         """
@@ -71,26 +76,15 @@ class KafkaSimpleConsumer(object):
                       self.config.get_simple_consumer_args().iteritems()])
         )
         self.kafka_consumer.provide_partition_info()
-        if not self.kafka_consumer.auto_commit:
-            self.kafka_consumer.fetch_last_known_offsets(
-                self.partitions,
-            )
-        self._validate_offsets(self.config.auto_offset_reset)
 
     def __iter__(self):
         for partition, kafka_message in self.kafka_consumer:
-            # We need to filter out possible old messages.
-            # See https://github.com/mumrah/kafka-python/issues/322
-            # kafka-python increments the offsets value just before returning the
-            # message, so we need to compare the message offset with the
-            # current - 1
-            if kafka_message[0] >= self.kafka_consumer.offsets[partition] - 1:
-                yield Message(
-                    partition=partition,
-                    offset=kafka_message[0],
-                    key=kafka_message[1].key,
-                    value=kafka_message[1].value
-                )
+            yield Message(
+                partition=partition,
+                offset=kafka_message[0],
+                key=kafka_message[1].key,
+                value=kafka_message[1].value,
+            )
 
     def __enter__(self):
         self.connect()
@@ -133,68 +127,12 @@ class KafkaSimpleConsumer(object):
                 return None
             else:
                 partition, kafka_message = fetched_message
-                # We need to filter out possible old messages.
-                # See https://github.com/mumrah/kafka-python/issues/322
-                # kafka-python increments the offsets value just before returning the
-                # message, so we need to compare the message offset with the
-                # current - 1
-                if kafka_message[0] >= self.kafka_consumer.offsets[partition] - 1:
-                    return Message(partition=partition, offset=kafka_message[0],
-                                   key=kafka_message[1].key, value=kafka_message[1].value)
-
-    def _validate_offsets(self, auto_offset_reset):
-        """ Validate the offsets for a topics by comparing the earliest
-        available offsets with the consumer group offsets.
-        python-kafka api does not check for offsets validity.
-        When either a group does not exist yet or the saved offsets
-        are older than the tail of the queue the fetch request fails.
-
-        :param auto_offset_reset: If 'largest', the latest offsets (tail of the queue)
-                              are used as new valid offsets. Otherwise ('smallest'),
-                              the earliest offsets (head of the queue) are used.
-        :type auto_offset_reset: string
-        """
-
-        # We fallback in SimpleConsumer behavior if the auto_offsets_reset is
-        # not a valid value.
-        if auto_offset_reset not in ('smallest', 'largest'):
-            self.log.info("auto_offset_reset set to %s."
-                          "Offset validation is disabled.",
-                          auto_offset_reset)
-            return
-        # Disable autocommit to avoid committing offsets during seek
-        saved_auto_commit = self.kafka_consumer.auto_commit
-        self.kafka_consumer.auto_commit = False
-
-        group_offsets = self.kafka_consumer.fetch_offsets
-        # Fetch the earliest available offset (the older message)
-        self.kafka_consumer.seek(0, 0)
-        available = self.kafka_consumer.fetch_offsets
-
-        # Validate the group offsets checking that they are > than the earliest
-        # available offset
-        if any([offset < available[k]
-                for k, offset in group_offsets.iteritems()]):
-            if auto_offset_reset == 'largest':
-                # Fetch the tail of the queue. There are no messages at this
-                # position, yet.
-                self.log.warning("Group offset for %s is too old..."
-                                 "Resetting to latest offsets", self.topic)
-                self.kafka_consumer.seek(0, 2)
-            else:
-                # We don't need to seek the offset again to the earliest
-                # offset. Because the first seek call already changed the
-                # offsets.
-                self.log.warning("Group offset for %s is too old..."
-                                 "Resetting to earliest offsets", self.topic)
-        else:
-            # self.fetch_offsets is used for the kafka fetch request,
-            # while self.offsets is used to store the last processed message
-            # offsets. When we bootstrap the kafka consumer we need these two
-            # dicts to be in sync with one other.
-            self.kafka_consumer.offsets = group_offsets.copy()
-            self.kafka_consumer.fetch_offsets = group_offsets.copy()
-        self.kafka_consumer.auto_commit = saved_auto_commit
+                return Message(
+                    partition=partition,
+                    offset=kafka_message[0],
+                    key=kafka_message[1].key,
+                    value=kafka_message[1].value,
+                )
 
     def commit(self, partitions=None):
         """Commit offset for this consumer
@@ -288,7 +226,10 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
                     self.process(message)
                 except:
                     self.log.exception("Error processing message: %s", message)
-                    raise ProcessMessageError("Error processing message: %s", message)
+                    raise ProcessMessageError(
+                        "Error processing message: %s",
+                        message,
+                    )
             if self.termination_flag.is_set():
                 self._terminate()
                 break
