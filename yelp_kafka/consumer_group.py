@@ -5,6 +5,7 @@ from multiprocessing import Process
 import time
 import os
 import signal
+import traceback
 
 from yelp_kafka.error import (
     ConsumerGroupError,
@@ -87,9 +88,9 @@ class ConsumerGroup(object):
         """
         self.partitioner.start()
         while True:
-            self._consume(refresh_timeout)
+            self.consume(refresh_timeout)
 
-    def _consume(self, refresh_timeout):
+    def consume(self, refresh_timeout):
         """Consume messages from kafka and refresh the group
         upon timeout expiration.
 
@@ -101,13 +102,18 @@ class ConsumerGroup(object):
                 try:
                     self.process(message)
                 except:
+                    trace = traceback.format_exc()
                     self.log.exception(
                         "Error processing message: %s",
                         message,
                     )
                     raise ProcessMessageError(
-                        "Error processing message: %s",
-                        message,
+                        "Error processing message: {0}\n\nException "
+                        "caught inside processing message function:\n{1}"
+                        .format(
+                            message,
+                            trace,
+                        )
                     )
                 if time.time() > timeout:
                     break
