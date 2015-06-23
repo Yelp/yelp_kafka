@@ -20,6 +20,8 @@ def create_topic(topic_name, replication_factor, partitions):
            '--partitions', str(partitions),
            '--topic', topic_name]
     subprocess.check_call(cmd)
+
+    # It may take a little moment for the topic to be ready for writing.
     time.sleep(1)
 
 
