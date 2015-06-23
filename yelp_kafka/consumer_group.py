@@ -14,7 +14,7 @@ from yelp_kafka.error import (
     ConsumerGroupError,
     PartitionerError,
     PartitionerZookeeperError,
-    PartitionerDiedError
+    KafkaConsumerGroupError
 )
 from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
@@ -167,7 +167,7 @@ class KafkaConsumerGroup(object):
     def check_partitioner_alive(fn):
         def wrapped(self, *args, **kwargs):
             if not self.partitioner_daemon.is_alive():
-                raise PartitionerDiedError()
+                raise KafkaConsumerGroupError("Partitioner died.")
             return fn(self, *args, **kwargs)
         return wrapped
 

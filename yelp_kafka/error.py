@@ -13,6 +13,11 @@ class ConsumerError(YelpKafkaError):
     pass
 
 
+class KafkaConsumerGroupError(YelpKafkaError):
+    """Error in KafkaConsumerGroup."""
+    pass
+
+
 class ConfigurationError(YelpKafkaError):
     """Error in configuration. For example. Missing configuration file
     or misformatted configuration."""
@@ -36,11 +41,6 @@ class PartitionerError(YelpKafkaError):
 
 class PartitionerZookeeperError(YelpKafkaError):
     """Error in partitioner communication with Zookeeper"""
-    pass
-
-
-class PartitionerDiedError(YelpKafkaError):
-    """KafkaConsumerGroup's underlying partitioner raised an exception."""
     pass
 
 
