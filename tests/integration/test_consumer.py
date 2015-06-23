@@ -53,7 +53,15 @@ def test_simple_consumer():
             assert message.value == str(expected_offset)
 
 
-def test_consumer_group():
+def test_kafka_consumer_group_one_partition():
+    run_kafka_consumer_group_test(1)
+
+
+def test_kafka_consumer_group_two_partitions():
+    run_kafka_consumer_group_test(2)
+
+
+def run_kafka_consumer_group_test(num_partitions):
     sent_messages = [str(i) for i in range(100)]
 
     producer = kafka.SimpleProducer(kafka.KafkaClient(KAFKA_URL))
@@ -62,16 +70,11 @@ def test_consumer_group():
     config = KafkaConsumerConfig('test', cluster_config,
                                  auto_offset_reset='smallest')
 
-    for num_partitions in range(1, 4):
-        topic = create_random_topic(1, num_partitions)
-        producer.send_messages(topic, *sent_messages)
+    topic = create_random_topic(1, num_partitions)
+    producer.send_messages(topic, *sent_messages)
 
-        consumer = KafkaConsumerGroup([topic], config)
-        with consumer:
-            # If we don't get any exceptions here, we're good.
-            #
-            # We can't do the same assertions here as we did in
-            # test_simple_consumer, because there are now multiple partitions (so
-            # ordering may not be preserved).
-            for _ in xrange(100):
-                consumer.next()
+    consumer = KafkaConsumerGroup([topic], config)
+    with consumer:
+        # If we don't get any exceptions here, we're good.
+        for _ in xrange(100):
+            consumer.next()
