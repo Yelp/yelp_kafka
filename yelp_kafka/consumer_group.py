@@ -194,9 +194,15 @@ class KafkaConsumerGroup(object):
 
         self.running_event = threading.Event()
 
+    def __enter__(self):
+        self.start()
+
     def start(self):
         self.partitioner.start()
         self._start_partitioner_timer()
+
+    def __exit__(self, type, value, traceback):
+        self.stop()
 
     def stop(self):
         self.partitioner.stop()

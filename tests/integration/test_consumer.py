@@ -67,14 +67,11 @@ def test_consumer_group():
         producer.send_messages(topic, *sent_messages)
 
         consumer = KafkaConsumerGroup([topic], config)
-        consumer.start()
-
-        # If we don't get any exceptions here, we're good.
-        #
-        # We can't do the same assertions here as we did in
-        # test_simple_consumer, because there are now multiple partitions (so
-        # ordering may not be preserved).
-        for _ in xrange(100):
-            consumer.next()
-
-        consumer.stop()
+        with consumer:
+            # If we don't get any exceptions here, we're good.
+            #
+            # We can't do the same assertions here as we did in
+            # test_simple_consumer, because there are now multiple partitions (so
+            # ordering may not be preserved).
+            for _ in xrange(100):
+                consumer.next()
