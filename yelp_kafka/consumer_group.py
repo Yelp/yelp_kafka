@@ -163,16 +163,18 @@ class ConsumerGroup(object):
 
 
 class KafkaConsumerGroup(object):
-    # Decorator that raises PartitionerDiedError if partitioner_daemon dies.
     def check_partitioner_alive(fn):
+        """Decorator that raises PartitionerDiedError if partitioner_daemon
+        dies.
+        """
         def wrapped(self, *args, **kwargs):
             if not self.partitioner_daemon.is_alive():
                 raise KafkaConsumerGroupError("Partitioner died.")
             return fn(self, *args, **kwargs)
         return wrapped
 
-    # Decorator that acquires partition_lock
     def acquire_partition_lock(fn):
+        """Decorator that acquires partition_lock."""
         def wrapped(self, *args, **kwargs):
             with self.partition_lock:
                 return fn(self, *args, **kwargs)
