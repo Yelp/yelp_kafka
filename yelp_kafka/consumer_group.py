@@ -180,7 +180,9 @@ class KafkaConsumerGroup(object):
                 return fn(self, *args, **kwargs)
         return wrapped
 
-    def __init__(self, topics, config,
+    def __init__(self,
+                 topics,
+                 config,
                  refresh_timeout=DEFAULT_REFRESH_TIMEOUT_IN_SEC):
         self.topics = topics
         self.config = config
