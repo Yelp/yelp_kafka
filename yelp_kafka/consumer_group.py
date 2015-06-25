@@ -161,6 +161,14 @@ class ConsumerGroup(object):
 
 
 class KafkaConsumerGroup(object):
+    def refresh_partitioner(fn):
+        """A decorator for functions that need to refresh the partitioner
+        first."""
+        def wrapped(self, *args, **kwargs):
+            self.partitioner.refresh()
+            return fn(self, *args, **kwargs)
+        return wrapped
+
     def __init__(self, topics, config):
         self.topics = topics
         self.config = config
@@ -201,35 +209,35 @@ class KafkaConsumerGroup(object):
 
     # Functions from kafka-python KafkaConsumer.
 
+    @refresh_partitioner
     def next(self):
-        self.partitioner.refresh()
         return self.consumer.next()
 
+    @refresh_partitioner
     def fetch_messages(self):
-        self.partitioner.refresh()
         return self.consumer.fetch_messages()
 
+    @refresh_partitioner
     def get_partition_offsets(self,
                               topic,
                               partition,
                               request_time_ms,
                               max_num_offsets):
-        self.partitioner.refresh()
         return self.consumer.get_partition_offsets(topic,
                                                    partition,
                                                    request_time_ms,
                                                    max_num_offsets)
 
+    @refresh_partitioner
     def offsets(self, group=None):
-        self.partitioner.refresh()
         return self.consumer.offsets(group)
 
+    @refresh_partitioner
     def task_done(self, message):
-        self.partitioner.refresh()
         return self.consumer.task_done(message)
 
+    @refresh_partitioner
     def commit(self):
-        self.partitioner.refresh()
         return self.consumer.commit()
 
 
