@@ -209,7 +209,6 @@ class KafkaConsumerGroup(object):
     def __next__(self):
         return self.next()
 
-# task_done, commit, next, start, stop
 
 class MultiprocessingConsumerGroup(object):
     """Multiprocessing consumer group allows to consume
