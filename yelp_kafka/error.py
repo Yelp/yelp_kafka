@@ -13,11 +13,6 @@ class ConsumerError(YelpKafkaError):
     pass
 
 
-class KafkaConsumerGroupError(YelpKafkaError):
-    """Error in KafkaConsumerGroup."""
-    pass
-
-
 class ConfigurationError(YelpKafkaError):
     """Error in configuration. For example. Missing configuration file
     or misformatted configuration."""

@@ -1,5 +1,4 @@
 import logging
-import threading
 from multiprocessing import Event
 from multiprocessing import Lock
 from multiprocessing import Process
@@ -13,8 +12,7 @@ from kafka import KafkaConsumer
 from yelp_kafka.error import (
     ConsumerGroupError,
     PartitionerError,
-    PartitionerZookeeperError,
-    KafkaConsumerGroupError
+    PartitionerZookeeperError
 )
 from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
@@ -163,64 +161,26 @@ class ConsumerGroup(object):
 
 
 class KafkaConsumerGroup(object):
-    def check_partitioner_alive(fn):
-        """Decorator that raises PartitionerDiedError if partitioner_daemon
-        dies.
-        """
-        def wrapped(self, *args, **kwargs):
-            if not self.partitioner_daemon.is_alive():
-                raise KafkaConsumerGroupError("Partitioner died.")
-            return fn(self, *args, **kwargs)
-        return wrapped
-
-    def acquire_partition_lock(fn):
-        """Decorator that acquires partition_lock."""
-        def wrapped(self, *args, **kwargs):
-            with self.partition_lock:
-                return fn(self, *args, **kwargs)
-        return wrapped
-
-    def __init__(self,
-                 topics,
-                 config,
-                 refresh_timeout=DEFAULT_REFRESH_TIMEOUT_IN_SEC):
+    def __init__(self, topics, config):
         self.topics = topics
         self.config = config
-        self.refresh_timeout = refresh_timeout
+
+        self.partitioner = Partitioner(config, topics, self._acquire,
+                                       self._release)
         self.consumer = None
-
-        self.partition_lock = Lock()
-        self.partitioner = Partitioner(config, topics, self._acquire, self._release)
-
-        self.running_event = threading.Event()
 
     def __enter__(self):
         self.start()
 
     def start(self):
         self.partitioner.start()
-        self._start_partitioner_timer()
 
     def __exit__(self, type, value, traceback):
         self.stop()
 
     def stop(self):
         self.partitioner.stop()
-        self._stop_partitioner_timer()
 
-    def _start_partitioner_timer(self):
-        def refresh():
-            while not self.running_event.wait(self.refresh_timeout):
-                self.partitioner.refresh()
-
-        self.partitioner_daemon = threading.Thread(target=refresh)
-        self.partitioner_daemon.daemon = True
-        self.partitioner_daemon.start()
-
-    def _stop_partitioner_timer(self):
-        self.running_event.set()
-
-    @acquire_partition_lock
     def _acquire(self, partitions):
         if not self.consumer:
             consumer_config = self.config.get_kafka_consumer_config()
@@ -228,7 +188,6 @@ class KafkaConsumerGroup(object):
         else:
             self.consumer.set_topic_partitions(partitions)
 
-    @acquire_partition_lock
     def _release(self, partitions):
         if self.config.get_kafka_consumer_config()['auto_commit_enable']:
             self.consumer.commit()
@@ -242,41 +201,35 @@ class KafkaConsumerGroup(object):
 
     # Functions from kafka-python KafkaConsumer.
 
-    @check_partitioner_alive
-    @acquire_partition_lock
     def next(self):
+        self.partitioner.refresh()
         return self.consumer.next()
 
-    @check_partitioner_alive
-    @acquire_partition_lock
     def fetch_messages(self):
+        self.partitioner.refresh()
         return self.consumer.fetch_messages()
 
-    @check_partitioner_alive
-    @acquire_partition_lock
     def get_partition_offsets(self,
                               topic,
                               partition,
                               request_time_ms,
                               max_num_offsets):
+        self.partitioner.refresh()
         return self.consumer.get_partition_offsets(topic,
                                                    partition,
                                                    request_time_ms,
                                                    max_num_offsets)
 
-    @check_partitioner_alive
-    @acquire_partition_lock
     def offsets(self, group=None):
+        self.partitioner.refresh()
         return self.consumer.offsets(group)
 
-    @check_partitioner_alive
-    @acquire_partition_lock
     def task_done(self, message):
+        self.partitioner.refresh()
         return self.consumer.task_done(message)
 
-    @check_partitioner_alive
-    @acquire_partition_lock
     def commit(self):
+        self.partitioner.refresh()
         return self.consumer.commit()
 
 
