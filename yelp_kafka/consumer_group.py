@@ -85,9 +85,9 @@ class ConsumerGroup(object):
             See :py:mod:`yelp_kafka.config`
             Default: 5 seconds.
         """
-        self.partitioner.start()
-        while True:
-            self._consume(refresh_timeout)
+        with self.partitioner:
+            while True:
+                self._consume(refresh_timeout)
 
     def _consume(self, refresh_timeout):
         """Consume messages from kafka and refresh the group
@@ -241,17 +241,16 @@ class MultiprocessingConsumerGroup(object):
         """
         # Create the termination flag
         self.termination_flag = Event()
-        self.partitioner.start()
-        while not self.termination_flag.is_set():
-            self.termination_flag.wait(refresh_timeout)
-            self.monitor()
-            try:
-                self.partitioner.refresh()
-            except (PartitionerZookeeperError, PartitionerError):
-                self.log.exception("Encountered a partitioner error")
-                raise
-        # Release the group for termination
-        self.partitioner.stop()
+
+        with self.partitioner:
+            while not self.termination_flag.is_set():
+                self.termination_flag.wait(refresh_timeout)
+                self.monitor()
+                try:
+                    self.partitioner.refresh()
+                except (PartitionerZookeeperError, PartitionerError):
+                    self.log.exception("Encountered a partitioner error")
+                    raise
 
     def stop_group(self):
         """Set the termination flag to stop the group.
