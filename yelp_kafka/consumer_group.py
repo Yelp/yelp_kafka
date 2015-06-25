@@ -161,14 +161,6 @@ class ConsumerGroup(object):
 
 
 class KafkaConsumerGroup(object):
-    def refresh_partitioner(fn):
-        """A decorator for functions that need to refresh the partitioner
-        first."""
-        def wrapped(self, *args, **kwargs):
-            self.partitioner.refresh()
-            return fn(self, *args, **kwargs)
-        return wrapped
-
     def __init__(self, topics, config):
         self.topics = topics
         self.config = config
@@ -177,17 +169,21 @@ class KafkaConsumerGroup(object):
                                        self._release)
         self.consumer = None
 
-    def __enter__(self):
-        self.start()
-
     def start(self):
         self.partitioner.start()
 
-    def __exit__(self, type, value, traceback):
-        self.stop()
-
     def stop(self):
         self.partitioner.stop()
+
+    def next(self):
+        self.partitioner.refresh()
+        return self.consumer.next()
+
+    def task_done(self, message):
+        return self.consumer.task_done(message)
+
+    def commit(self):
+        return self.consumer.commit()
 
     def _acquire(self, partitions):
         if not self.consumer:
@@ -201,45 +197,19 @@ class KafkaConsumerGroup(object):
             self.consumer.commit()
         self.consumer.set_topic_partitions({})
 
+    def __enter__(self):
+        self.start()
+
+    def __exit__(self, type, value, traceback):
+        self.stop()
+
     def __iter__(self):
         return self
 
     def __next__(self):
         return self.next()
 
-    # Functions from kafka-python KafkaConsumer.
-
-    @refresh_partitioner
-    def next(self):
-        return self.consumer.next()
-
-    @refresh_partitioner
-    def fetch_messages(self):
-        return self.consumer.fetch_messages()
-
-    @refresh_partitioner
-    def get_partition_offsets(self,
-                              topic,
-                              partition,
-                              request_time_ms,
-                              max_num_offsets):
-        return self.consumer.get_partition_offsets(topic,
-                                                   partition,
-                                                   request_time_ms,
-                                                   max_num_offsets)
-
-    @refresh_partitioner
-    def offsets(self, group=None):
-        return self.consumer.offsets(group)
-
-    @refresh_partitioner
-    def task_done(self, message):
-        return self.consumer.task_done(message)
-
-    @refresh_partitioner
-    def commit(self):
-        return self.consumer.commit()
-
+# task_done, commit, next, start, stop
 
 class MultiprocessingConsumerGroup(object):
     """Multiprocessing consumer group allows to consume
