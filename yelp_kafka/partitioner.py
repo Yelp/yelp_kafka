@@ -51,6 +51,7 @@ class Partitioner(object):
         partitions have to be release. It should usually stops the consumers.
     """
     def __init__(self, config, topics, acquire, release):
+        self.log = logging.getLogger(self.__class__.__name__)
         self.config = config
         # Clients
         self.kazoo_client = None
@@ -61,27 +62,33 @@ class Partitioner(object):
         # User callbacks
         self.acquire = acquire
         self.release = release
+        # We guarantee that the user defined release function call follows
+        # always the acquire. release function will never be called twice in a
+        # row. Initialize to true because no partitions have been acquired at
+        # startup.
+        self._released_flag = True
         # Kafka metadata refresh
         self.force_partitions_refresh = True
         self.last_partitions_refresh = 0
         # Kazoo partitioner
         self._partitioner = None
-        self.log = logging.getLogger(self.__class__.__name__)
+        # Map Kazoo partitioner state to actions
         self.actions = {
             PartitionState.ALLOCATING: self._allocating,
             PartitionState.ACQUIRED: self._acquire,
             PartitionState.RELEASE: self._release,
             PartitionState.FAILURE: self._fail
         }
+
         self.kazoo_retry = None
         self.zk_group_path = build_zk_group_path(
             self.config.group_path,
-            self.topics
+            self.topics,
         )
 
     def start(self):
         """Create a new group and wait until the partitions have been
-        acquired.
+        acquired. This function should never be called twice.
 
         :raises: PartitionerError upon partitioner failures
 
@@ -93,6 +100,7 @@ class Partitioner(object):
             connection_retry=self.kazoo_retry,
         )
         self.kafka_client = KafkaClient(self.config.broker_list)
+
         self.log.debug("Starting a new group for topics %s", self.topics)
         self._refresh()
 
@@ -250,6 +258,7 @@ class Partitioner(object):
             self.acquired_partitions = acquired_partitions
             try:
                 self.acquire(copy.deepcopy(self.acquired_partitions))
+                self._released_flag = False
             except Exception:
                 self.log.exception("Acquire action failed.")
                 self.release_and_finish()
@@ -262,7 +271,9 @@ class Partitioner(object):
         """
         self.log.debug("Releasing partitions")
         try:
-            self.release(self.acquired_partitions)
+            if not self._released_flag:
+                self.release(self.acquired_partitions)
+                self._released_flag = True
         except Exception:
             self.log.exception("Acquire action failed.")
             self._destroy_partitioner()
