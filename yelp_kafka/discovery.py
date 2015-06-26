@@ -47,6 +47,23 @@ def get_all_clusters(cluster_type):
     return topology.get_all_clusters()
 
 
+def get_cluster_with_name(cluster_type, cluster_name):
+    """Get a :py:class:`yelp_kafka.config.ClusterConfig` from an ecosystem with
+    a particular name.
+
+    :param cluster_type: kafka cluster type
+        (ex.'scribe' or 'standard').
+    :type cluster_type: string
+    :param cluster_name: name of the cluster
+        (ex.'uswest1-devc').
+    :type cluster_type: string
+    :returns: :py:class:`yelp_kafka.config.ClusterConfig`
+    """
+    for cluster in get_all_clusters(cluster_type):
+        if cluster.name == cluster_name:
+            return cluster
+
+
 def get_consumer_config(cluster_type, group_id, **extra):
     """Get a :py:class:`yelp_kafka.config.KafkaConsumerConfig`
     for the local kafka cluster.
