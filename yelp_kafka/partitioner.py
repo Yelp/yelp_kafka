@@ -66,7 +66,7 @@ class Partitioner(object):
         # always the acquire. release function will never be called twice in a
         # row. Initialize to true because no partitions have been acquired at
         # startup.
-        self._released_flag = True
+        self.released_flag = True
         # Kafka metadata refresh
         self.force_partitions_refresh = True
         self.last_partitions_refresh = 0
@@ -102,6 +102,7 @@ class Partitioner(object):
         self.kafka_client = KafkaClient(self.config.broker_list)
 
         self.log.debug("Starting a new group for topics %s", self.topics)
+        self.released_flag = True
         self._refresh()
 
     def __enter__(self):
@@ -258,7 +259,7 @@ class Partitioner(object):
             self.acquired_partitions = acquired_partitions
             try:
                 self.acquire(copy.deepcopy(self.acquired_partitions))
-                self._released_flag = False
+                self.released_flag = False
             except Exception:
                 self.log.exception("Acquire action failed.")
                 self.release_and_finish()
@@ -271,12 +272,11 @@ class Partitioner(object):
         """
         self.log.debug("Releasing partitions")
         try:
-            if not self._released_flag:
+            if not self.released_flag:
                 self.release(self.acquired_partitions)
-                self._released_flag = True
+                self.released_flag = True
         except Exception:
             self.log.exception("Acquire action failed.")
-            self._destroy_partitioner()
             raise PartitionerError("Acquire action failed.")
         partitioner.release_set()
         self.acquired_partitions.clear()

@@ -46,10 +46,43 @@ class TestPartitioner(object):
             spec=SetPartitioner, **get_partitioner_state(PartitionState.RELEASE)
         )
         expected_partitions = {'topic1': [0, 1, 3]}
+        # Enable release
         partitioner.acquired_partitions = expected_partitions
+        partitioner.released_flag = False
+
         partitioner._handle_group(mock_kpartitioner)
+
         mock_kpartitioner.release_set.assert_called_once_with()
         partitioner.release.assert_called_once_with(expected_partitions)
+
+    def test_handle_release_twice(self, partitioner):
+        mock_kpartitioner = mock.MagicMock(
+            spec=SetPartitioner, **get_partitioner_state(PartitionState.RELEASE)
+        )
+        expected_partitions = {'topic1': [0, 1, 3]}
+        # Enable release
+        partitioner.acquired_partitions = expected_partitions
+        partitioner.released_flag = False
+
+        partitioner._handle_group(mock_kpartitioner)
+        partitioner._handle_group(mock_kpartitioner)
+
+        mock_kpartitioner.release_set.call_count == 2
+        # User release function should be called only once
+        partitioner.release.assert_called_once_with(expected_partitions)
+
+    def test_handle_release_failure(self, partitioner):
+        mock_kpartitioner = mock.MagicMock(
+            spec=SetPartitioner, **get_partitioner_state(PartitionState.RELEASE)
+        )
+        expected_partitions = {'topic1': [0, 1, 3]}
+        # Enable release
+        partitioner.acquired_partitions = expected_partitions
+        partitioner.released_flag = False
+        partitioner.release.side_effect = Exception("Boom!")
+
+        with pytest.raises(PartitionerError):
+            partitioner._handle_group(mock_kpartitioner)
 
     def test_handle_failed_and_release(self, partitioner):
         mock_kpartitioner = mock.MagicMock(
@@ -59,7 +92,7 @@ class TestPartitioner(object):
         expected_partitions = {'topic1': [0, 1, 3]}
         partitioner.acquired_partitions = expected_partitions
         with contextlib.nested(
-            mock.patch.object(Partitioner, 'release_and_destroy'),
+            mock.patch.object(Partitioner, 'release_and_finish'),
             mock.patch.object(Partitioner, '_close_connections'),
         ) as (mock_destroy, mock_close):
             with pytest.raises(PartitionerZookeeperError):
@@ -73,7 +106,7 @@ class TestPartitioner(object):
             **get_partitioner_state(PartitionState.FAILURE)
         )
         with contextlib.nested(
-            mock.patch.object(Partitioner, 'release_and_destroy'),
+            mock.patch.object(Partitioner, 'release_and_finish'),
             mock.patch.object(Partitioner, '_close_connections'),
         ) as (mock_destroy, mock_close):
             with pytest.raises(PartitionerZookeeperError):
@@ -86,10 +119,23 @@ class TestPartitioner(object):
             spec=SetPartitioner, **get_partitioner_state(PartitionState.ACQUIRED)
         )
         mock_kpartitioner.__iter__.return_value = ['topic1-0', 'topic1-2', 'topic-2-1']
-        partitioner._handle_group(mock_kpartitioner)
         expected_partitions = {'topic1': [0, 2], 'topic-2': [1]}
+
+        partitioner._handle_group(mock_kpartitioner)
+
         assert partitioner.acquired_partitions == expected_partitions
+        assert partitioner.released_flag is False
         partitioner.acquire.assert_called_once_with(expected_partitions)
+
+    def test_handle_acquire_failure(self, partitioner):
+        mock_kpartitioner = mock.MagicMock(
+            spec=SetPartitioner, **get_partitioner_state(PartitionState.ACQUIRED)
+        )
+        mock_kpartitioner.__iter__.return_value = ['topic1-0', 'topic1-2', 'topic-2-1']
+        partitioner.acquire.side_effect = Exception("Boom!")
+
+        with pytest.raises(PartitionerError):
+            partitioner._handle_group(mock_kpartitioner)
 
     def test_handle_allocating(self, partitioner):
         mock_kpartitioner = mock.MagicMock(
@@ -134,7 +180,7 @@ class TestPartitioner(object):
             mock.patch.object(Partitioner, '_create_partitioner',
                               side_effect=[mock.sentinel.partitioner1,
                                            mock.sentinel.partitioner2]),
-            mock.patch.object(Partitioner, 'release_and_destroy'),
+            mock.patch.object(Partitioner, 'release_and_finish'),
             mock.patch.object(Partitioner, 'get_partitions_set'),
         ) as (mock_create, mock_destroy, mock_partitions):
             mock_partitions.return_value = expected_partitions
@@ -269,7 +315,7 @@ class TestPartitioner(object):
                 'get_partitions_set',
                 side_effect=Exception("Boom!"),
             ),
-            mock.patch.object(Partitioner, 'release_and_destroy'),
+            mock.patch.object(Partitioner, 'release_and_finish'),
         ) as (mock_partitions, mock_destroy):
             # Force partition refresh
             partitioner.force_partitions_refresh = True
@@ -279,7 +325,7 @@ class TestPartitioner(object):
 
             assert mock_destroy.called
 
-    def test_release_and_destroy(self, partitioner):
+    def test_release_and_finish(self, partitioner):
         with mock.patch.object(
             Partitioner,
             '_release',
@@ -288,7 +334,7 @@ class TestPartitioner(object):
             mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
             partitioner._partitioner = mock_kpartitioner
 
-            partitioner.release_and_destroy()
+            partitioner.release_and_finish()
 
             mock_kpartitioner.finish.assert_called_once_with()
             assert partitioner._partitioner is None
