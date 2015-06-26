@@ -158,8 +158,6 @@ class KafkaSimpleConsumer(object):
         :param message: message to commit.
         :type message: Message namedtuple, which consists of: partition number,
                 offset, key, and message value
-        :param partitions: list of partitions to commit, default commits to all
-                           partitions
         :return: True on success, False on failure.
         """
         reqs = [
