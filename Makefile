@@ -5,6 +5,9 @@ all: test
 test:
 	tox tests
 
+itest:
+	tox -e integration
+
 sdist:
 	python setup.py sdist
 

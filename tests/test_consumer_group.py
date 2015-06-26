@@ -26,7 +26,7 @@ class TestConsumerGroup(object):
             mock.sentinel.message1,
             mock.sentinel.message2
         ]
-        group._consume(refresh_timeout=1)
+        group.consume(refresh_timeout=1)
         assert group.process.call_args_list == [
             mock.call(mock.sentinel.message1),
             mock.call(mock.sentinel.message2)
@@ -42,10 +42,10 @@ class TestConsumerGroup(object):
         ]
         mock_partitioner.return_value.refresh.side_effect = PartitionerError("Boom")
         with pytest.raises(PartitionerError):
-            group._consume(refresh_timeout=1)
+            group.consume(refresh_timeout=1)
         mock_partitioner.return_value.refresh.side_effect = PartitionerZookeeperError("Boom")
         with pytest.raises(PartitionerZookeeperError):
-            group._consume(refresh_timeout=1)
+            group.consume(refresh_timeout=1)
 
     def test__consume_error(self, mock_partitioner, config):
         group = ConsumerGroup(self.topic, config, mock.Mock(side_effect=Exception("Boom!")))
@@ -55,7 +55,7 @@ class TestConsumerGroup(object):
             mock.sentinel.message2
         ]
         with pytest.raises(ProcessMessageError):
-            group._consume(refresh_timeout=1)
+            group.consume(refresh_timeout=1)
 
     @mock.patch('yelp_kafka.consumer_group.KafkaSimpleConsumer', autospec=True)
     def test__acquire(self, mock_consumer, _, config):
