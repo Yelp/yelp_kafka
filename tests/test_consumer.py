@@ -3,6 +3,10 @@ import mock
 import pytest
 
 from setproctitle import getproctitle
+from kafka.common import (
+    KafkaError,
+    OffsetCommitRequest,
+)
 
 from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.consumer import(
@@ -128,6 +132,34 @@ class TestKafkaSimpleConsumer(object):
             mock_consumer.return_value.commit.assert_called_once_with(
                 topic_partitions,
             )
+
+    def test_commit_message(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            consumer = KafkaSimpleConsumer('test_topic', config)
+            consumer.connect()
+
+            actual = consumer.commit_message(
+                Message(0, 100, 'mykey', 'myvalue'),
+            )
+
+            assert actual is True
+            mock_client.return_value.send_offset_commit_request \
+                .assert_called_once_with(
+                    'test_group',
+                    [OffsetCommitRequest('test_topic', 0, 100, None)],
+                )
+
+    def test_commit_message_error(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            consumer = KafkaSimpleConsumer('test_topic', config)
+            consumer.connect()
+            mock_client.return_value.send_offset_commit_request \
+                .side_effect = KafkaError("Boom!")
+
+            actual = consumer.commit_message(
+                Message(0, 100, 'mykey', 'myvalue'),
+            )
+            assert actual is False
 
 
 class TestKafkaConsumer(object):
