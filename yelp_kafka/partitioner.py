@@ -1,4 +1,5 @@
 from collections import defaultdict
+import copy
 import hashlib
 import logging
 import time
@@ -37,46 +38,57 @@ def build_zk_group_path(group_path, topics):
 
 
 class Partitioner(object):
-    """Partitioner is used to handle distributed a set of topics/partitions among
-    a group of consumers.
+    """Partitioner is used to handle distributed a set of
+    topics/partitions among a group of consumers.
 
     :param topics: kafka topics
     :type topics: list
-    :param acquire: function to be called when a set of partitions has been acquired.
+    :param acquire: function to be called when a set of partitions
+    has been acquired.
         It should usually allocate the consumers.
     :type acquire: func
     :param release: function to be called when the acquired
         partitions have to be release. It should usually stops the consumers.
     """
     def __init__(self, config, topics, acquire, release):
+        self.log = logging.getLogger(self.__class__.__name__)
         self.config = config
+        # Clients
         self.kazoo_client = None
         self.kafka_client = None
         self.topics = topics
         self.acquired_partitions = defaultdict(list)
         self.partitions_set = set()
+        # User callbacks
         self.acquire = acquire
         self.release = release
-        self.config = config
+        # We guarantee that the user defined release function call follows
+        # always the acquire. release function will never be called twice in a
+        # row. Initialize to true because no partitions have been acquired at
+        # startup.
+        self.released_flag = True
+        # Kafka metadata refresh
         self.force_partitions_refresh = True
         self.last_partitions_refresh = 0
+        # Kazoo partitioner
         self._partitioner = None
-        self.log = logging.getLogger(self.__class__.__name__)
+        # Map Kazoo partitioner state to actions
         self.actions = {
             PartitionState.ALLOCATING: self._allocating,
             PartitionState.ACQUIRED: self._acquire,
             PartitionState.RELEASE: self._release,
             PartitionState.FAILURE: self._fail
         }
+
         self.kazoo_retry = None
         self.zk_group_path = build_zk_group_path(
             self.config.group_path,
-            self.topics
+            self.topics,
         )
 
     def start(self):
         """Create a new group and wait until the partitions have been
-        acquired.
+        acquired. This function should never be called twice.
 
         :raises: PartitionerError upon partitioner failures
 
@@ -88,13 +100,22 @@ class Partitioner(object):
             connection_retry=self.kazoo_retry,
         )
         self.kafka_client = KafkaClient(self.config.broker_list)
+
         self.log.debug("Starting a new group for topics %s", self.topics)
+        self.released_flag = True
         self._refresh()
+
+    def __enter__(self):
+        self.start()
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.stop()
 
     def stop(self):
         """Leave the group and release the partitions."""
         self.log.debug("Stopping group for topics %s", self.topics)
-        self._destroy_partitioner(self._partitioner)
+        self.release_and_finish()
+        self._close_connections()
 
     def refresh(self):
         """Rebalance upon group changes, such as when a consumer
@@ -125,7 +146,8 @@ class Partitioner(object):
          we need to destroy the partitioner and create another one.
         If the partitioner does not exist yet, create a new partitioner.
         If the partitions set changed, destroy the partitioner and create a new
-        partitioner. Different consumer will eventually use the same partitions set.
+        partitioner. Different consumer will eventually use
+        the same partitions set.
 
         :param partitions: the partitions set to use for partitioner.
         :type partitions: set
@@ -133,13 +155,15 @@ class Partitioner(object):
         if self.need_partitions_refresh() or not self._partitioner:
             try:
                 partitions = self.get_partitions_set()
-            except:
+            except Exception:
                 self.log.exception(
                     "Failed to get partitions set from Kafka."
                     "Releasing the group."
                 )
-                self._destroy_partitioner(self._partitioner)
-                raise PartitionerError("Failed to get partitions set from Kafka")
+                self.release_and_finish()
+                raise PartitionerError(
+                    "Failed to get partitions set from Kafka",
+                )
             self.force_partitions_refresh = False
             self.last_partitions_refresh = time.time()
             if partitions != self.partitions_set:
@@ -151,10 +175,9 @@ class Partitioner(object):
                     [p for p in partitions if p not in self.partitions_set],
                     [p for p in self.partitions_set if p not in partitions]
                 )
-                # We need to destroy the existing partitioner before creating a new
-                # one.
-                if self._partitioner:
-                    self._destroy_partitioner(self._partitioner)
+                # We need to destroy the existing partitioner before creating
+                # a new one.
+                self.release_and_finish()
                 self._partitioner = self._create_partitioner(partitions)
                 self.partitions_set = partitions
         return self._partitioner
@@ -164,9 +187,9 @@ class Partitioner(object):
         if self.kazoo_client.state != KazooState.CONNECTED:
             try:
                 self.kazoo_client.start()
-            except:
+            except Exception:
                 self.log.exception("Impossible to connect to zookeeper")
-                self._destroy_partitioner(self._partitioner)
+                self.release_and_finish()
                 raise PartitionerError("Zookeeper connection failure")
 
         self.log.debug("Creating partitioner for group %s, topic %s,"
@@ -178,15 +201,17 @@ class Partitioner(object):
             time_boundary=self.config.partitioner_cooldown,
         )
 
-    def _destroy_partitioner(self, partitioner):
+    def release_and_finish(self):
         """Release consumers and terminate the partitioner"""
+        if self._partitioner:
+            self._release(self._partitioner)
+            self._partitioner.finish()
+        self._partitioner = None
+
+    def _close_connections(self):
         self.kafka_client.close()
         self.partitions_set = set()
         self.last_partitions_refresh = 0
-        if partitioner:
-            self._release(partitioner)
-            partitioner.finish()
-            self._partitioner = None
         self.kazoo_client.stop()
         self.kazoo_client.close()
         self.kazoo_retry = None
@@ -200,7 +225,7 @@ class Partitioner(object):
                 self.actions[partitioner.state](partitioner)
             except KeyError:
                 self.log.exception("Unexpected partitioner state.")
-                self._destroy_partitioner(self._partitioner)
+                self.release_and_finish()
                 raise PartitionerError("Invalid partitioner state %s" %
                                        partitioner.state)
 
@@ -232,7 +257,13 @@ class Partitioner(object):
                 ],
             )
             self.acquired_partitions = acquired_partitions
-            self.acquire(self.acquired_partitions)
+            try:
+                self.acquire(copy.deepcopy(self.acquired_partitions))
+                self.released_flag = False
+            except Exception:
+                self.log.exception("Acquire action failed.")
+                self.release_and_finish()
+                raise PartitionerError("Acquire action failed.")
 
     def _release(self, partitioner):
         """Release the consumers and acquired partitions.
@@ -240,7 +271,13 @@ class Partitioner(object):
         whenever there is a group change.
         """
         self.log.debug("Releasing partitions")
-        self.release(self.acquired_partitions)
+        try:
+            if not self.released_flag:
+                self.release(self.acquired_partitions)
+                self.released_flag = True
+        except Exception:
+            self.log.exception("Acquire action failed.")
+            raise PartitionerError("Acquire action failed.")
         partitioner.release_set()
         self.acquired_partitions.clear()
         self.force_partitions_refresh = True
@@ -252,7 +289,7 @@ class Partitioner(object):
         the running consumers.
         """
         self.log.error("Lost or unable to acquire partitions")
-        self._destroy_partitioner(self._partitioner)
+        self.release_and_finish()
         raise PartitionerZookeeperError
 
     def _get_acquired_partitions(self, partitioner):
@@ -287,7 +324,7 @@ class Partitioner(object):
         if missing_topics:
             self.log.info("Missing topics: %s", missing_topics)
         if not partitions:
-            self._destroy_partitioner(self._partitioner)
+            self.release_and_finish()
             raise PartitionerError(
                 "No partitions found for topics: {topics}".format(
                     topics=self.topics
