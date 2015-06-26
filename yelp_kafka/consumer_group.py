@@ -161,6 +161,42 @@ class ConsumerGroup(object):
 
 
 class KafkaConsumerGroup(object):
+    """KafkaConsumerGroup allows you to efficiently consume from all the
+    partitions of a topic without having to manually use the
+    :py:class:`yelp_kafka.partitioner.Partitioner` class. You can spin up
+    multiple KafkaConsumerGroups, and they will co-ordinate via the Partitioner
+    to divvy up the available partitions between each other.
+
+    This class works by attempting to rebalance before each call to `next()`. In
+    the event that rebalancing does occur and that you have enabled
+    auto-committing, any messages marked as done using `task_done()` will be
+    committed before repartitioning. To commit messages immediately, you can
+    call `commit()`.
+
+    Example:
+
+    .. code-block:: python
+
+        from yelp_kafka import discovery
+        from yelp_kafka.consumer_group import KafkaConsumerGroup
+        from yelp_kafka.config import KafkaConsumerConfig
+
+        cluster = discovery.get_local_cluster('standard')
+        config = KafkaConsumerConfig('my_group', cluster)
+
+        # A "tail" consumer that reads, prints, and eventually commits every
+        # message from a list of topics.
+        consumer = KafkaConsumerGroup(['my-topic1', 'my-topic2'], config)
+        with consumer:
+            for message in consumer:
+                print message.value
+                consumer.task_done(message)
+
+    :param topics: a list of topics to consume from.
+    :type topics: list
+    :param config: yelp_kakfa consumer config.
+    :type config: :py:class:`yelp_kafka.config.KafkaConsumerConfig`
+    """
     def __init__(self, topics, config):
         self.topics = topics
         self.config = config
