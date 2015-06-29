@@ -248,6 +248,9 @@ class TestTopologyConfig(object):
         )
         assert expected_cluster == actual_cluster
 
+        with pytest.raises(ConfigurationError):
+            topology.get_cluster_by_name('does-not-exist')
+
     def test___eq__(self):
         topology1 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
         topology2 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")

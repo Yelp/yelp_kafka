@@ -126,9 +126,10 @@ class TopologyConfiguration(object):
                 for name, cluster in self.clusters.iteritems()]
 
     def get_cluster_by_name(self, name):
-        for cluster in self.get_all_clusters():
-            if cluster.name == name:
-                return cluster
+        if name in self.clusters:
+            cluster = self.clusters[name]
+            return ClusterConfig(name, cluster['broker_list'], cluster['zookeeper'])
+        raise ConfigurationError("No cluster with name: {0}".format(name))
 
     def get_local_cluster(self):
         try:
