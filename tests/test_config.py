@@ -237,6 +237,17 @@ class TestTopologyConfig(object):
         ]
         assert sorted(expected_clusters) == sorted(actual_clusters)
 
+    def test_get_cluster_by_name(self, mock_yaml):
+        topology = TopologyConfiguration(
+            kafka_id='mykafka',
+            kafka_topology_path=TEST_BASE_KAFKA,
+        )
+        actual_cluster = topology.get_cluster_by_name('cluster1')
+        expected_cluster = ClusterConfig(
+            'cluster1', ["mybrokerhost1:9092"], "0.1.2.3,0.2.3.4/kafka"
+        )
+        assert expected_cluster == actual_cluster
+
     def test___eq__(self):
         topology1 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
         topology2 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")

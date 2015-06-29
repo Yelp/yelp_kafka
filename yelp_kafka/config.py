@@ -125,6 +125,11 @@ class TopologyConfiguration(object):
         return [ClusterConfig(name, cluster['broker_list'], cluster['zookeeper'])
                 for name, cluster in self.clusters.iteritems()]
 
+    def get_cluster_by_name(self, name):
+        for cluster in self.get_all_clusters():
+            if cluster.name == name:
+                return cluster
+
     def get_local_cluster(self):
         try:
             if self.local_config:

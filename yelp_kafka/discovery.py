@@ -59,9 +59,8 @@ def get_cluster_with_name(cluster_type, cluster_name):
     :type cluster_type: string
     :returns: :py:class:`yelp_kafka.config.ClusterConfig`
     """
-    for cluster in get_all_clusters(cluster_type):
-        if cluster.name == cluster_name:
-            return cluster
+    topology = TopologyConfiguration(kafka_id=cluster_type)
+    return topology.get_cluster_by_name(cluster_name)
 
 
 def get_consumer_config(cluster_type, group_id, **extra):
