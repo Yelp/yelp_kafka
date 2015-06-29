@@ -6,6 +6,10 @@ from kafka import (
     KafkaClient,
     SimpleConsumer,
 )
+from kafka.common import (
+    KafkaError,
+    OffsetCommitRequest,
+)
 from kafka.util import kafka_bytestring
 from setproctitle import (
     setproctitle,
@@ -135,14 +139,43 @@ class KafkaSimpleConsumer(object):
                 )
 
     def commit(self, partitions=None):
-        """Commit offset for this consumer
+        """Commit offset for this consumer group
         :param partitions: list of partitions to commit, default commits to all
-                           partitions
+                           partitions.
+        :return: True on success, False on failure.
         """
         if partitions:
-            self.kafka_consumer.commit(partitions)
+            return self.kafka_consumer.commit(partitions)
         else:
-            self.kafka_consumer.commit()
+            return self.kafka_consumer.commit()
+
+    def commit_message(self, message):
+        """Commit the message offset for this consumer group. This function does not
+        take care of the consumer offset tracking. It should only be used if
+        auto_commit is disabled and the commit function never called.
+        NOTE: all the messages received before message itself will be committed
+        as consequence.
+        :param message: message to commit.
+        :type message: Message namedtuple, which consists of: partition number,
+                offset, key, and message value
+        :return: True on success, False on failure.
+        """
+        reqs = [
+            OffsetCommitRequest(
+                self.topic,
+                message.partition,
+                message.offset,
+                None,
+            )
+        ]
+
+        try:
+            self.client.send_offset_commit_request(self.config.group_id, reqs)
+        except KafkaError as e:
+            self.log.error("%s saving offsets: %s", e.__class__.__name__, e)
+            return False
+        else:
+            return True
 
 
 class KafkaConsumerBase(KafkaSimpleConsumer):
