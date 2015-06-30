@@ -8,6 +8,7 @@ import signal
 import traceback
 
 from kafka import KafkaConsumer
+from kafka.common import ConsumerTimeout
 
 from yelp_kafka.error import (
     ConsumerGroupError,
@@ -20,6 +21,7 @@ from yelp_kafka.consumer import KafkaSimpleConsumer
 
 
 DEFAULT_REFRESH_TIMEOUT_IN_SEC = 0.5
+CONSUMER_GROUP_INTERNAL_TIMEOUT = 100 # milliseconds
 
 
 class ConsumerGroup(object):
@@ -199,11 +201,16 @@ class KafkaConsumerGroup(object):
     """
     def __init__(self, topics, config):
         self.topics = topics
-        self.config = config
-
         self.partitioner = Partitioner(config, topics, self._acquire,
                                        self._release)
         self.consumer = None
+
+        # Intercept the user's timeout and pass in our own instead. We do this
+        # in order to periodically refresh the partitioner when calling next()
+        consumer_config = config.get_kafka_consumer_config()
+        self.iter_timeout = consumer_config['consumer_timeout_ms']
+        consumer_config['consumer_timeout_ms'] = CONSUMER_GROUP_INTERNAL_TIMEOUT
+        self.config = consumer_config
 
     def start(self):
         self.partitioner.start()
@@ -212,8 +219,23 @@ class KafkaConsumerGroup(object):
         self.partitioner.stop()
 
     def next(self):
-        self.partitioner.refresh()
-        return self.consumer.next()
+        start_time = time.time()
+        while self._should_keep_trying(start_time):
+            self.partitioner.refresh()
+            try:
+                self.consumer.next()
+            except ConsumerTimeout:
+                # This is due to the internal timeout, not the user's provided
+                # one.
+                pass
+        raise ConsumerTimeout("KafkaConsumerGroup timed out after %d ms" %
+                              self.iter_timeout)
+
+    def _should_keep_trying(self, start_time):
+        if self.iter_timeout < 0:
+            return True
+        elapsed_seconds = time.time() - start_time
+        return elapsed_seconds * 1000 < self.iter_timeout
 
     def task_done(self, message):
         return self.consumer.task_done(message)
@@ -223,8 +245,7 @@ class KafkaConsumerGroup(object):
 
     def _acquire(self, partitions):
         if not self.consumer:
-            consumer_config = self.config.get_kafka_consumer_config()
-            self.consumer = KafkaConsumer(partitions, **consumer_config)
+            self.consumer = KafkaConsumer(partitions, **self.config)
         else:
             self.consumer.set_topic_partitions(partitions)
 
