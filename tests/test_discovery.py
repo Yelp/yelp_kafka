@@ -34,6 +34,16 @@ def test_get_all_clusters(mock_topology):
     assert clusters == mock.sentinel.clusters
 
 
+@mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
+def test_get_cluster_by_name(mock_topology):
+    get_cluster_by_name = mock_topology.return_value.get_cluster_by_name
+    get_cluster_by_name.return_value = mock.sentinel.cluster
+    cluster = discovery.get_cluster_by_name("mycluster", "myname")
+    mock_topology.assert_called_once_with(kafka_id='mycluster')
+    get_cluster_by_name.assert_called_once_with('myname')
+    assert cluster == mock.sentinel.cluster
+
+
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
 def test_get_consumer_config(mock_get_cluster):
     my_cluster = ClusterConfig('cluster1', ['mybroker'], 'zk_hosts/kafka')
