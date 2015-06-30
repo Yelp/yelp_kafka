@@ -47,7 +47,7 @@ def get_all_clusters(cluster_type):
     return topology.get_all_clusters()
 
 
-def get_cluster_with_name(cluster_type, cluster_name):
+def get_cluster_by_name(cluster_type, cluster_name):
     """Get a :py:class:`yelp_kafka.config.ClusterConfig` from an ecosystem with
     a particular name.
 
