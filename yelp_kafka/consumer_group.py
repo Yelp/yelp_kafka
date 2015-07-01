@@ -21,7 +21,7 @@ from yelp_kafka.consumer import KafkaSimpleConsumer
 
 
 DEFAULT_REFRESH_TIMEOUT_IN_SEC = 0.5
-CONSUMER_GROUP_INTERNAL_TIMEOUT = 100 # milliseconds
+CONSUMER_GROUP_INTERNAL_TIMEOUT = 100  # milliseconds
 
 
 class ConsumerGroup(object):
@@ -223,13 +223,13 @@ class KafkaConsumerGroup(object):
         while self._should_keep_trying(start_time):
             self.partitioner.refresh()
             try:
-                self.consumer.next()
+                return self.consumer.next()
             except ConsumerTimeout:
                 # This is due to the internal timeout, not the user's provided
                 # one.
                 pass
-        raise ConsumerTimeout("KafkaConsumerGroup timed out after %d ms" %
-                              self.iter_timeout)
+        error_msg = "KafkaConsumerGroup timed out after {0} ms"
+        raise ConsumerTimeout(error_msg.format(self.iter_timeout))
 
     def _should_keep_trying(self, start_time):
         if self.iter_timeout < 0:
