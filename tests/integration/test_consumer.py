@@ -20,7 +20,6 @@ def create_topic(topic_name, replication_factor, partitions):
            '--replication-factor', str(replication_factor),
            '--partitions', str(partitions),
            '--topic', topic_name]
-    logging.debug('{0}'.format(cmd))
     subprocess.check_call(cmd)
 
     # It may take a little moment for the topic to be ready for writing.
@@ -43,7 +42,8 @@ def test_simple_consumer():
 
     cluster_config = ClusterConfig(None, [KAFKA_URL], ZOOKEEPER_URL)
     config = KafkaConsumerConfig('test', cluster_config,
-                                 auto_offset_reset='smallest')
+                                 auto_offset_reset='smallest',
+                                 auto_commit=False)
     consumer = KafkaSimpleConsumer(topic, config)
 
     with consumer:
