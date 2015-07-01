@@ -1,6 +1,7 @@
 import subprocess
 import uuid
 import time
+from multiprocessing import Process, Queue
 
 import kafka
 
@@ -19,6 +20,7 @@ def create_topic(topic_name, replication_factor, partitions):
            '--replication-factor', str(replication_factor),
            '--partitions', str(partitions),
            '--topic', topic_name]
+    logging.debug('{0}'.format(cmd))
     subprocess.check_call(cmd)
 
     # It may take a little moment for the topic to be ready for writing.
@@ -52,28 +54,58 @@ def test_simple_consumer():
             assert message.value == str(expected_offset)
 
 
-def test_kafka_consumer_group_one_partition():
-    run_kafka_consumer_group_test(1)
+def test_kafka_consumer_group_one_consumer_one_partition():
+    run_kafka_consumer_group_test(1, 1)
 
 
-def test_kafka_consumer_group_two_partitions():
-    run_kafka_consumer_group_test(2)
+def test_kafka_consumer_group_one_consumer_two_partitions():
+    run_kafka_consumer_group_test(1, 2)
 
 
-def run_kafka_consumer_group_test(num_partitions):
-    sent_messages = [str(i) for i in range(100)]
+def test_kafka_consumer_group_two_consumers_one_partition():
+    run_kafka_consumer_group_test(2, 1)
 
-    producer = kafka.SimpleProducer(kafka.KafkaClient(KAFKA_URL))
 
+def test_kafka_consumer_group_two_consumers_two_partitions():
+    run_kafka_consumer_group_test(2, 2)
+
+
+def run_kafka_consumer_group_test(num_consumers, num_partitions):
+    topic = create_random_topic(1, num_partitions)
     cluster_config = ClusterConfig(None, [KAFKA_URL], ZOOKEEPER_URL)
     config = KafkaConsumerConfig('test', cluster_config,
                                  auto_offset_reset='smallest')
 
-    topic = create_random_topic(1, num_partitions)
-    producer.send_messages(topic, *sent_messages)
+    queue = Queue()
 
-    consumer = KafkaConsumerGroup([topic], config)
-    with consumer:
-        # If we don't get any exceptions here, we're good.
-        for _ in xrange(100):
-            consumer.next()
+    def create_consumer():
+        def consume():
+            consumer = KafkaConsumerGroup([topic], config)
+            with consumer:
+                while True:
+                    queue.put(consumer.next())
+
+        p = Process(target=consume)
+        p.daemon = True
+        return p
+
+    consumer_processes = [create_consumer() for _ in xrange(num_consumers)]
+
+    for consumer_process in consumer_processes:
+        consumer_process.start()
+
+    producer = kafka.producer.base.Producer(kafka.KafkaClient(KAFKA_URL))
+
+    for i in xrange(100):
+        producer.send_messages(topic, i % num_partitions, str(i))
+
+    # wait until all 100 messages have been consumed
+    while queue.qsize() < 100:
+        pass
+
+    received_messages = []
+    while not queue.empty():
+        message = queue.get()
+        received_messages.append(int(message.value))
+
+    assert range(100) == sorted(received_messages)
