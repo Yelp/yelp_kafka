@@ -1,6 +1,7 @@
 import mock
 from multiprocessing import Process
 import os
+import time
 import pytest
 
 from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
@@ -87,6 +88,27 @@ class TestConsumerGroup(object):
 class TestKafkaConsumerGroup(object):
 
     topic = 'topic1'
+
+    @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
+    def test__should_keep_trying(self, _):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     consumer_timeout_ms=-1)
+        consumer = KafkaConsumerGroup([], config)
+
+        long_time_ago = time.time() - 1000
+        assert consumer._should_keep_trying(long_time_ago)
+
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     consumer_timeout_ms=1000)
+        consumer = KafkaConsumerGroup([], config)
+
+        almost_a_second_ago = time.time() - 0.8
+        assert consumer._should_keep_trying(almost_a_second_ago)
+
+        over_a_second_ago = time.time() - 1.2
+        assert not consumer._should_keep_trying(over_a_second_ago)
 
     @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
     def test__auto_commit_enabled(self, _):
