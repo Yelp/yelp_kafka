@@ -255,7 +255,7 @@ class KafkaConsumerGroup(object):
         self.consumer.set_topic_partitions({})
 
     def _auto_commit_enabled(self):
-        return self.config.get_kafka_consumer_config()['auto_commit_enable']
+        return self.config['auto_commit_enable']
 
     def __enter__(self):
         self.start()

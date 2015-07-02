@@ -3,8 +3,9 @@ from multiprocessing import Process
 import os
 import pytest
 
-from yelp_kafka.config import KafkaConsumerConfig
+from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
 from yelp_kafka.consumer_group import ConsumerGroup
+from yelp_kafka.consumer_group import KafkaConsumerGroup
 from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
 from yelp_kafka.error import (
     ProcessMessageError,
@@ -82,6 +83,24 @@ class TestConsumerGroup(object):
         group._acquire(partitions)
         group._release(partitions)
         mock_consumer.return_value.close.assert_called_once_with()
+
+class TestKafkaConsumerGroup(object):
+
+    topic = 'topic1'
+
+    @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
+    def test__auto_commit_enabled(self, _):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     auto_commit_enable=True)
+        consumer = KafkaConsumerGroup([], config)
+        assert consumer._auto_commit_enabled()
+
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     auto_commit_enable=False)
+        consumer = KafkaConsumerGroup([], config)
+        assert not consumer._auto_commit_enabled()
 
 
 class TestMultiprocessingConsumerGroup(object):
