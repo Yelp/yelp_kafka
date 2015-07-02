@@ -7,9 +7,11 @@ import pytest
 from kafka.common import ConsumerTimeout
 
 from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
-from yelp_kafka.consumer_group import ConsumerGroup
-from yelp_kafka.consumer_group import KafkaConsumerGroup
-from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
+from yelp_kafka.consumer_group import (
+    ConsumerGroup,
+    KafkaConsumerGroup,
+    MultiprocessingConsumerGroup,
+)
 from yelp_kafka.error import (
     ProcessMessageError,
     PartitionerError,
