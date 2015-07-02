@@ -4,6 +4,8 @@ import os
 import time
 import pytest
 
+from kafka.common import ConsumerTimeout
+
 from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
 from yelp_kafka.consumer_group import ConsumerGroup
 from yelp_kafka.consumer_group import KafkaConsumerGroup
@@ -85,6 +87,7 @@ class TestConsumerGroup(object):
         group._release(partitions)
         mock_consumer.return_value.close.assert_called_once_with()
 
+
 class TestKafkaConsumerGroup(object):
 
     topic = 'topic1'
@@ -123,6 +126,15 @@ class TestKafkaConsumerGroup(object):
                                      auto_commit_enable=False)
         consumer = KafkaConsumerGroup([], config)
         assert not consumer._auto_commit_enabled()
+
+    @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
+    def test_next(self, _):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     consumer_timeout_ms=0)
+        consumer = KafkaConsumerGroup([], config)
+        with pytest.raises(ConsumerTimeout):
+            consumer.next()
 
 
 class TestMultiprocessingConsumerGroup(object):
