@@ -1,11 +1,17 @@
 import mock
 from multiprocessing import Process
 import os
+import time
 import pytest
 
-from yelp_kafka.config import KafkaConsumerConfig
-from yelp_kafka.consumer_group import ConsumerGroup
-from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
+from kafka.common import ConsumerTimeout
+
+from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
+from yelp_kafka.consumer_group import (
+    ConsumerGroup,
+    KafkaConsumerGroup,
+    MultiprocessingConsumerGroup,
+)
 from yelp_kafka.error import (
     ProcessMessageError,
     PartitionerError,
@@ -82,6 +88,115 @@ class TestConsumerGroup(object):
         group._acquire(partitions)
         group._release(partitions)
         mock_consumer.return_value.close.assert_called_once_with()
+
+
+class TestKafkaConsumerGroup(object):
+
+    topic = 'topic1'
+
+    def test__should_keep_trying_no_timeout(self):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     consumer_timeout_ms=-1)
+        consumer = KafkaConsumerGroup([], config)
+
+        long_time_ago = time.time() - 1000
+        assert consumer._should_keep_trying(long_time_ago)
+
+    @mock.patch('time.time')
+    def test__should_keep_trying_not_timed_out(self, mock_time):
+        mock_time.return_value = 0
+
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     consumer_timeout_ms=1000)
+        consumer = KafkaConsumerGroup([], config)
+
+        almost_a_second_ago = time.time() - 0.8
+        assert consumer._should_keep_trying(almost_a_second_ago)
+
+    @mock.patch('time.time')
+    def test__should_keep_trying_timed_out(self, mock_time):
+        mock_time.return_value = 0
+
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     consumer_timeout_ms=1000)
+        consumer = KafkaConsumerGroup([], config)
+
+        over_a_second_ago = time.time() - 1.2
+        assert not consumer._should_keep_trying(over_a_second_ago)
+
+    def test__auto_commit_enabled_is_enabled(self):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     auto_commit_enable=True)
+        consumer = KafkaConsumerGroup([], config)
+        assert consumer._auto_commit_enabled()
+
+    def test__auto_commit_enabled_not_enabled(self):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     auto_commit_enable=False)
+        consumer = KafkaConsumerGroup([], config)
+        assert not consumer._auto_commit_enabled()
+
+    @mock.patch('yelp_kafka.consumer_group.Partitioner')
+    @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
+    def test_next(self, mock_consumer, mock_partitioner):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     consumer_timeout_ms=500)
+        consumer = KafkaConsumerGroup([], config)
+        consumer.partitioner = mock_partitioner()
+        consumer.consumer = mock_consumer()
+
+        def fake_next():
+            time.sleep(1)
+            raise ConsumerTimeout()
+
+        consumer.consumer.next.side_effect = fake_next
+
+        # The mock KafkaConsumer.next (called fake_next above) takes longer than
+        # consumer_timeout_ms, so we should get a ConsumerTimeout from
+        # KafkaConsumerGroup
+        with pytest.raises(ConsumerTimeout):
+            consumer.next()
+
+        consumer.consumer.next.assert_called_once_with()
+        consumer.partitioner.refresh.assert_called_once_with()
+
+    def test__acquire_has_consumer(self):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster)
+        consumer = KafkaConsumerGroup([], config)
+
+        consumer.consumer = mock.Mock()
+        consumer._acquire({'a': 'b'})
+
+        consumer.consumer.set_topic_partitions.assert_called_once_with({'a': 'b'})
+
+    @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
+    def test__acquire_has_no_consumer(self, mock_consumer):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster)
+        consumer = KafkaConsumerGroup([], config)
+
+        consumer._acquire({'a': 'b'})
+        mock_consumer.assert_called_once_with({'a': 'b'}, **consumer.config)
+
+    def test__release(self):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     auto_commit_enable=True)
+        consumer = KafkaConsumerGroup([], config)
+
+        mock_consumer = mock.Mock()
+        consumer.consumer = mock_consumer
+        consumer._release({})
+
+        mock_consumer.commit.assert_called_once_with()
+        mock_consumer.set_topic_partitions.assert_called_once_with({})
 
 
 class TestMultiprocessingConsumerGroup(object):

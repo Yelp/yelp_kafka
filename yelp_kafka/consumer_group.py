@@ -7,6 +7,9 @@ import os
 import signal
 import traceback
 
+from kafka import KafkaConsumer
+from kafka.common import ConsumerTimeout
+
 from yelp_kafka.error import (
     ConsumerGroupError,
     PartitionerError,
@@ -18,6 +21,7 @@ from yelp_kafka.consumer import KafkaSimpleConsumer
 
 
 DEFAULT_REFRESH_TIMEOUT_IN_SEC = 0.5
+CONSUMER_GROUP_INTERNAL_TIMEOUT = 100  # milliseconds
 
 
 class ConsumerGroup(object):
@@ -156,6 +160,118 @@ class ConsumerGroup(object):
         if self.consumer:
             self.consumer.close()
             self.consumer = None
+
+
+class KafkaConsumerGroup(object):
+    """KafkaConsumerGroup allows you to efficiently consume from all the
+    partitions of a topic without having to manually use the
+    :py:class:`yelp_kafka.partitioner.Partitioner` class. You can spin up
+    multiple KafkaConsumerGroups, and they will co-ordinate via the Partitioner
+    to divvy up the available partitions between each other.
+
+    This class works by attempting to rebalance before each call to `next()`. In
+    the event that rebalancing does occur and that you have enabled
+    auto-committing, any messages marked as done using `task_done()` will be
+    committed before repartitioning. To commit messages immediately, you can
+    call `commit()`.
+
+    .. warning: Do not create multiple KafkaConsumerGroups in the same process; the
+    Partitioner class does not work if there are multiple instances of it in the
+    same process.
+
+    Example:
+
+    .. code-block:: python
+
+        from yelp_kafka import discovery
+        from yelp_kafka.consumer_group import KafkaConsumerGroup
+        from yelp_kafka.config import KafkaConsumerConfig
+
+        cluster = discovery.get_local_cluster('standard')
+        config = KafkaConsumerConfig('my_group', cluster)
+
+        # A "tail" consumer that reads, prints, and eventually commits every
+        # message from a list of topics.
+        consumer = KafkaConsumerGroup(['my-topic1', 'my-topic2'], config)
+        with consumer:
+            for message in consumer:
+                print message.value
+                consumer.task_done(message)
+
+    :param topics: a list of topics to consume from.
+    :type topics: list
+    :param config: yelp_kakfa consumer config.
+    :type config: :py:class:`yelp_kafka.config.KafkaConsumerConfig`
+    """
+    def __init__(self, topics, config):
+        self.topics = topics
+        self.partitioner = Partitioner(config, topics, self._acquire,
+                                       self._release)
+        self.consumer = None
+
+        # Intercept the user's timeout and pass in our own instead. We do this
+        # in order to periodically refresh the partitioner when calling next()
+        consumer_config = config.get_kafka_consumer_config()
+        self.iter_timeout = consumer_config['consumer_timeout_ms']
+        consumer_config['consumer_timeout_ms'] = CONSUMER_GROUP_INTERNAL_TIMEOUT
+        self.config = consumer_config
+
+    def start(self):
+        self.partitioner.start()
+
+    def stop(self):
+        self.partitioner.stop()
+
+    def next(self):
+        start_time = time.time()
+        while self._should_keep_trying(start_time):
+            self.partitioner.refresh()
+            try:
+                return self.consumer.next()
+            except ConsumerTimeout:
+                # This is due to the internal timeout, not the user's provided
+                # one.
+                pass
+        error_msg = "KafkaConsumerGroup timed out after {0} ms"
+        raise ConsumerTimeout(error_msg.format(self.iter_timeout))
+
+    def _should_keep_trying(self, start_time):
+        if self.iter_timeout < 0:
+            return True
+        elapsed_seconds = time.time() - start_time
+        return elapsed_seconds * 1000 < self.iter_timeout
+
+    def task_done(self, message):
+        return self.consumer.task_done(message)
+
+    def commit(self):
+        return self.consumer.commit()
+
+    def _acquire(self, partitions):
+        if not self.consumer:
+            self.consumer = KafkaConsumer(partitions, **self.config)
+        else:
+            self.consumer.set_topic_partitions(partitions)
+
+    def _release(self, partitions):
+        if self._auto_commit_enabled():
+            self.consumer.commit()
+        self.consumer.set_topic_partitions({})
+
+    def _auto_commit_enabled(self):
+        return self.config['auto_commit_enable']
+
+    def __enter__(self):
+        self.start()
+
+    def __exit__(self, type, value, traceback):
+        self.stop()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        return self.next()
 
 
 class MultiprocessingConsumerGroup(object):
