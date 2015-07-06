@@ -94,7 +94,7 @@ class TestKafkaConsumerGroup(object):
 
     topic = 'topic1'
 
-    def test__should_keep_trying(self):
+    def test__should_keep_trying_no_timeout(self):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=-1)
@@ -103,6 +103,7 @@ class TestKafkaConsumerGroup(object):
         long_time_ago = time.time() - 1000
         assert consumer._should_keep_trying(long_time_ago)
 
+    def test__should_keep_trying_not_timed_out(self):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=1000)
@@ -111,17 +112,24 @@ class TestKafkaConsumerGroup(object):
         almost_a_second_ago = time.time() - 0.8
         assert consumer._should_keep_trying(almost_a_second_ago)
 
+    def test__should_keep_trying_timed_out(self):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     consumer_timeout_ms=1000)
+        consumer = KafkaConsumerGroup([], config)
+
         over_a_second_ago = time.time() - 1.2
         assert not consumer._should_keep_trying(over_a_second_ago)
 
-    def test__auto_commit_enabled(self):
+    def test__auto_commit_enabled_is_enabled(self):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
-
         config = KafkaConsumerConfig('my_group', cluster,
                                      auto_commit_enable=True)
         consumer = KafkaConsumerGroup([], config)
         assert consumer._auto_commit_enabled()
 
+    def test__auto_commit_enabled_not_enabled(self):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
                                      auto_commit_enable=False)
         consumer = KafkaConsumerGroup([], config)
