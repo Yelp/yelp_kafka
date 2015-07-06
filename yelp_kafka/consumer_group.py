@@ -175,7 +175,7 @@ class KafkaConsumerGroup(object):
     committed before repartitioning. To commit messages immediately, you can
     call `commit()`.
 
-    Warning: Do not create multiple KafkaConsumerGroups in the same process; the
+    .. warning: Do not create multiple KafkaConsumerGroups in the same process; the
     Partitioner class does not work if there are multiple instances of it in the
     same process.
 
