@@ -146,7 +146,7 @@ class TestKafkaConsumerGroup(object):
     def test_next(self, mock_consumer, mock_partitioner):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
-                                     consumer_timeout_ms=1000)
+                                     consumer_timeout_ms=500)
         consumer = KafkaConsumerGroup([], config)
         consumer.partitioner = mock_partitioner()
         consumer.consumer = mock_consumer()
@@ -157,8 +157,9 @@ class TestKafkaConsumerGroup(object):
 
         consumer.consumer.next.side_effect = fake_next
 
-        # The consumer timeout is 0, so we are guaranteed to time out when
-        # fetching a message.
+        # The mock KafkaConsumer.next (called fake_next above) takes longer than
+        # consumer_timeout_ms, so we should get a ConsumerTimeout from
+        # KafkaConsumerGroup
         with pytest.raises(ConsumerTimeout):
             consumer.next()
 
