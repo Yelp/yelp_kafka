@@ -141,16 +141,29 @@ class TestKafkaConsumerGroup(object):
         consumer = KafkaConsumerGroup([], config)
         assert not consumer._auto_commit_enabled()
 
-    def test_next(self):
+    @mock.patch('yelp_kafka.consumer_group.Partitioner')
+    @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
+    def test_next(self, mock_consumer, mock_partitioner):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
-                                     consumer_timeout_ms=0)
+                                     consumer_timeout_ms=1000)
         consumer = KafkaConsumerGroup([], config)
+        consumer.partitioner = mock_partitioner()
+        consumer.consumer = mock_consumer()
+
+        def fake_next():
+            time.sleep(1)
+            raise ConsumerTimeout()
+
+        consumer.consumer.next.side_effect = fake_next
 
         # The consumer timeout is 0, so we are guaranteed to time out when
         # fetching a message.
         with pytest.raises(ConsumerTimeout):
             consumer.next()
+
+        consumer.consumer.next.assert_called_once_with()
+        consumer.partitioner.refresh.assert_called_once_with()
 
     def test__acquire_has_consumer(self):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
