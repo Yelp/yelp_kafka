@@ -168,7 +168,6 @@ class TestKafkaConsumerGroup(object):
         config = KafkaConsumerConfig('my_group', cluster)
         consumer = KafkaConsumerGroup([], config)
 
-        # mock_consumer.return_value = mock.Mock()
         consumer._acquire({'a': 'b'})
         mock_consumer.assert_called_once_with({'a': 'b'}, **consumer.config)
 
