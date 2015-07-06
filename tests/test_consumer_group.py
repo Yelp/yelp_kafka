@@ -152,16 +152,25 @@ class TestKafkaConsumerGroup(object):
         with pytest.raises(ConsumerTimeout):
             consumer.next()
 
-    def test__acquire(self):
+    def test__acquire_has_consumer(self):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster)
         consumer = KafkaConsumerGroup([], config)
 
-        mock_consumer = mock.Mock()
-        consumer.consumer = mock_consumer
+        consumer.consumer = mock.Mock()
         consumer._acquire({'a': 'b'})
 
-        mock_consumer.set_topic_partitions.assert_called_once_with({'a': 'b'})
+        consumer.consumer.set_topic_partitions.assert_called_once_with({'a': 'b'})
+
+    @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
+    def test__acquire_has_no_consumer(self, mock_consumer):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster)
+        consumer = KafkaConsumerGroup([], config)
+
+        # mock_consumer.return_value = mock.Mock()
+        consumer._acquire({'a': 'b'})
+        mock_consumer.assert_called_once_with({'a': 'b'}, **consumer.config)
 
     def test__release(self):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
