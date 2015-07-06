@@ -103,7 +103,10 @@ class TestKafkaConsumerGroup(object):
         long_time_ago = time.time() - 1000
         assert consumer._should_keep_trying(long_time_ago)
 
-    def test__should_keep_trying_not_timed_out(self):
+    @mock.patch('time.time')
+    def test__should_keep_trying_not_timed_out(self, mock_time):
+        mock_time.return_value = 0
+
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=1000)
@@ -112,7 +115,10 @@ class TestKafkaConsumerGroup(object):
         almost_a_second_ago = time.time() - 0.8
         assert consumer._should_keep_trying(almost_a_second_ago)
 
-    def test__should_keep_trying_timed_out(self):
+    @mock.patch('time.time')
+    def test__should_keep_trying_timed_out(self, mock_time):
+        mock_time.return_value = 0
+
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=1000)
