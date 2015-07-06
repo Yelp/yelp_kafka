@@ -94,8 +94,7 @@ class TestKafkaConsumerGroup(object):
 
     topic = 'topic1'
 
-    @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
-    def test__should_keep_trying(self, _):
+    def test__should_keep_trying(self):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=-1)
@@ -115,8 +114,7 @@ class TestKafkaConsumerGroup(object):
         over_a_second_ago = time.time() - 1.2
         assert not consumer._should_keep_trying(over_a_second_ago)
 
-    @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
-    def test__auto_commit_enabled(self, _):
+    def test__auto_commit_enabled(self):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
 
         config = KafkaConsumerConfig('my_group', cluster,
@@ -129,14 +127,37 @@ class TestKafkaConsumerGroup(object):
         consumer = KafkaConsumerGroup([], config)
         assert not consumer._auto_commit_enabled()
 
-    @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
-    def test_next(self, _):
+    def test_next(self):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=0)
         consumer = KafkaConsumerGroup([], config)
         with pytest.raises(ConsumerTimeout):
             consumer.next()
+
+    def test__acquire(self):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster)
+        consumer = KafkaConsumerGroup([], config)
+
+        mock_consumer = mock.Mock()
+        consumer.consumer = mock_consumer
+        consumer._acquire({'a': 'b'})
+
+        mock_consumer.set_topic_partitions.assert_called_once_with({'a': 'b'})
+
+    def test__release(self):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     auto_commit_enable=True)
+        consumer = KafkaConsumerGroup([], config)
+
+        mock_consumer = mock.Mock()
+        consumer.consumer = mock_consumer
+        consumer._release({})
+
+        mock_consumer.commit.assert_called_once_with()
+        mock_consumer.set_topic_partitions.assert_called_once_with({})
 
 
 class TestMultiprocessingConsumerGroup(object):
