@@ -146,6 +146,9 @@ class TestKafkaConsumerGroup(object):
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=0)
         consumer = KafkaConsumerGroup([], config)
+
+        # The consumer timeout is 0, so we are guaranteed to time out when
+        # fetching a message.
         with pytest.raises(ConsumerTimeout):
             consumer.next()
 
