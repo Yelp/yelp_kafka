@@ -102,13 +102,14 @@ class MyKafkaClient(object):
 
         return [resp if not callback else callback(resp) for resp in resps]
 
-    has_metadata_for_topic = lambda self, t: t in self.topics
+    def has_metadata_for_topic(self, t):
+        return t in self.topics
 
-    get_partition_ids_for_topic = \
-        lambda self, topic: self.topics[topic]
+    def get_partition_ids_for_topic(self, topic):
+        return self.topics[topic]
 
-    send_offset_fetch_request = \
-        lambda self, group, reqs, fail_on_error, callback: [
+    def send_offset_fetch_request(self, group, reqs, fail_on_error, callback):
+        return [
             callback(
                 OffsetFetchResponse(
                     req.topic,
