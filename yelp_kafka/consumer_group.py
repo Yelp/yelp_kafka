@@ -38,6 +38,11 @@ class ConsumerGroup(object):
     partitions and there are many consumers, each consumer will pick up
     a subset of partitions and consume from them.
 
+    .. warning::
+        Messages will be named tuples with fields "partition",
+        "offset", "key", "value". This message format is different from those
+        yielded by :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`.
+
     Example:
 
     .. code-block:: python
@@ -175,9 +180,16 @@ class KafkaConsumerGroup(object):
     committed before repartitioning. To commit messages immediately, you can
     call `commit()`.
 
-    .. warning: Do not create multiple KafkaConsumerGroups in the same process; the
-    Partitioner class does not work if there are multiple instances of it in the
-    same process.
+    .. warning::
+        Do not create multiple KafkaConsumerGroups in the same process;
+        the Partitioner class does not work if there are multiple instances of it in
+        the same process.
+
+    .. warning::
+        Messages will be instances of kafka-python KafkaMessage, which is
+        a named tuple with the fields "topic", "partition", "offset", "key",
+        "value". This message format is different from those yielded by
+        :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.
 
     Example:
 
