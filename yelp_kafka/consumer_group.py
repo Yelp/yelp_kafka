@@ -234,6 +234,12 @@ class KafkaConsumerGroup(object):
     def stop(self):
         self.partitioner.stop()
 
+        # Ideally we'd like to write `self.consumer.close()`, but that
+        # functionality doesn't exist in kafka-python yet. See:
+        #
+        # https://github.com/mumrah/kafka-python/pull/426
+        self.consumer._client.close()
+
     def next(self):
         start_time = time.time()
         while self._should_keep_trying(start_time):
