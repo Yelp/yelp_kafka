@@ -219,20 +219,20 @@ Using consumer groups to tail from scribe
 Yelp_Kafka currently provides three *consumer group* interfaces for consuming
 from Kafka.
 
+- :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` is the recommended
+  class to use if you want start multiple instances of your consumer. You may
+  start as many instances as you wish (balancing partitions will happen
+  automatically), and you can control when to mark messages as processed (via
+  `task_done` and `commit`).
+
 - :py:class:`yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for
   consuming from high volume topics since it starts as many consumer as topic
   partitions. It also handles process monitoring and restart upon failures.
 
-- :py:class:`yelp_kafka.consumer_group.ConsumerGroup` is used for single process
-  consumers. Since ConsumerGroup periodically checks for changes in the number
-  of partitions, it assures that your consumers will always receive messages
-  from all of them.
-
-- :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` is the recommended
-  class to use if you want start multiple instances of your consumer. You may
-  start as many instances as you wish (balancing partitions will happen
-  automatically), but you can still control when to mark messages as processed
-  (via `task_done` and `commit`).
+- :py:class:`yelp_kafka.consumer_group.ConsumerGroup` provides the same set of
+  features as KafkaConsumerGroup, but with a less convenient interface (it is
+  still available for backwards compatibility). You should use
+  KafkaConsumerGroup for all new code.
 
 Tailing from a scribe topic using
 :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`:
@@ -258,31 +258,6 @@ Tailing from a scribe topic using
          # letting KafkaConsumerGroup decide when to inform Kafka of our
          # completed messages.
          consumer.task_done(message)
-
-Tailing from a scribe topic using
-:py:class:`yelp_kafka.consumer_group.ConsumerGroup`:
-
-.. code-block:: python
-
-   from yelp_kafka import discovery
-   from yelp_kafka.consumer_group import ConsumerGroup
-   from yelp_kafka.config import KafkaConsumerConfig
-
-   # If the stream does not exist, discovery raises DiscoveryError.
-   topic, cluster = discovery.get_local_scribe_topic('ranger')
-
-   def my_process_function(message):
-       print message
-
-   consumer = ConsumerGroup(
-       topic,
-       KafkaConsumerConfig(
-           group_id='my_app',
-           cluster=cluster
-        ),
-        my_process_function
-   )
-   consumer.run()
 
 Contents:
 =========
