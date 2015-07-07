@@ -47,7 +47,7 @@ This example makes use of the `SimpleProducer`_ class from kafka-python.
 Consumer
 ````````
 
-Create a consumer for my_topic in the local standard Kafka cluster.
+Create a consumer for my_topic in the local standard Kafka cluster:
 
 .. code-block:: python
 
@@ -66,8 +66,27 @@ Create a consumer for my_topic in the local standard Kafka cluster.
        for message in consumer:
            print message
 
+Create a consumer group that tails from my_topic in the standard Kafka cluster:
 
-Create a consumer for all topics ending with tools_infra in the standard Kafka cluster.
+.. code-block:: python
+
+   from yelp_kafka import discovery
+   from yelp_kafka.consumer_group import KafkaConsumerGroup
+   from yelp_kafka.config import KafkaConsumerConfig
+
+   cluster = discovery.get_local_cluster('standard')
+   config = KafkaConsumerConfig('my_group_id', cluster)
+
+   consumer = KafkaConsumerGroup(['my_topic'], config)
+   with consumer:
+      for message in consumer:
+         print message
+         consumer.task_done(message)
+
+See :ref:`group_example` for more information about using KafkaConsumerGroup.
+
+Create a consumer for all topics ending with tools_infra in the standard Kafka
+cluster:
 
 .. code-block:: python
 
@@ -82,10 +101,13 @@ Create a consumer for all topics ending with tools_infra in the standard Kafka c
    for message in consumer:
        print message
 
-This example makes use of the `KafkaConsumer`_ from kafka-python. This consumer class allows to consume from many topics from a Kafka cluster. This solution cannot be considered efficient for high volume topics, though. The parameter *client_id* is optional and it identifies the connection between Kafka and the client.
+This example makes use of the `KafkaConsumer`_ from kafka-python. This consumer
+class allows to consume from many topics from a Kafka cluster. This solution
+cannot be considered efficient for high volume topics, though. The parameter
+*client_id* is optional and it identifies the connection between Kafka and the
+client.
 
 .. _KafkaConsumer: http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.kafka
-
 
 Scribe cluster
 --------------
