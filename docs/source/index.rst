@@ -191,10 +191,54 @@ If the code above is run in prod it creates a consumer for each datacenter and c
 
 .. _group_example:
 
-Use ConsumerGroup to tail from scribe
-`````````````````````````````````````
+Using consumer groups to tail from scribe
+`````````````````````````````````````````
 
-Yelp_Kafka currently provides two *consumer group* interfaces for consuming from Kafka. :py:class:`yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for consuming from high volume topics since it starts as many consumer as topic partitions. It also handles process monitoring and restart upon failures. :py:class:`yelp_kafka.consumer_group.ConsumerGroup` is used for single process consumers. It is the recommended class to use if you want to be able to start multiple instances of your consumer. Since ConsumerGroup periodically checks about changes in the number of partitions, it assures that your consumers will always receive messages from all of them.
+Yelp_Kafka currently provides three *consumer group* interfaces for consuming
+from Kafka.
+
+- :py:class:`yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for
+  consuming from high volume topics since it starts as many consumer as topic
+  partitions. It also handles process monitoring and restart upon failures.
+
+- :py:class:`yelp_kafka.consumer_group.ConsumerGroup` is used for single process
+  consumers. Since ConsumerGroup periodically checks for changes in the number
+  of partitions, it assures that your consumers will always receive messages
+  from all of them.
+
+- :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` is the recommended
+  class to use if you want start multiple instances of your consumer. You may
+  start as many instances as you wish (balancing partitions will happen
+  automatically), but you can still control when to mark messages as processed
+  (via `task_done` and `commit`).
+
+Tailing from a scribe topic using
+:py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`:
+
+.. code-block:: python
+
+   from yelp_kafka import discovery
+   from yelp_kafka.consumer_group import KafkaConsumerGroup
+   from yelp_kafka.config import KafkaConsumerConfig
+
+   topic, cluster = discovery.get_local_scribe_topic('ranger')
+   config = KafkaConsumerConfig('my_group_id', cluster)
+
+   consumer = KafkaConsumerGroup([topic], config)
+   with consumer:
+      for message in consumer:
+         print message
+
+         # If auto_commit is disabled in KafkaConsumerGroup, then you must call
+         # consumer.commit() yourself.
+         #
+         # auto_commit is enabled by default, so here we are implicitly
+         # letting KafkaConsumerGroup decide when to inform Kafka of our
+         # completed messages.
+         consumer.task_done(message)
+
+Tailing from a scribe topic using
+:py:class:`yelp_kafka.consumer_group.ConsumerGroup`:
 
 .. code-block:: python
 
