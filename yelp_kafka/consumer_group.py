@@ -198,13 +198,16 @@ class KafkaConsumerGroup(object):
                 print message.value
                 consumer.task_done(message)
 
-    :param topics: a list of topics to consume from.
+    :param topics: a list of topics to consume from. You can also pass in
+        a single string and KafkaConsumerGroup will internally convert it to
+        a one-element list for you.
     :type topics: list
     :param config: yelp_kakfa consumer config.
     :type config: :py:class:`yelp_kafka.config.KafkaConsumerConfig`
     """
     def __init__(self, topics, config):
-        self.topics = topics
+        assert isinstance(topics, list)
+
         self.partitioner = Partitioner(config, topics, self._acquire,
                                        self._release)
         self.consumer = None

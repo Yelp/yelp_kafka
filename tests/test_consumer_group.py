@@ -94,6 +94,10 @@ class TestKafkaConsumerGroup(object):
 
     topic = 'topic1'
 
+    def test___init__string_topics(self):
+        with pytest.raises(AssertionError):
+            KafkaConsumerGroup('topic', None)
+
     def test__should_keep_trying_no_timeout(self):
         cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
