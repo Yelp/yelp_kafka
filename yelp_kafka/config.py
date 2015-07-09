@@ -195,29 +195,29 @@ class KafkaConsumerConfig(object):
         return value / 1000
 
     SIMPLE_FROM_KAFKA = {
-        "auto_commit": ("auto_commit_enable", identity),
-        "auto_commit_every_n": ("auto_commit_interval_messages", identity),
-        "auto_commit_every_t": ("auto_commit_interval_ms", identity),
-        "fetch_size_bytes": ("fetch_min_bytes", identity),
-        "buffer_size": NOT_CONVERTIBLE,
-        "max_buffer_size": ("fetch_message_max_bytes", identity),
-        "iter_timeout": ("consumer_timeout_ms", ms_to_seconds),
-        "auto_offset_reset": ("auto_offset_reset", identity)
+        'auto_commit': ('auto_commit_enable', identity),
+        'auto_commit_every_n': ('auto_commit_interval_messages', identity),
+        'auto_commit_every_t': ('auto_commit_interval_ms', identity),
+        'fetch_size_bytes': ('fetch_min_bytes', identity),
+        'buffer_size': NOT_CONVERTIBLE,
+        'max_buffer_size': ('fetch_message_max_bytes', identity),
+        'iter_timeout': ('consumer_timeout_ms', ms_to_seconds),
+        'auto_offset_reset': ('auto_offset_reset', identity),
     }
 
     KAFKA_FROM_SIMPLE = {
-        "client_id": NOT_CONVERTIBLE,
-        "fetch_message_max_bytes": ("max_buffer_size", identity),
-        "fetch_min_bytes": ("fetch_size_bytes", identity),
-        "fetch_wait_max_ms": NOT_CONVERTIBLE,
-        "refresh_leader_backoff_ms": NOT_CONVERTIBLE,
-        "socket_timeout_ms": NOT_CONVERTIBLE,
-        "auto_offset_reset": ("auto_offset_reset", identity),
-        "deserializer_class": NOT_CONVERTIBLE,
-        "auto_commit_enable": ("auto_commit", identity),
-        "auto_commit_interval_ms": ("auto_commit_every_t", identity),
-        "auto_commit_interval_messages": ("auto_commit_every_n", identity),
-        "consumer_timeout_ms": ("iter_timeout", seconds_to_ms)
+        'client_id': NOT_CONVERTIBLE,
+        'fetch_message_max_bytes': ('max_buffer_size', identity),
+        'fetch_min_bytes': ('fetch_size_bytes', identity),
+        'fetch_wait_max_ms': NOT_CONVERTIBLE,
+        'refresh_leader_backoff_ms': NOT_CONVERTIBLE,
+        'socket_timeout_ms': NOT_CONVERTIBLE,
+        'auto_offset_reset': ('auto_offset_reset', identity),
+        'deserializer_class': NOT_CONVERTIBLE,
+        'auto_commit_enable': ('auto_commit', identity),
+        'auto_commit_interval_ms': ('auto_commit_every_t', identity),
+        'auto_commit_interval_messages': ('auto_commit_every_n', identity),
+        'consumer_timeout_ms': ('iter_timeout', seconds_to_ms),
     }
 
     SIMPLE_CONSUMER_DEFAULT_CONFIG = {
@@ -231,6 +231,16 @@ class KafkaConsumerConfig(object):
         'auto_offset_reset': DEFAULT_OFFSET_RESET,
     }
     """Default SimpleConsumer configuration"""
+
+    KAFKA_CONSUMER_DEFAULT_CONFIG = {
+        'auto_commit_interval_messages': AUTO_COMMIT_MSG_COUNT,
+        'auto_commit_interval_ms': AUTO_COMMIT_INTERVAL,
+        'auto_commit_enable': True,
+        'fetch_min_bytes': FETCH_MIN_BYTES,
+        'consumer_timeout_ms': seconds_to_ms(MAX_ITERATOR_TIMEOUT_SECS),
+        'auto_offset_reset': DEFAULT_OFFSET_RESET,
+    }
+    """SIMPLE_CONSUMER_DEFAULT_CONFIG converted into a KafkaConsumer config"""
 
     def __init__(self, group_id, cluster, **config):
         self._config = config
@@ -250,7 +260,7 @@ class KafkaConsumerConfig(object):
     def get_simple_consumer_args(self):
         """Get the configuration args for kafka-python SimpleConsumer."""
         args = {}
-        for (key, default) in self.SIMPLE_CONSUMER_DEFAULT_CONFIG.iteritems():
+        for key, default in self.SIMPLE_CONSUMER_DEFAULT_CONFIG.iteritems():
             if key in self._config:
                 args[key] = self._config[key]
             else:
@@ -268,7 +278,7 @@ class KafkaConsumerConfig(object):
     def get_kafka_consumer_config(self):
         """Get the configuration for kafka-python KafkaConsumer."""
         config = {}
-        for (key, default) in DEFAULT_CONSUMER_CONFIG.iteritems():
+        for key, default in DEFAULT_CONSUMER_CONFIG.iteritems():
             if key in self._config:
                 config[key] = self._config[key]
             else:
@@ -283,11 +293,11 @@ class KafkaConsumerConfig(object):
                 if simple_key in self._config:
                     # the user has provided a key we can convert from
                     config[key] = convert_fn(self._config[simple_key])
-                elif simple_key in self.SIMPLE_CONSUMER_DEFAULT_CONFIG:
-                    # the default config has a key we can convert from
-                    config[key] = convert_fn(self.SIMPLE_CONSUMER_DEFAULT_CONFIG[simple_key])
+                elif key in self.KAFKA_CONSUMER_DEFAULT_CONFIG:
+                    # use yelp-kafka's default
+                    config[key] = self.KAFKA_CONSUMER_DEFAULT_CONFIG[key]
                 else:
-                    # we couldn't find anything to convert from
+                    # use kafka-python's default
                     config[key] = default
 
         config['group_id'] = self.group_id
