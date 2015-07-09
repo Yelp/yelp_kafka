@@ -220,6 +220,8 @@ class KafkaConsumerConfig(object):
         'consumer_timeout_ms': ('iter_timeout', seconds_to_ms),
     }
 
+    # Do not modify SIMPLE_CONSUMER_DEFAULT_CONFIG without also changing
+    # KAKFA_CONSUMER_DEFAULT_CONFIG
     SIMPLE_CONSUMER_DEFAULT_CONFIG = {
         'buffer_size': KAFKA_BUFFER_SIZE,
         'auto_commit_every_n': AUTO_COMMIT_MSG_COUNT,
