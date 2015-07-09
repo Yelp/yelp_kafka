@@ -3,7 +3,11 @@ import mock
 import pytest
 from StringIO import StringIO
 
+from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
+
 from yelp_kafka.config import (
+    KAFKA_BUFFER_SIZE,
+    AUTO_COMMIT_INTERVAL,
     ClusterConfig,
     KafkaConsumerConfig,
     load_yaml_config,
@@ -391,3 +395,43 @@ class TestKafkaConsumerConfig(object):
             **consumer_config
         )
         assert config1 != config2
+
+    def test_get_simple_consumer_args(self):
+        cluster_config = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka:9092'],
+            zookeeper='zookeeper:2181'
+        )
+
+        config = KafkaConsumerConfig('some_group',
+                                     cluster_config,
+                                     auto_offset_reset='smallest',
+                                     fetch_min_bytes=456,
+                                     consumer_timeout_ms=5000)
+        args = config.get_simple_consumer_args()
+
+        assert args['buffer_size'] == KAFKA_BUFFER_SIZE
+        assert args['auto_commit']
+        assert args['auto_offset_reset'] == 'smallest'
+        assert args['fetch_size_bytes'] == 456
+        assert args['iter_timeout'] == 5
+
+    def test_get_kafka_consumer_config(self):
+        cluster_config = ClusterConfig(
+            name='some_cluster',
+            broker_list=['kafka:9092'],
+            zookeeper='zookeeper:2181'
+        )
+
+        config = KafkaConsumerConfig('some_group',
+                                     cluster_config,
+                                     fetch_message_max_bytes=123,
+                                     auto_commit=False,
+                                     iter_timeout=5)
+        kafka_config = config.get_kafka_consumer_config()
+
+        assert kafka_config['fetch_message_max_bytes'] == 123
+        assert kafka_config['auto_commit_enable'] == False
+        assert kafka_config['auto_commit_interval_ms'] == AUTO_COMMIT_INTERVAL
+        assert kafka_config['socket_timeout_ms'] == DEFAULT_CONSUMER_CONFIG['socket_timeout_ms']
+        assert kafka_config['consumer_timeout_ms'] == 5000

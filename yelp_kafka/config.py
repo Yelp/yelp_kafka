@@ -183,6 +183,43 @@ class KafkaConsumerConfig(object):
           time to wait for a consumer to terminate. Default 10 secs.
     """
 
+    NOT_CONVERTIBLE = object()
+
+    def identity(value):
+        return value
+
+    def seconds_to_ms(value):
+        return value * 1000
+
+    def ms_to_seconds(value):
+        return value / 1000
+
+    SIMPLE_FROM_KAFKA = {
+        "auto_commit": ("auto_commit_enable", identity),
+        "auto_commit_every_n": ("auto_commit_interval_messages", identity),
+        "auto_commit_every_t": ("auto_commit_interval_ms", identity),
+        "fetch_size_bytes": ("fetch_min_bytes", identity),
+        "buffer_size": NOT_CONVERTIBLE,
+        "max_buffer_size": ("fetch_message_max_bytes", identity),
+        "iter_timeout": ("consumer_timeout_ms", ms_to_seconds),
+        "auto_offset_reset": ("auto_offset_reset", identity)
+    }
+
+    KAFKA_FROM_SIMPLE = {
+        "client_id": NOT_CONVERTIBLE,
+        "fetch_message_max_bytes": ("max_buffer_size", identity),
+        "fetch_min_bytes": ("fetch_size_bytes", identity),
+        "fetch_wait_max_ms": NOT_CONVERTIBLE,
+        "refresh_leader_backoff_ms": NOT_CONVERTIBLE,
+        "socket_timeout_ms": NOT_CONVERTIBLE,
+        "auto_offset_reset": ("auto_offset_reset", identity),
+        "deserializer_class": NOT_CONVERTIBLE,
+        "auto_commit_enable": ("auto_commit", identity),
+        "auto_commit_interval_ms": ("auto_commit_every_t", identity),
+        "auto_commit_interval_messages": ("auto_commit_every_n", identity),
+        "consumer_timeout_ms": ("iter_timeout", seconds_to_ms)
+    }
+
     SIMPLE_CONSUMER_DEFAULT_CONFIG = {
         'buffer_size': KAFKA_BUFFER_SIZE,
         'auto_commit_every_n': AUTO_COMMIT_MSG_COUNT,
@@ -195,43 +232,64 @@ class KafkaConsumerConfig(object):
     }
     """Default SimpleConsumer configuration"""
 
-    def __init__(
-        self, group_id, cluster,
-        **config
-    ):
+    def __init__(self, group_id, cluster, **config):
         self._config = config
         self.cluster = cluster
         self.group_id = kafka_bytestring(group_id)
 
     def __eq__(self, other):
-        if all([
+        return all([
             self._config == other._config,
             self.cluster == other.cluster,
             self.group_id == other.group_id,
-        ]):
-            return True
-        return False
+        ])
 
     def __ne__(self, other):
-        return not self.__eq__(other)
+        return not self == other
 
     def get_simple_consumer_args(self):
         """Get the configuration args for kafka-python SimpleConsumer."""
         args = {}
-        for key in self.SIMPLE_CONSUMER_DEFAULT_CONFIG.iterkeys():
-            args[key] = self._config.get(
-                key, self.SIMPLE_CONSUMER_DEFAULT_CONFIG[key]
-            )
+        for (key, default) in self.SIMPLE_CONSUMER_DEFAULT_CONFIG.iteritems():
+            if key in self._config:
+                args[key] = self._config[key]
+            else:
+                conversion = self.SIMPLE_FROM_KAFKA[key]
+                try:
+                    (kafka_key, convert_fn) = conversion
+                    args[key] = convert_fn(self._config[kafka_key])
+                except (TypeError, KeyError):
+                    # either the conversion or kafka_key doesn't exist
+                    args[key] = default
+
         args['group'] = self.group_id
         return args
 
     def get_kafka_consumer_config(self):
         """Get the configuration for kafka-python KafkaConsumer."""
         config = {}
-        for key in DEFAULT_CONSUMER_CONFIG.iterkeys():
-            config[key] = self._config.get(
-                key, DEFAULT_CONSUMER_CONFIG[key]
-            )
+        for (key, default) in DEFAULT_CONSUMER_CONFIG.iteritems():
+            if key in self._config:
+                config[key] = self._config[key]
+            else:
+                try:
+                    conversion = self.KAFKA_FROM_SIMPLE[key]
+                    (simple_key, convert_fn) = conversion
+                except (KeyError, TypeError):
+                    # no conversion can be made
+                    config[key] = default
+                    continue
+
+                if simple_key in self._config:
+                    # the user has provided a key we can convert from
+                    config[key] = convert_fn(self._config[simple_key])
+                elif simple_key in self.SIMPLE_CONSUMER_DEFAULT_CONFIG:
+                    # the default config has a key we can convert from
+                    config[key] = convert_fn(self.SIMPLE_CONSUMER_DEFAULT_CONFIG[simple_key])
+                else:
+                    # we couldn't find anything to convert from
+                    config[key] = default
+
         config['group_id'] = self.group_id
         config['bootstrap_servers'] = self.cluster.broker_list
         return config
