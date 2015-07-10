@@ -216,7 +216,7 @@ class KafkaConsumerGroup(object):
     :type config: :py:class:`yelp_kafka.config.KafkaConsumerConfig`
     """
     def __init__(self, topics, config):
-        assert isinstance(topics, list)
+        assert isinstance(topics, list), "Topics must be a list"
 
         self.partitioner = Partitioner(config, topics, self._acquire,
                                        self._release)
