@@ -1,11 +1,16 @@
+import time
+import math
+import functools
 import logging
-from multiprocessing import Event
-from multiprocessing import Lock
-from multiprocessing import Process
+from threading import Thread
+from Queue import Queue
+from multiprocessing import Event, Lock, Process
 import time
 import os
 import signal
 import traceback
+
+import signalfx
 
 from kafka import KafkaConsumer
 from kafka.common import ConsumerTimeout
@@ -220,10 +225,21 @@ class KafkaConsumerGroup(object):
         self.partitioner = Partitioner(config, topics, self._acquire,
                                        self._release)
         self.consumer = None
+        self.metrics_queue = Queue()
+
+        consumer_config = config.get_kafka_consumer_config()
+
+        if config.signalfx_dimensions is not None:
+            responder = lambda key, value: self.metrics_queue.put((key, value))
+            consumer_config['metrics_responder'] = responder
+
+            processor = self.MetricsProcessor(self.metrics_queue,
+                                              config.group_id,
+                                              config.signalfx_dimensions)
+            Thread(target=processor.main_loop).start()
 
         # Intercept the user's timeout and pass in our own instead. We do this
         # in order to periodically refresh the partitioner when calling next()
-        consumer_config = config.get_kafka_consumer_config()
         self.iter_timeout = consumer_config['consumer_timeout_ms']
         consumer_config['consumer_timeout_ms'] = CONSUMER_GROUP_INTERNAL_TIMEOUT
         self.config = consumer_config
@@ -291,6 +307,117 @@ class KafkaConsumerGroup(object):
     def __next__(self):
         return self.next()
 
+    class MetricsProcessor(object):
+        def __init__(self, queue, group_id, dimensions):
+            self.queue = queue
+
+            token = 'Yzk63RmHoiwHDfMutkPLAg'
+            self.reporter = signalfx.SignalFx(token)
+            self.group_id = group_id
+            self.extra_dimensions = dimensions
+
+        def main_loop(self):
+            while True:
+                messages = []
+                num_messages = self.queue.qsize()
+
+                for _ in xrange(num_messages):
+                    messages.append(self.queue.get())
+
+                self.process_metrics(messages)
+                time.sleep(10)
+
+        def process_metrics(self, messages):
+            print "processing"
+            time_metrics = {
+                    'metadata_request_timer': [],
+                    'produce_request_timer': [],
+                    'fetch_request_timer': [],
+                    'offset_request_timer': [],
+                    'offset_commit_request_timer': [],
+                    'offset_fetch_request_timer': []
+            }
+
+            failure_count_metrics = {
+                    'failed_paylads_count': 0,
+                    'out_of_range_counts': 0,
+                    'not_leader_for_partition_count': 0,
+                    'request_timed_out_count': 0
+            }
+
+            for metric_name, datum in messages:
+                if metric_name in time_metrics:
+                    time_metrics[metric_name].append(datum)
+                elif metric_name in failure_count_metrics:
+                    failure_count_metrics[metric_name] += datum
+                else:
+                    raise Exception("Unknown metric: {0}".format(metric_name))
+
+            for metric, times in time_metrics.iteritems():
+                self.send_time_metric_data(metric, sorted(times))
+
+            for metric, count in failure_count_metrics.iteritems():
+                self.send_failure_count_data(metric, count)
+
+        def send_time_metric_data(self, metric, times):
+            if not times:
+                return
+
+            median = self.percentile(times, 0.5)
+            per95 = self.percentile(times, 0.95)
+
+            self.reporter.send(gauges=[
+                self.make_time_sfx_gauge(metric, median, 'median'),
+                self.make_time_sfx_gauge(metric, per95, '95th')
+            ])
+
+        def make_time_sfx_gauge(self, metric, value, type):
+            return {
+                'metric': 'yelp_kafka.KafkaConsumerGroup',
+                'value': value,
+                'dimensions': self.make_dimensions({
+                    'metric': metric, 'type': type
+                })
+            }
+
+        def send_failure_count_data(self, metric, count):
+            self.reporter.send(counters=[
+                self.make_count_sfx_gauge(metric, count)
+            ])
+
+        def make_count_sfx_gauge(self, metric, value):
+            return {
+                'metric': 'yelp_kafka.KafkaConsumerGroup',
+                'value': value,
+                'dimensions': self.make_dimensions({ 'metric': metric })
+            }
+
+        def make_dimensions(self, data):
+            dimensions = { 'group_id': self.group_id }
+            dimensions.update(self.extra_dimensions)
+            dimensions.update(data)
+            return dimensions
+
+        def percentile(self, N, percent, key=lambda x:x):
+            """
+            Find the percentile of a list of values.
+
+            @parameter N - is a list of values. Note N MUST BE already sorted.
+            @parameter percent - a float value from 0.0 to 1.0.
+            @parameter key - optional key function to compute value from each element of N.
+
+            @return - the percentile of the values
+            """
+            if not N:
+                return None
+            k = (len(N)-1) * percent
+            f = math.floor(k)
+            c = math.ceil(k)
+            if f == c:
+                return key(N[int(k)])
+            d0 = key(N[int(f)]) * (c-k)
+            d1 = key(N[int(c)]) * (k-f)
+            return d0+d1
 
 class MultiprocessingConsumerGroup(object):
     """Multiprocessing consumer group allows to consume

@@ -43,6 +43,7 @@ setup(
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
         'setproctitle>=1.1.8',
+        'signalfx==0.3.4'
     ],
     cmdclass={
         'test': Tox,

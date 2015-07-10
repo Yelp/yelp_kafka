@@ -264,6 +264,10 @@ class KafkaConsumerConfig(object):
     def client_id(self):
         return self._config.get('client_id', DEFAULT_CLIENT_ID)
 
+    @property
+    def signalfx_dimensions(self):
+        return self._config.get('signalfx_dimensions', None)
+
     def __repr__(self):
         return (
             "KafkaConsumerConfig(group_id={group_id!r}, cluster={cluster!r}, "
