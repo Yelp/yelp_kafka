@@ -353,23 +353,31 @@ class KafkaConsumerGroup(object):
                 else:
                     raise Exception("Unknown metric: {0}".format(metric_name))
 
+            gauges = []
+
             for metric, times in time_metrics.iteritems():
-                self.send_time_metric_data(metric, sorted(times))
+                metric_gauges = self.make_time_metric_data(metric, sorted(times))
+                gauges.extend(metric_gauges)
+
+            counters = []
 
             for metric, count in failure_count_metrics.iteritems():
-                self.send_failure_count_data(metric, count)
+                metric_counters = self.make_failure_count_data(metric, count)
+                counters.extend(metric_counters)
 
-        def send_time_metric_data(self, metric, times):
+            self.reporter.send(gauges=gauges, counters=counters)
+
+        def make_time_metric_data(self, metric, times):
             if not times:
-                return
+                return []
 
             median = self.percentile(times, 0.5)
             per95 = self.percentile(times, 0.95)
 
-            self.reporter.send(gauges=[
+            return [
                 self.make_time_sfx_gauge(metric, median, 'median'),
                 self.make_time_sfx_gauge(metric, per95, '95th')
-            ])
+            ]
 
         def make_time_sfx_gauge(self, metric, value, type):
             return {
@@ -380,10 +388,10 @@ class KafkaConsumerGroup(object):
                 })
             }
 
-        def send_failure_count_data(self, metric, count):
-            self.reporter.send(counters=[
+        def make_failure_count_data(self, metric, count):
+            return [
                 self.make_count_sfx_gauge(metric, count)
-            ])
+            ]
 
         def make_count_sfx_gauge(self, metric, value):
             return {
