@@ -328,7 +328,6 @@ class KafkaConsumerGroup(object):
                 time.sleep(10)
 
         def process_metrics(self, messages):
-            print "processing"
             time_metrics = {
                     'metadata_request_timer': [],
                     'produce_request_timer': [],
