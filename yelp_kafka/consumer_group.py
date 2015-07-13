@@ -233,9 +233,7 @@ class KafkaConsumerGroup(object):
             responder = lambda key, value: self.metrics_queue.put((key, value))
             consumer_config['metrics_responder'] = responder
 
-            processor = self.MetricsProcessor(self.metrics_queue,
-                                              config.group_id,
-                                              config.signalfx_dimensions)
+            processor = self.MetricsProcessor(self.metrics_queue, config)
             Thread(target=processor.main_loop).start()
 
         # Intercept the user's timeout and pass in our own instead. We do this
@@ -308,13 +306,13 @@ class KafkaConsumerGroup(object):
         return self.next()
 
     class MetricsProcessor(object):
-        def __init__(self, queue, group_id, dimensions):
+        def __init__(self, queue, config):
             self.queue = queue
 
-            token = 'Yzk63RmHoiwHDfMutkPLAg'
-            self.reporter = signalfx.SignalFx(token)
-            self.group_id = group_id
-            self.extra_dimensions = dimensions
+            self.group_id = config.group_id
+            self.extra_dimensions = config.signalfx_dimensions
+            self.send_metrics_interval = config.signalfx_send_metrics_interval
+            self.reporter = signalfx.SignalFx(config.signalfx_token)
 
         def main_loop(self):
             while True:
@@ -325,7 +323,7 @@ class KafkaConsumerGroup(object):
                     messages.append(self.queue.get())
 
                 self.process_metrics(messages)
-                time.sleep(10)
+                time.sleep(self.send_metrics_interval)
 
         def process_metrics(self, messages):
             time_metrics = {
