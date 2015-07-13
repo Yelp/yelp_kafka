@@ -1,16 +1,12 @@
 import time
 import math
-import functools
 import logging
 from threading import Thread
 from Queue import Queue
 from multiprocessing import Event, Lock, Process
-import time
 import os
 import signal
 import traceback
-
-import signalfx
 
 from kafka import KafkaConsumer
 from kafka.common import ConsumerTimeout
@@ -23,6 +19,7 @@ from yelp_kafka.error import (
 from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
 from yelp_kafka.consumer import KafkaSimpleConsumer
+from yelp_kafka.signalfx_metrics_reporter import send_to_signalfx
 
 
 DEFAULT_REFRESH_TIMEOUT_IN_SEC = 0.5
@@ -230,9 +227,7 @@ class KafkaConsumerGroup(object):
         consumer_config = config.get_kafka_consumer_config()
 
         if config.signalfx_dimensions is not None:
-            responder = lambda key, value: self.metrics_queue.put((key, value))
-            consumer_config['metrics_responder'] = responder
-
+            consumer_config['metrics_responder'] = self._add_to_metrics_queue
             processor = self.MetricsProcessor(self.metrics_queue, config)
             Thread(target=processor.main_loop).start()
 
@@ -241,6 +236,9 @@ class KafkaConsumerGroup(object):
         self.iter_timeout = consumer_config['consumer_timeout_ms']
         consumer_config['consumer_timeout_ms'] = CONSUMER_GROUP_INTERNAL_TIMEOUT
         self.config = consumer_config
+
+    def _add_to_metrics_queue(self, key, value):
+        self.queue.put((key, value))
 
     def start(self):
         self.partitioner.start()
@@ -312,7 +310,7 @@ class KafkaConsumerGroup(object):
             self.group_id = config.group_id
             self.extra_dimensions = config.signalfx_dimensions
             self.send_metrics_interval = config.signalfx_send_metrics_interval
-            self.reporter = signalfx.SignalFx(config.signalfx_token)
+            self.token = config.signalfx_token
 
         def main_loop(self):
             while True:
@@ -327,19 +325,19 @@ class KafkaConsumerGroup(object):
 
         def process_metrics(self, messages):
             time_metrics = {
-                    'metadata_request_timer': [],
-                    'produce_request_timer': [],
-                    'fetch_request_timer': [],
-                    'offset_request_timer': [],
-                    'offset_commit_request_timer': [],
-                    'offset_fetch_request_timer': []
+                'metadata_request_timer': [],
+                'produce_request_timer': [],
+                'fetch_request_timer': [],
+                'offset_request_timer': [],
+                'offset_commit_request_timer': [],
+                'offset_fetch_request_timer': []
             }
 
             failure_count_metrics = {
-                    'failed_paylads_count': 0,
-                    'out_of_range_counts': 0,
-                    'not_leader_for_partition_count': 0,
-                    'request_timed_out_count': 0
+                'failed_paylads_count': 0,
+                'out_of_range_counts': 0,
+                'not_leader_for_partition_count': 0,
+                'request_timed_out_count': 0
             }
 
             for metric_name, datum in messages:
@@ -362,7 +360,7 @@ class KafkaConsumerGroup(object):
                 metric_counters = self.make_failure_count_data(metric, count)
                 counters.extend(metric_counters)
 
-            self.reporter.send(gauges=gauges, counters=counters)
+            send_to_signalfx(self.token, gauges, counters)
 
         def make_time_metric_data(self, metric, times):
             if not times:
@@ -394,16 +392,16 @@ class KafkaConsumerGroup(object):
             return {
                 'metric': 'yelp_kafka.KafkaConsumerGroup',
                 'value': value,
-                'dimensions': self.make_dimensions({ 'metric': metric })
+                'dimensions': self.make_dimensions({'metric': metric})
             }
 
         def make_dimensions(self, data):
-            dimensions = { 'group_id': self.group_id }
+            dimensions = {'group_id': self.group_id}
             dimensions.update(self.extra_dimensions)
             dimensions.update(data)
             return dimensions
 
-        def percentile(self, N, percent, key=lambda x:x):
+        def percentile(self, N, percent, key=lambda x: x):
             """
             Find the percentile of a list of values.
 
@@ -415,14 +413,15 @@ class KafkaConsumerGroup(object):
             """
             if not N:
                 return None
-            k = (len(N)-1) * percent
+            k = (len(N) - 1) * percent
             f = math.floor(k)
             c = math.ceil(k)
             if f == c:
                 return key(N[int(k)])
-            d0 = key(N[int(f)]) * (c-k)
-            d1 = key(N[int(c)]) * (k-f)
-            return d0+d1
+            d0 = key(N[int(f)]) * (c - k)
+            d1 = key(N[int(c)]) * (k - f)
+            return d0 + d1
+
 
 class MultiprocessingConsumerGroup(object):
     """Multiprocessing consumer group allows to consume

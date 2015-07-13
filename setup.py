@@ -42,8 +42,9 @@ setup(
         'kafka-python==0.9.4',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
+        'requests==2.6.0',
         'setproctitle>=1.1.8',
-        'signalfx==0.3.4'
+        'simplejson==3.6.5',
     ],
     cmdclass={
         'test': Tox,
