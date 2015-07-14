@@ -268,7 +268,7 @@ class KafkaConsumerConfig(object):
 
     @property
     def signalfx_dimensions(self):
-        return self._config.get('signalfx_dimensions', None)
+        return self._config.get('signalfx_dimensions', {})
 
     @property
     def signalfx_send_metrics_interval(self):
