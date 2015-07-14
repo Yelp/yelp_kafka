@@ -1,7 +1,9 @@
+import logging
 import math
-import time
 import requests
+from requests.exceptions import RequestException
 import simplejson as json
+import time
 
 
 SIGNALFX_ENDPOINT = "https://ingest.signalfx.com/v2/datapoint"
@@ -10,8 +12,9 @@ CONNECTION_TIMEOUT = 1  # Connection timeout in secs
 
 class MetricsReporter(object):
     def __init__(self, queue, config):
-        self.queue = queue
+        self.log = logging.getLogger(self.__class__.__name__)
 
+        self.queue = queue
         self.group_id = config.group_id
         self.extra_dimensions = config.signalfx_dimensions
         self.send_metrics_interval = config.signalfx_send_metrics_interval
@@ -110,10 +113,13 @@ class MetricsReporter(object):
         data = json.dumps({'gauge': gauges, 'counter': counters})
         headers = {'X-SF-Token': self.token}
 
-        requests.post(SIGNALFX_ENDPOINT,
-                      data=data,
-                      headers=headers,
-                      timeout=CONNECTION_TIMEOUT)
+        try:
+            requests.post(SIGNALFX_ENDPOINT,
+                          data=data,
+                          headers=headers,
+                          timeout=CONNECTION_TIMEOUT)
+        except RequestException:
+            self.log.exception("Sending data to signalfx failed")
 
     def percentile(self, N, percent, key=lambda x: x):
         """
