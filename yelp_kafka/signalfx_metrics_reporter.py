@@ -84,11 +84,9 @@ class MetricsReporter(object):
 
     def make_time_sfx_gauge(self, metric, value, type):
         return {
-            'metric': 'yelp_kafka.KafkaConsumerGroup',
+            'metric': self.make_signalfx_metric_name(metric),
             'value': value,
-            'dimensions': self.make_dimensions({
-                'metric': metric, 'type': type
-            })
+            'dimensions': self.make_dimensions({'type': type})
         }
 
     def make_failure_count_data(self, metric, count):
@@ -98,10 +96,13 @@ class MetricsReporter(object):
 
     def make_count_sfx_gauge(self, metric, value):
         return {
-            'metric': 'yelp_kafka.KafkaConsumerGroup',
+            'metric': self.make_signalfx_metric_name(metric),
             'value': value,
-            'dimensions': self.make_dimensions({'metric': metric})
+            'dimensions': self.make_dimensions({})
         }
+
+    def make_signalfx_metric_name(self, metric):
+        return 'yelp_kafka.KafkaConsumerGroup.' + metric
 
     def make_dimensions(self, data):
         dimensions = {'group_id': self.group_id}
