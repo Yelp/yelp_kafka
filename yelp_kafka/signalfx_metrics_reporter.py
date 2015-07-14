@@ -33,7 +33,8 @@ class MetricsReporter(object):
             end_time = time.time()
 
             time_elapsed = end_time - start_time
-            time.sleep(self.send_metrics_interval - time_elapsed)
+            time_to_sleep = max(0, self.send_metrics_interval - time_elapsed)
+            time.sleep(time_to_sleep)
 
     def process_metrics(self, messages):
         time_metrics = {
