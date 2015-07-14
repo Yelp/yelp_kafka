@@ -22,6 +22,7 @@ class MetricsReporter(object):
 
     def main_loop(self):
         while True:
+            start_time = time.time()
             messages = []
             num_messages = self.queue.qsize()
 
@@ -29,7 +30,10 @@ class MetricsReporter(object):
                 messages.append(self.queue.get())
 
             self.process_metrics(messages)
-            time.sleep(self.send_metrics_interval)
+            end_time = time.time()
+
+            time_elapsed = end_time - start_time
+            time.sleep(self.send_metrics_interval - time_elapsed)
 
     def process_metrics(self, messages):
         time_metrics = {
