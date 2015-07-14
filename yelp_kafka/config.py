@@ -26,7 +26,6 @@ DEFAULT_OFFSET_RESET = 'largest'
 DEFAULT_CLIENT_ID = 'yelp-kafka'
 
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
-***REMOVED***
 
 
 cluster_configuration = {}
@@ -278,7 +277,7 @@ class KafkaConsumerConfig(object):
 
     @property
     def signalfx_token(self):
-        return self._config.get('signalfx_token', DEFAULT_SIGNALFX_TOKEN)
+        return self._config.get('signalfx_token', None)
 
     def __repr__(self):
         return (

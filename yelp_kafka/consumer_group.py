@@ -225,7 +225,7 @@ class KafkaConsumerGroup(object):
 
         consumer_config = config.get_kafka_consumer_config()
 
-        if config.signalfx_dimensions is not None:
+        if config.signalfx_token:
             consumer_config['metrics_responder'] = self._add_to_metrics_queue
             processor = MetricsReporter(self.metrics_queue, config)
             Thread(target=processor.main_loop).start()
