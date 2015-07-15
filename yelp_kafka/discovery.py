@@ -252,6 +252,20 @@ def search_local_topics_by_regex(cluster_type, pattern):
     return result[0]
 
 
+def search_local_scribe_topics_by_regex(pattern):
+    """Search for all scribe topics matching pattern in the local cluster and
+    current ecosystem.
+
+    :param pattern: regex to match topics
+    :returns: ([topics], cluster)
+    :raises DiscoveryError: if no matching topics exist
+    """
+    with open(ECOSYSTEM_PATH) as f:
+        ecosystem = f.read()
+        localized_pattern = "scribe\.{0}\.{1}".format(ecosystem, pattern)
+        return search_local_topics_by_regex('scribe', localized_pattern)
+
+
 def search_topics_by_regex_in_all_clusters(cluster_type, pattern):
     """Search for all the topics matching pattern.
 

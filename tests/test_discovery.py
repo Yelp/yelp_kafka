@@ -253,6 +253,12 @@ def test_search_by_regex(mock_clusters):
         assert expected == actual
 
 
+@mock.patch("yelp_kafka.discovery.search_local_topics_by_regex")
+def test_search_local_scribe_topics_by_regex(mock_search):
+    discovery.search_local_scribe_topics_by_regex(".*")
+    mock_search.assert_called_once_with("scribe", "scribe\.devc\..*")
+
+
 def test_search_by_regex_no_topic(mock_clusters):
     with mock.patch("yelp_kafka.discovery.discover_topics",
                     autospec=True) as mock_discover:
