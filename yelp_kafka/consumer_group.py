@@ -282,6 +282,7 @@ class KafkaConsumerGroup(object):
 
     def __enter__(self):
         self.start()
+        return self
 
     def __exit__(self, type, value, traceback):
         self.stop()
