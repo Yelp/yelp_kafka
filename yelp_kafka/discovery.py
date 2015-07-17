@@ -260,7 +260,7 @@ def search_local_scribe_topics_by_regex(pattern):
     :raises DiscoveryError: if no matching topics exist
     """
     topology = TopologyConfiguration(kafka_id=DEFAULT_KAFKA_SCRIBE)
-    prefix = topology.get_scribe_local_prefix()
+    prefix = re.escape(topology.get_scribe_local_prefix())
     return search_local_topics_by_regex('scribe', prefix + pattern)
 
 
