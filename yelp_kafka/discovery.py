@@ -253,17 +253,15 @@ def search_local_topics_by_regex(cluster_type, pattern):
 
 
 def search_local_scribe_topics_by_regex(pattern):
-    """Search for all scribe topics matching pattern in the local cluster and
-    current ecosystem.
+    """Search for all local scribe topics matching pattern.
 
     :param pattern: regex to match topics
     :returns: ([topics], cluster)
     :raises DiscoveryError: if no matching topics exist
     """
-    with open(ECOSYSTEM_PATH) as f:
-        ecosystem = f.read()
-        localized_pattern = "scribe\.{0}\.{1}".format(ecosystem, pattern)
-        return search_local_topics_by_regex('scribe', localized_pattern)
+    topology = TopologyConfiguration(kafka_id=DEFAULT_KAFKA_SCRIBE)
+    prefix = topology.get_scribe_local_prefix()
+    return search_local_topics_by_regex('scribe', prefix + pattern)
 
 
 def search_topics_by_regex_in_all_clusters(cluster_type, pattern):
