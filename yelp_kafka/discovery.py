@@ -252,6 +252,18 @@ def search_local_topics_by_regex(cluster_type, pattern):
     return result[0]
 
 
+def search_local_scribe_topics_by_regex(pattern):
+    """Search for all local scribe topics matching pattern.
+
+    :param pattern: regex to match topics
+    :returns: ([topics], cluster)
+    :raises DiscoveryError: if no matching topics exist
+    """
+    topology = TopologyConfiguration(kafka_id=DEFAULT_KAFKA_SCRIBE)
+    prefix = re.escape(topology.get_scribe_local_prefix())
+    return search_local_topics_by_regex('scribe', prefix + pattern)
+
+
 def search_topics_by_regex_in_all_clusters(cluster_type, pattern):
     """Search for all the topics matching pattern.
 
