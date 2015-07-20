@@ -467,7 +467,9 @@ class TestOffsets(TestOffsetsBase):
             "group",
             topics
         )
-        assert status == expected_status
+        assert len(status) == len(expected_status)
+        for expected in expected_status:
+            assert any(actual == expected for actual in status)
         assert kafka_client_mock.group_offsets == self.group_offsets
 
     def test_rewind_consumer_offsets(self, kafka_client_mock):
@@ -502,7 +504,9 @@ class TestOffsets(TestOffsetsBase):
             "group",
             topics
         )
-        assert status == expected_status
+        assert len(status) == len(expected_status)
+        for expected in expected_status:
+            assert any(actual == expected for actual in status)
         assert kafka_client_mock.group_offsets == self.group_offsets
 
     def test_set_consumer_offsets(self, kafka_client_mock):
@@ -563,5 +567,7 @@ class TestOffsets(TestOffsetsBase):
             raise_on_error=True
         )
 
-        assert status == expected_status
+        assert len(status) == len(expected_status)
+        for expected in expected_status:
+            assert any(actual == expected for actual in status)
         assert kafka_client_mock.group_offsets == self.group_offsets
