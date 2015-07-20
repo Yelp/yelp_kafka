@@ -250,7 +250,14 @@ def test_search_by_regex(mock_clusters):
         actual = discovery.search_topics_by_regex('top.*', mock_clusters)
         expected = [(['topic1', 'topic2'], mock_clusters[0]),
                     (['topic2'], mock_clusters[1])]
-        assert expected == actual
+
+        assert len(expected) == len(actual)
+        for expected_topic in expected:
+            assert any(
+                sorted(actual_topic[0]) == sorted(expected_topic[0]) and
+                actual_topic[1] == actual_topic[1]
+                for actual_topic in actual
+            )
 
 
 def test_search_by_regex_no_topic(mock_clusters):
@@ -423,9 +430,12 @@ def test_get_scribe_topic(mock_get_clusters, mock_clusters):
         }, {
             'scribe.dc1.non_my_scribe_stream': [0, 1]
         }])
+        expected = (['scribe.dc2.my_scribe_stream', 'scribe.dc1.my_scribe_stream'], mock_clusters[0])
         actual = discovery.get_scribe_topics('my_scribe_stream')
-    expected = [(['scribe.dc2.my_scribe_stream', 'scribe.dc1.my_scribe_stream'], mock_clusters[0])]
-    assert actual == expected
+
+    # actual should be a list containing the expected tuple
+    assert len(actual) == 1
+    assert sorted(actual[0][0]) == sorted(expected[0]) and actual[0][1] == expected[1]
 
 
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
