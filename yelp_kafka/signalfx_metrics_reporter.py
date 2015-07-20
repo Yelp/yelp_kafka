@@ -16,6 +16,7 @@ class MetricsReporter(object):
 
         self.queue = queue
         self.group_id = config.group_id
+        self.cluster_name = config.cluster.name
         self.extra_dimensions = config.signalfx_dimensions
         self.send_metrics_interval = config.signalfx_send_metrics_interval
         self.token = config.signalfx_token
@@ -110,7 +111,11 @@ class MetricsReporter(object):
         return 'yelp_kafka.KafkaConsumerGroup.' + metric
 
     def make_dimensions(self, data):
-        dimensions = {'group_id': self.group_id}
+        dimensions = {
+            'group_id': self.group_id,
+            'cluster_name': self.cluster_name
+        }
+
         dimensions.update(self.extra_dimensions)
         dimensions.update(data)
         return dimensions
