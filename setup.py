@@ -42,9 +42,10 @@ setup(
         'kafka-python==0.9.4',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
-        'requests==2.6.0',
+        'requests>=2.0.0',
         'setproctitle>=1.1.8',
-        'simplejson==3.6.5',
+        'simplejson>=3.0.0',
+        'yelp_metrics==0.0.12',
     ],
     cmdclass={
         'test': Tox,
