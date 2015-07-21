@@ -3,6 +3,7 @@ import copy
 import hashlib
 import logging
 import time
+import traceback
 
 from kafka.client import KafkaClient
 from kazoo.client import KazooClient
@@ -262,8 +263,12 @@ class Partitioner(object):
                 self.released_flag = False
             except Exception:
                 self.log.exception("Acquire action failed.")
+                trace = traceback.format_exc()
                 self.release_and_finish()
-                raise PartitionerError("Acquire action failed.")
+                raise PartitionerError(
+                    "Acquire action failed."
+                    "Acquire error: {trace}".format(trace=trace)
+                )
 
     def _release(self, partitioner):
         """Release the consumers and acquired partitions.
@@ -276,8 +281,12 @@ class Partitioner(object):
                 self.release(self.acquired_partitions)
                 self.released_flag = True
         except Exception:
-            self.log.exception("Acquire action failed.")
-            raise PartitionerError("Acquire action failed.")
+            trace = traceback.format_exc()
+            self.log.exception("Release action failed.")
+            raise PartitionerError(
+                "Release action failed."
+                "Release error: {trace}".format(trace=trace),
+            )
         partitioner.release_set()
         self.acquired_partitions.clear()
         self.force_partitions_refresh = True
@@ -290,7 +299,12 @@ class Partitioner(object):
         """
         self.log.error("Lost or unable to acquire partitions")
         self.release_and_finish()
-        raise PartitionerZookeeperError
+        raise PartitionerZookeeperError(
+            "Internal partitioner error. "
+            "Lost connection to zookeeper: {cluster}".format(
+                cluster=self.config.zookeeper,
+            )
+        )
 
     def _get_acquired_partitions(self, partitioner):
         """Retrieve acquired partitions from a partitioner.
