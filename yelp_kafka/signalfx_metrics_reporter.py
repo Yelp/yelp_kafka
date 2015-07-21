@@ -11,9 +11,10 @@ CONNECTION_TIMEOUT = 1  # Connection timeout in secs
 
 
 class MetricsReporter(object):
-    def __init__(self, queue, config):
+    def __init__(self, metric_prefix, queue, config):
         self.log = logging.getLogger(self.__class__.__name__)
 
+        self.metric_prefix = metric_prefix
         self.queue = queue
         self.group_id = config.group_id
         self.cluster_name = config.cluster.name
@@ -30,14 +31,14 @@ class MetricsReporter(object):
             for _ in xrange(num_messages):
                 messages.append(self.queue.get())
 
-            self.process_metrics(messages)
+            self._process_metrics(messages)
             end_time = time.time()
 
             time_elapsed = end_time - start_time
             time_to_sleep = max(0, self.send_metrics_interval - time_elapsed)
             time.sleep(time_to_sleep)
 
-    def process_metrics(self, messages):
+    def _process_metrics(self, messages):
         time_metrics = {
             'metadata_request_timer': [],
             'produce_request_timer': [],
@@ -65,52 +66,52 @@ class MetricsReporter(object):
         gauges = []
 
         for metric, times in time_metrics.iteritems():
-            metric_gauges = self.make_time_metric_data(metric, sorted(times))
+            metric_gauges = self._make_time_metric_data(metric, sorted(times))
             gauges.extend(metric_gauges)
 
         counters = []
 
         for metric, count in failure_count_metrics.iteritems():
-            metric_counters = self.make_failure_count_data(metric, count)
+            metric_counters = self._make_failure_count_data(metric, count)
             counters.extend(metric_counters)
 
-        self.send_to_signalfx(gauges, counters)
+        self._send_to_signalfx(gauges, counters)
 
-    def make_time_metric_data(self, metric, times):
+    def _make_time_metric_data(self, metric, times):
         if not times:
             return []
 
-        median = self.percentile(times, 0.5)
-        per95 = self.percentile(times, 0.95)
+        median = self._percentile(times, 0.5)
+        per95 = self._percentile(times, 0.95)
 
         return [
-            self.make_time_sfx_gauge(metric, median, 'median'),
-            self.make_time_sfx_gauge(metric, per95, '95th')
+            self._make_time_sfx_gauge(metric, median, 'median'),
+            self._make_time_sfx_gauge(metric, per95, '95th')
         ]
 
-    def make_time_sfx_gauge(self, metric, value, type):
+    def _make_time_sfx_gauge(self, metric, value, type):
         return {
-            'metric': self.make_signalfx_metric_name(metric),
+            'metric': self._make_signalfx_metric_name(metric),
             'value': value,
-            'dimensions': self.make_dimensions({'type': type})
+            'dimensions': self._make_dimensions({'type': type})
         }
 
-    def make_failure_count_data(self, metric, count):
+    def _make_failure_count_data(self, metric, count):
         return [
-            self.make_count_sfx_gauge(metric, count)
+            self._make_count_sfx_gauge(metric, count)
         ]
 
-    def make_count_sfx_gauge(self, metric, value):
+    def _make_count_sfx_gauge(self, metric, value):
         return {
-            'metric': self.make_signalfx_metric_name(metric),
+            'metric': self._make_signalfx_metric_name(metric),
             'value': value,
-            'dimensions': self.make_dimensions({})
+            'dimensions': self._make_dimensions({})
         }
 
-    def make_signalfx_metric_name(self, metric):
-        return 'yelp_kafka.KafkaConsumerGroup.' + metric
+    def _make_signalfx_metric_name(self, metric):
+        return self.metric_prefix + metric
 
-    def make_dimensions(self, data):
+    def _make_dimensions(self, data):
         dimensions = {
             'group_id': self.group_id,
             'cluster_name': self.cluster_name
@@ -120,7 +121,7 @@ class MetricsReporter(object):
         dimensions.update(data)
         return dimensions
 
-    def send_to_signalfx(self, gauges, counters):
+    def _send_to_signalfx(self, gauges, counters):
         data = json.dumps({'gauge': gauges, 'counter': counters})
         headers = {'X-SF-Token': self.token}
 
@@ -132,7 +133,7 @@ class MetricsReporter(object):
         except RequestException:
             self.log.exception("Sending data to signalfx failed")
 
-    def percentile(self, N, percent, key=lambda x: x):
+    def _percentile(self, N, percent, key=lambda x: x):
         """
         Find the percentile of a list of values.
 
