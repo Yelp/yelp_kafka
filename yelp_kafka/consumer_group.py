@@ -245,7 +245,6 @@ class KafkaConsumerGroup(object):
         self.metrics_queue.put((key, value))
 
     def _send_to_yelp_metrics(self, key, value):
-        print key, value
         time_metrics = [
             'metadata_request_timer',
             'produce_request_timer',
