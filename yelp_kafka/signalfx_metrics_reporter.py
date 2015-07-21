@@ -109,7 +109,7 @@ class MetricsReporter(object):
         }
 
     def _make_signalfx_metric_name(self, metric):
-        return self.metric_prefix + metric
+        return self.metric_prefix + '.' + metric
 
     def _make_dimensions(self, data):
         dimensions = {
@@ -126,10 +126,14 @@ class MetricsReporter(object):
         headers = {'X-SF-Token': self.token}
 
         try:
-            requests.post(SIGNALFX_ENDPOINT,
-                          data=data,
-                          headers=headers,
-                          timeout=CONNECTION_TIMEOUT)
+            response = requests.post(SIGNALFX_ENDPOINT,
+                                     data=data,
+                                     headers=headers,
+                                     timeout=CONNECTION_TIMEOUT)
+
+            if not response.ok:
+                msg = "Got bad response code from signalfx: {0}"
+                self.log.warn(msg.format(response.status_code))
         except RequestException:
             self.log.exception("Sending data to signalfx failed")
 
