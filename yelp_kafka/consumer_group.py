@@ -1,11 +1,12 @@
-import time
 import logging
-from threading import Thread
-from Queue import Queue
-from multiprocessing import Event, Lock, Process
 import os
 import signal
+import time
 import traceback
+import yelp_metrics
+from multiprocessing import Event, Lock, Process
+from Queue import Queue
+from threading import Thread
 
 from kafka import KafkaConsumer
 from kafka.common import ConsumerTimeout
@@ -15,6 +16,7 @@ from yelp_kafka.error import (
     PartitionerError,
     PartitionerZookeeperError,
 )
+
 from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
 from yelp_kafka.consumer import KafkaSimpleConsumer
@@ -225,10 +227,13 @@ class KafkaConsumerGroup(object):
 
         consumer_config = config.get_kafka_consumer_config()
 
-        if config.signalfx_token:
+        if config.metrics_reporter == 'signalfx':
             consumer_config['metrics_responder'] = self._add_to_metrics_queue
-            processor = MetricsReporter(self.metrics_queue, config)
+            processor = MetricsReporter('yelp_kafka.KafkaConsumerGroup',
+                                        self.metrics_queue, config)
             Thread(target=processor.main_loop).start()
+        elif config.metrics_reporter == 'yelp_metrics':
+            consumer_config['metrics_responder'] = self._send_to_yelp_metrics
 
         # Intercept the user's timeout and pass in our own instead. We do this
         # in order to periodically refresh the partitioner when calling next()
@@ -238,6 +243,37 @@ class KafkaConsumerGroup(object):
 
     def _add_to_metrics_queue(self, key, value):
         self.metrics_queue.put((key, value))
+
+    def _send_to_yelp_metrics(self, key, value):
+        print key, value
+        time_metrics = [
+            'metadata_request_timer',
+            'produce_request_timer',
+            'fetch_request_timer',
+            'offset_request_timer',
+            'offset_commit_request_timer',
+            'offset_fetch_request_timer',
+        ]
+
+        failure_count_metrics = [
+            'failed_paylads_count',
+            'out_of_range_counts',
+            'not_leader_for_partition_count',
+            'request_timed_out_count'
+        ]
+
+        name = 'yelp_kafka.KafkaConsumerGroup.' + key
+        if key in time_metrics:
+            # kafka-python emits time in seconds, but yelp_metrics wants
+            # milliseconds
+            time_in_ms = value * 1000
+            timer = yelp_metrics.create_timer(name)
+            timer.record(time_in_ms)
+        elif key in failure_count_metrics:
+            counter = yelp_metrics.create_counter(name)
+            counter.count()
+        else:
+            raise Exception("Unknown metric: {0}".format(key))
 
     def start(self):
         self.partitioner.start()
