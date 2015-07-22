@@ -9,7 +9,10 @@ import traceback
 from yelp_lib.decorators import retry
 
 from kafka import KafkaConsumer
-from kafka.common import ConsumerTimeout
+from kafka.common import (
+    ConsumerTimeout,
+    KafkaUnavailableError,
+)
 
 from yelp_kafka.error import (
     ConsumerGroupError,
@@ -275,7 +278,7 @@ class KafkaConsumerGroup(object):
 
     # set_topic_partitions causes a metadata request, which may fail on the
     # first try.
-    @retry(2)
+    @retry(2, exceptions=(KafkaUnavailableError,))
     def _release(self, partitions):
         if self._auto_commit_enabled():
             self.consumer.commit()
