@@ -4,7 +4,10 @@ import os
 import time
 import pytest
 
-from kafka.common import ConsumerTimeout
+from kafka.common import (
+    ConsumerTimeout,
+    KafkaUnavailableError,
+)
 
 from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
 from yelp_kafka.consumer_group import (
@@ -201,6 +204,20 @@ class TestKafkaConsumerGroup(object):
 
         mock_consumer.commit.assert_called_once_with()
         mock_consumer.set_topic_partitions.assert_called_once_with({})
+
+    def test__release_retry(self):
+        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+        config = KafkaConsumerConfig('my_group', cluster,
+                                     auto_commit_enable=True)
+        consumer = KafkaConsumerGroup([], config)
+
+        mock_consumer = mock.Mock()
+        mock_consumer.set_topic_partitions.side_effect = KafkaUnavailableError
+        consumer.consumer = mock_consumer
+
+        with pytest.raises(KafkaUnavailableError):
+            consumer._release({})
+        assert mock_consumer.set_topic_partitions.call_count == 2
 
 
 class TestMultiprocessingConsumerGroup(object):
