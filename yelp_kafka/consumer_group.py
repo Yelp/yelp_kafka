@@ -6,6 +6,7 @@ import time
 import os
 import signal
 import traceback
+from yelp_lib.retry import retry_deco
 
 from kafka import KafkaConsumer
 from kafka.common import ConsumerTimeout
@@ -272,6 +273,9 @@ class KafkaConsumerGroup(object):
         else:
             self.consumer.set_topic_partitions(partitions)
 
+    # set_topic_partitions causes a metadata request, which may fail on the
+    # first try.
+    @retry_deco(lambda: range(2))
     def _release(self, partitions):
         if self._auto_commit_enabled():
             self.consumer.commit()
