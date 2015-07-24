@@ -227,14 +227,16 @@ class KafkaConsumerGroup(object):
                                        self._release)
         self.consumer = None
         self.metrics_queue = Queue()
+        self.metrics_reporter = None
 
         consumer_config = config.get_kafka_consumer_config()
 
         if config.metrics_reporter == 'signalfx':
             consumer_config['metrics_responder'] = self._add_to_metrics_queue
-            processor = metrics.MetricsReporter(self.METRIC_PREFIX,
-                                                self.metrics_queue, config)
-            Thread(target=processor.main_loop).start()
+            self.metrics_reporter = metrics.MetricsReporter(self.METRIC_PREFIX,
+                                                            self.metrics_queue,
+                                                            config)
+            Thread(target=self.metrics_reporter.main_loop).start()
         elif config.metrics_reporter == 'yelp_meteorite':
             consumer_config['metrics_responder'] = self._send_to_yelp_meteorite
 
@@ -278,6 +280,9 @@ class KafkaConsumerGroup(object):
         #
         # https://github.com/mumrah/kafka-python/pull/426
         self.consumer._client.close()
+
+        if self.metrics_reporter:
+            self.metrics_reporter.die_event.set()
 
     def next(self):
         start_time = time.time()

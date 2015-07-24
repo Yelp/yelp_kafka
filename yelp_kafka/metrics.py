@@ -1,9 +1,10 @@
 import logging
 import math
 import requests
-from requests.exceptions import RequestException
 import simplejson as json
 import time
+from multiprocessing import Event
+from requests.exceptions import RequestException
 
 
 SIGNALFX_ENDPOINT = "https://ingest.signalfx.com/v2/datapoint"
@@ -28,6 +29,7 @@ FAILURE_COUNT_METRIC_NAMES = [
 class MetricsReporter(object):
     def __init__(self, metric_prefix, queue, config):
         self.log = logging.getLogger(self.__class__.__name__)
+        self.die_event = Event()
 
         self.metric_prefix = metric_prefix
         self.queue = queue
@@ -38,7 +40,7 @@ class MetricsReporter(object):
         self.token = config.signalfx_token
 
     def main_loop(self):
-        while True:
+        while not self.die_event.is_set():
             start_time = time.time()
             messages = []
             num_messages = self.queue.qsize()
