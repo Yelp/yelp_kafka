@@ -45,7 +45,7 @@ setup(
         'requests',
         'setproctitle>=1.1.8',
         'simplejson',
-        'yelp_metrics==0.0.12',
+        'yelp_meteorite',
     ],
     cmdclass={
         'test': Tox,

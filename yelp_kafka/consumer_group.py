@@ -3,7 +3,7 @@ import os
 import signal
 import time
 import traceback
-import yelp_metrics
+import yelp_meteorite
 from multiprocessing import Event, Lock, Process
 from Queue import Queue
 from threading import Thread
@@ -235,15 +235,15 @@ class KafkaConsumerGroup(object):
             processor = metrics.MetricsReporter(self.METRIC_PREFIX,
                                                 self.metrics_queue, config)
             Thread(target=processor.main_loop).start()
-        elif config.metrics_reporter == 'yelp_metrics':
-            consumer_config['metrics_responder'] = self._send_to_yelp_metrics
+        elif config.metrics_reporter == 'yelp_meteorite':
+            consumer_config['metrics_responder'] = self._send_to_yelp_meteorite
 
             self.timers = dict(
-                (name, yelp_metrics.create_timer(self.METRIC_PREFIX + '.' + name))
+                (name, yelp_meteorite.create_timer(self.METRIC_PREFIX + '.' + name))
                 for name in metrics.TIME_METRIC_NAMES
             )
             self.counters = dict(
-                (name, yelp_metrics.create_counter(self.METRIC_PREFIX + '.' + name))
+                (name, yelp_meteorite.create_counter(self.METRIC_PREFIX + '.' + name))
                 for name in metrics.FAILURE_COUNT_METRIC_NAMES
             )
 
@@ -256,9 +256,9 @@ class KafkaConsumerGroup(object):
     def _add_to_metrics_queue(self, key, value):
         self.metrics_queue.put((key, value))
 
-    def _send_to_yelp_metrics(self, key, value):
+    def _send_to_yelp_meteorite(self, key, value):
         if key in self.timers:
-            # kafka-python emits time in seconds, but yelp_metrics wants
+            # kafka-python emits time in seconds, but yelp_meteorite wants
             # milliseconds
             time_in_ms = value * 1000
             self.timers[key].record(time_in_ms)
