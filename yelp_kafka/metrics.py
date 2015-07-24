@@ -9,6 +9,21 @@ import time
 SIGNALFX_ENDPOINT = "https://ingest.signalfx.com/v2/datapoint"
 CONNECTION_TIMEOUT = 1  # Connection timeout in secs
 
+TIME_METRIC_NAMES = [
+    'metadata_request_timer',
+    'produce_request_timer',
+    'fetch_request_timer',
+    'offset_request_timer',
+    'offset_commit_request_timer',
+    'offset_fetch_request_timer',
+]
+
+FAILURE_COUNT_METRIC_NAMES = [
+    'failed_paylads_count',
+    'out_of_range_counts',
+    'not_leader_for_partition_count',
+    'request_timed_out_count'
+]
 
 class MetricsReporter(object):
     def __init__(self, metric_prefix, queue, config):
@@ -39,21 +54,10 @@ class MetricsReporter(object):
             time.sleep(time_to_sleep)
 
     def _process_metrics(self, messages):
-        time_metrics = {
-            'metadata_request_timer': [],
-            'produce_request_timer': [],
-            'fetch_request_timer': [],
-            'offset_request_timer': [],
-            'offset_commit_request_timer': [],
-            'offset_fetch_request_timer': []
-        }
-
-        failure_count_metrics = {
-            'failed_paylads_count': 0,
-            'out_of_range_counts': 0,
-            'not_leader_for_partition_count': 0,
-            'request_timed_out_count': 0
-        }
+        time_metrics = dict((name, []) for name in TIME_METRIC_NAMES)
+        failure_count_metrics = dict(
+            (name, 0) for name in FAILURE_COUNT_METRIC_NAMES
+        )
 
         for metric_name, datum in messages:
             if metric_name in time_metrics:
