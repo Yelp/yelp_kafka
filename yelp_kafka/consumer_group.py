@@ -1,27 +1,29 @@
 import logging
-from multiprocessing import Event
-from multiprocessing import Lock
-from multiprocessing import Process
-import time
 import os
 import signal
+import time
 import traceback
-from yelp_lib.decorators import retry
+from multiprocessing import Event, Lock, Process
+from Queue import Queue
+from threading import Thread
 
+import yelp_meteorite
 from kafka import KafkaConsumer
 from kafka.common import (
     ConsumerTimeout,
     KafkaUnavailableError,
 )
+from yelp_lib.decorators import retry
 
+from yelp_kafka import metrics
+from yelp_kafka.consumer import KafkaSimpleConsumer
 from yelp_kafka.error import (
     ConsumerGroupError,
     PartitionerError,
     PartitionerZookeeperError,
+    ProcessMessageError,
 )
-from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
-from yelp_kafka.consumer import KafkaSimpleConsumer
 
 
 DEFAULT_REFRESH_TIMEOUT_IN_SEC = 0.5
@@ -219,19 +221,59 @@ class KafkaConsumerGroup(object):
     :param config: yelp_kakfa consumer config.
     :type config: :py:class:`yelp_kafka.config.KafkaConsumerConfig`
     """
+
+    METRIC_PREFIX = 'yelp_kafka.KafkaConsumerGroup'
+
     def __init__(self, topics, config):
         assert isinstance(topics, list), "Topics must be a list"
 
+        self.log = logging.getLogger(self.__class__.__name__)
+        self.topics = topics
         self.partitioner = Partitioner(config, topics, self._acquire,
                                        self._release)
         self.consumer = None
+        self.metrics_queue = Queue()
+        self.metrics_reporter = None
+
+        consumer_config = config.get_kafka_consumer_config()
+
+        if config.metrics_reporter == 'signalfx':
+            consumer_config['metrics_responder'] = self._add_to_metrics_queue
+            self.metrics_reporter = metrics.MetricsReporter(self.METRIC_PREFIX,
+                                                            self.metrics_queue,
+                                                            config)
+            Thread(target=self.metrics_reporter.main_loop).start()
+        elif config.metrics_reporter == 'yelp_meteorite':
+            consumer_config['metrics_responder'] = self._send_to_yelp_meteorite
+
+            self.timers = dict(
+                (name, yelp_meteorite.create_timer(self.METRIC_PREFIX + '.' + name))
+                for name in metrics.TIME_METRIC_NAMES
+            )
+            self.counters = dict(
+                (name, yelp_meteorite.create_counter(self.METRIC_PREFIX + '.' + name))
+                for name in metrics.FAILURE_COUNT_METRIC_NAMES
+            )
 
         # Intercept the user's timeout and pass in our own instead. We do this
         # in order to periodically refresh the partitioner when calling next()
-        consumer_config = config.get_kafka_consumer_config()
         self.iter_timeout = consumer_config['consumer_timeout_ms']
         consumer_config['consumer_timeout_ms'] = CONSUMER_GROUP_INTERNAL_TIMEOUT
         self.config = consumer_config
+
+    def _add_to_metrics_queue(self, key, value):
+        self.metrics_queue.put((key, value))
+
+    def _send_to_yelp_meteorite(self, key, value):
+        if key in self.timers:
+            # kafka-python emits time in seconds, but yelp_meteorite wants
+            # milliseconds
+            time_in_ms = value * 1000
+            self.timers[key].record(time_in_ms)
+        elif key in self.counters:
+            self.counters[key].count()
+        else:
+            self.log.warn("Unknown metric: {0}".format(key))
 
     def start(self):
         self.partitioner.start()
@@ -244,6 +286,9 @@ class KafkaConsumerGroup(object):
         #
         # https://github.com/mumrah/kafka-python/pull/426
         self.consumer._client.close()
+
+        if self.metrics_reporter:
+            self.metrics_reporter.die_event.set()
 
     def next(self):
         start_time = time.time()

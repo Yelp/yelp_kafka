@@ -25,6 +25,8 @@ MAX_ITERATOR_TIMEOUT_SECS = 0.1
 DEFAULT_OFFSET_RESET = 'largest'
 DEFAULT_CLIENT_ID = 'yelp-kafka'
 
+DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
+
 
 cluster_configuration = {}
 
@@ -333,6 +335,23 @@ class KafkaConsumerConfig(object):
     @property
     def client_id(self):
         return self._config.get('client_id', DEFAULT_CLIENT_ID)
+
+    @property
+    def metrics_reporter(self):
+        return self._config.get('metrics_reporter', None)
+
+    @property
+    def signalfx_dimensions(self):
+        return self._config.get('signalfx_dimensions', {})
+
+    @property
+    def signalfx_send_metrics_interval(self):
+        return self._config.get('signalfx_send_metrics_interval',
+                                DEFAULT_SIGNALFX_METRICS_INTERVAL)
+
+    @property
+    def signalfx_token(self):
+        return self._config.get('signalfx_token', None)
 
     def __repr__(self):
         return (

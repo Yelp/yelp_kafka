@@ -39,11 +39,14 @@ setup(
     packages=find_packages(exclude=["tests"]),
     setup_requires=['setuptools'],
     install_requires=[
-        'kafka-python==0.9.4',
+        'kafka-python==0.9.4.post1',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
+        'requests',
         'setproctitle>=1.1.8',
         'yelp-lib',
+        'simplejson',
+        'yelp_meteorite',
     ],
     cmdclass={
         'test': Tox,
