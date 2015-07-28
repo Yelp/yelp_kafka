@@ -26,6 +26,7 @@ FAILURE_COUNT_METRIC_NAMES = [
     'request_timed_out_count'
 ]
 
+
 class MetricsReporter(object):
     def __init__(self, metric_prefix, queue, config):
         self.log = logging.getLogger(self.__class__.__name__)
