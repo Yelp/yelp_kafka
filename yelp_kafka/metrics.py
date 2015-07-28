@@ -67,7 +67,7 @@ class MetricsReporter(object):
             elif metric_name in failure_count_metrics:
                 failure_count_metrics[metric_name] += datum
             else:
-                raise Exception("Unknown metric: {0}".format(metric_name))
+                self.log.warn("Unknown metric: {0}".format(metric_name))
 
         gauges = []
 

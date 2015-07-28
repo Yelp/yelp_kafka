@@ -221,6 +221,7 @@ class KafkaConsumerGroup(object):
     METRIC_PREFIX = 'yelp_kafka.KafkaConsumerGroup'
 
     def __init__(self, topics, config):
+        self.log = logging.getLogger(self.__class__.__name__)
         self.topics = topics
         self.partitioner = Partitioner(config, topics, self._acquire,
                                        self._release)
@@ -266,7 +267,7 @@ class KafkaConsumerGroup(object):
         elif key in self.counters:
             self.counters[key].count()
         else:
-            raise Exception("Unknown metric: {0}".format(key))
+            self.log.warn("Unknown metric: {0}".format(key))
 
     def start(self):
         self.partitioner.start()
