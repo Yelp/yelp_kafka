@@ -3,23 +3,22 @@ import os
 import signal
 import time
 import traceback
-import yelp_meteorite
 from multiprocessing import Event, Lock, Process
 from Queue import Queue
 from threading import Thread
 
+import yelp_meteorite
 from kafka import KafkaConsumer
 from kafka.common import ConsumerTimeout
 
+from yelp_kafka import metrics
+from yelp_kafka.consumer import KafkaSimpleConsumer
 from yelp_kafka.error import (
     ConsumerGroupError,
     PartitionerError,
     PartitionerZookeeperError,
+    ProcessMessageError,
 )
-
-from yelp_kafka import metrics
-from yelp_kafka.consumer import KafkaSimpleConsumer
-from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
 
 
