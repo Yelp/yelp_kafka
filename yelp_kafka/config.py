@@ -183,6 +183,16 @@ class KafkaConsumerConfig(object):
           to acquire the partitions. Default: 30 seconds.
         * **max_termination_timeout_secs**: Used by MultiprocessinConsumerGroup
           time to wait for a consumer to terminate. Default 10 secs.
+        * **metrics_reporter**: Used by KafkaConsumerGroup to send metrics data
+          from kafka-python to SignalFx. Valid options are 'yelp_meteorite'
+          (which uses meteorite) and 'signalfx' (which uses the SignalFx API
+          directly)
+        * **signalfx_dimensions**: Additional dimensions to send to SignalFx.
+          Only used if metrics_reporter is 'signalfx'.
+        * **signalfx_send_metrics_interval**: How often to send metrics to
+          SignalFx. Only used if metrics_reporter is 'signalfx'.
+        * **signalfx_token**: Authentication token to send to SignalFx. Only
+          used if metrics_reporter is 'signalfx'.
     """
 
     NOT_CONVERTIBLE = object()
