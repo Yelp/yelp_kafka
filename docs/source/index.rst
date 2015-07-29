@@ -273,6 +273,7 @@ Contents:
    error
    utils
    monitoring
+   offsets
 
 
 Indices and tables

@@ -45,11 +45,10 @@ class Partitioner(object):
     :param topics: kafka topics
     :type topics: list
     :param acquire: function to be called when a set of partitions
-    has been acquired.
-        It should usually allocate the consumers.
-    :type acquire: func
+                    has been acquired. It should usually allocate the consumers.
     :param release: function to be called when the acquired
-        partitions have to be release. It should usually stops the consumers.
+                    partitions have to be release. It should usually stops the consumers.
+
     """
     def __init__(self, config, topics, acquire, release):
         self.log = logging.getLogger(self.__class__.__name__)
