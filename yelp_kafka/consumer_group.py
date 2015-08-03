@@ -280,12 +280,7 @@ class KafkaConsumerGroup(object):
 
     def stop(self):
         self.partitioner.stop()
-
-        # Ideally we'd like to write `self.consumer.close()`, but that
-        # functionality doesn't exist in kafka-python yet. See:
-        #
-        # https://github.com/mumrah/kafka-python/pull/426
-        self.consumer._client.close()
+        self.consumer.close()
 
         if self.metrics_reporter:
             self.metrics_reporter.die_event.set()
