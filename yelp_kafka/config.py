@@ -188,7 +188,7 @@ class KafkaConsumerConfig(object):
           (which uses meteorite) and 'signalfx' (which uses the SignalFx API
           directly)
         * **signalfx_dimensions**: Additional dimensions to send to SignalFx.
-          Only used if metrics_reporter is 'signalfx'.
+          Both 'signalfx' and 'yelp_meteorite' use this.
         * **signalfx_send_metrics_interval**: How often to send metrics to
           SignalFx. Only used if metrics_reporter is 'signalfx'.
         * **signalfx_token**: Authentication token to send to SignalFx. Only
