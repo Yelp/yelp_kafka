@@ -259,6 +259,33 @@ Tailing from a scribe topic using
          # completed messages.
          consumer.task_done(message)
 
+Reporting metrics to SignalFx
+`````````````````````````````
+
+If you're using :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`, you
+can send metrics on request latency and error counts by setting the
+`metrics_reporter` config parameter to `"yelp_meteorite"`:
+
+.. code-block:: python
+
+  # If KafkaConsumerGroup has a metrics_reporter set to yelp_meteorite, then it
+  # will use meteorite to send data from kafka-python to signalfx under the
+  # topic 'yelp_kafka.KafkaConsumerGroup.<name-of-metric>'
+  config = KafkaConsumerConfig('my-test-group',
+                               cluster,
+                               metrics_reporter='yelp_meteorite',
+                               ...)
+  consumer = KafkaConsumerGroup(my_topics, config)
+
+Reporting metrics directly from the kafka client is an option that is only
+available in Yelp's fork of kafka-python (which yelp_kafka uses as
+a dependency).
+
+.. note::
+
+  `metrics_reporter` is only used by KafkaConsumerGroup. At the moment, no other
+  class uses this option.
+
 Contents:
 =========
 
