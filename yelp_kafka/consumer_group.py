@@ -255,7 +255,6 @@ class KafkaConsumerGroup(object):
                                                         self.metrics_queue,
                                                         config)
         Thread(target=self.metrics_reporter.main_loop).start()
-        return self._add_to_metrics_queue
 
     def _setup_meteorite_reporter(self, config):
         extra_dimensions = config.signalfx_dimensions
