@@ -238,28 +238,39 @@ class KafkaConsumerGroup(object):
         consumer_config = config.get_kafka_consumer_config()
 
         if config.metrics_reporter == 'signalfx':
+            self._setup_signalfx_reporter(config)
             consumer_config['metrics_responder'] = self._add_to_metrics_queue
-            self.metrics_reporter = metrics.MetricsReporter(self.METRIC_PREFIX,
-                                                            self.metrics_queue,
-                                                            config)
-            Thread(target=self.metrics_reporter.main_loop).start()
         elif config.metrics_reporter == 'yelp_meteorite':
+            self._setup_meteorite_reporter(config)
             consumer_config['metrics_responder'] = self._send_to_yelp_meteorite
-
-            self.timers = dict(
-                (name, yelp_meteorite.create_timer(self.METRIC_PREFIX + '.' + name))
-                for name in metrics.TIME_METRIC_NAMES
-            )
-            self.counters = dict(
-                (name, yelp_meteorite.create_counter(self.METRIC_PREFIX + '.' + name))
-                for name in metrics.FAILURE_COUNT_METRIC_NAMES
-            )
 
         # Intercept the user's timeout and pass in our own instead. We do this
         # in order to periodically refresh the partitioner when calling next()
         self.iter_timeout = consumer_config['consumer_timeout_ms']
         consumer_config['consumer_timeout_ms'] = CONSUMER_GROUP_INTERNAL_TIMEOUT
         self.config = consumer_config
+
+    def _setup_signalfx_reporter(self, config):
+        self.metrics_reporter = metrics.MetricsReporter(self.METRIC_PREFIX,
+                                                        self.metrics_queue,
+                                                        config)
+        Thread(target=self.metrics_reporter.main_loop).start()
+        return self._add_to_metrics_queue
+
+    def _setup_meteorite_reporter(self, config):
+        extra_dimensions = config.signalfx_dimensions
+
+        self.timers = {}
+        for name in metrics.TIME_METRIC_NAMES:
+            topic_name = self.METRIC_PREFIX + '.' + name
+            timer = yelp_meteorite.create_timer(topic_name, extra_dimensions)
+            self.timers[name] = timer
+
+        self.counters = {}
+        for name in metrics.FAILURE_COUNT_METRIC_NAMES:
+            topic_name = self.METRIC_PREFIX + '.' + name
+            counter = yelp_meteorite.create_counter(topic_name, extra_dimensions)
+            self.counters[name] = counter
 
     def _add_to_metrics_queue(self, key, value):
         self.metrics_queue.put((key, value))
