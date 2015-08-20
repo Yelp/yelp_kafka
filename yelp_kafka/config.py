@@ -168,11 +168,7 @@ class KafkaConsumerConfig(object):
     :param config: keyword arguments, configuration arguments from kafka-python
         SimpleConsumer are accepted.
         See valid keyword arguments in:
-        http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.simple
-
-    .. warning:: Please do NOT specify topics and partitions as part of config.
-    These should be specified when initializing the consumer. See:
-    :py:mod:`yelp_kafka.consumer.py` or :py:mod:`yelp_kafka.consumer_group`
+        http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html
 
         Yelp_kafka specific configuration arguments are:
 
@@ -207,6 +203,11 @@ class KafkaConsumerConfig(object):
       :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` and
       :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.
     * **auto_commit_interval_ms** is 60 seconds by default.
+
+    .. warning:: Please do NOT specify topics and partitions as part of config.
+        These should be specified when initializing the consumer. See:
+        :py:mod:`yelp_kafka.consumer.py` or :py:mod:`yelp_kafka.consumer_group`
+
 
     """
 
