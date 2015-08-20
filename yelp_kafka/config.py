@@ -3,8 +3,6 @@ import logging
 import os
 import yaml
 
-from kafka.consumer.base import AUTO_COMMIT_MSG_COUNT
-from kafka.consumer.base import AUTO_COMMIT_INTERVAL
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
@@ -14,9 +12,9 @@ from yelp_kafka.error import ConfigurationError
 
 DEFAULT_KAFKA_TOPOLOGY_BASE_PATH = '/nail/etc/kafka_discovery'
 
-# This is fixed to 1 MB for making a fetch call more efficient when dealing
-# with ranger messages, that can be more than 100KB in size
-KAFKA_BUFFER_SIZE = 1024 * 1024  # 1MB
+# This is fixed to 2MiB, which is twice as much as the max message size
+# configured by default in our Kafka clusters.
+MAX_MESSAGE_SIZE_BYTES = 2 * 1024 * 1024
 
 ZOOKEEPER_BASE_PATH = '/yelp-kafka'
 PARTITIONER_COOLDOWN = 30
@@ -24,6 +22,9 @@ MAX_TERMINATION_TIMEOUT_SECS = 10
 MAX_ITERATOR_TIMEOUT_SECS = 0.1
 DEFAULT_OFFSET_RESET = 'largest'
 DEFAULT_CLIENT_ID = 'yelp-kafka'
+
+AUTO_COMMIT_MSG_COUNT = 100
+AUTO_COMMIT_INTERVAL_SECS = 60
 
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
 
@@ -168,9 +169,10 @@ class KafkaConsumerConfig(object):
         SimpleConsumer are accepted.
         See valid keyword arguments in:
         http://kafka-python.readthedocs.org/en/latest/apidoc/kafka.consumer.html#module-kafka.consumer.simple
-        Note: Please do NOT specify topics and partitions as part of config. These should
-        be specified when initializing the consumer.
-        See: :py:mod:`yelp_kafka.consumer.py` or :py:mod:`yelp_kafka.consumer_group`
+
+    .. warning:: Please do NOT specify topics and partitions as part of config.
+    These should be specified when initializing the consumer. See:
+    :py:mod:`yelp_kafka.consumer.py` or :py:mod:`yelp_kafka.consumer_group`
 
         Yelp_kafka specific configuration arguments are:
 
@@ -183,16 +185,29 @@ class KafkaConsumerConfig(object):
           to acquire the partitions. Default: 30 seconds.
         * **max_termination_timeout_secs**: Used by MultiprocessinConsumerGroup
           time to wait for a consumer to terminate. Default 10 secs.
-        * **metrics_reporter**: Used by KafkaConsumerGroup to send metrics data
-          from kafka-python to SignalFx. Valid options are 'yelp_meteorite'
-          (which uses meteorite) and 'signalfx' (which uses the SignalFx API
-          directly)
+        * **metrics_reporter**: Used by
+          :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` to send
+          metrics data from kafka-python to SignalFx.
+          Valid options are 'yelp_meteorite' (which uses meteorite) and
+          'signalfx' (which uses the SignalFx API directly).
         * **signalfx_dimensions**: Additional dimensions to send to SignalFx.
           Both 'signalfx' and 'yelp_meteorite' use this.
         * **signalfx_send_metrics_interval**: How often to send metrics to
           SignalFx. Only used if metrics_reporter is 'signalfx'.
         * **signalfx_token**: Authentication token to send to SignalFx. Only
           used if metrics_reporter is 'signalfx'.
+
+    Yelp_kafka overrides some kafka-python default settings:
+
+    * **consumer_timeout_ms** is 0.1 seconds by default in yelp_kafka, while it
+      is -1 (infinite) in kafka-python.
+    * **fetch_message_max_bytes** is 2MB by default in yelp_kafka. It is twice
+      as much as the max message size allowed by default in our Kafka clusters.
+    * **auto_commit_interval_messages** is 100 for both
+      :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` and
+      :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.
+    * **auto_commit_interval_ms** is 60 seconds by default.
+
     """
 
     NOT_CONVERTIBLE = object()
@@ -235,9 +250,9 @@ class KafkaConsumerConfig(object):
     # Do not modify SIMPLE_CONSUMER_DEFAULT_CONFIG without also changing
     # KAKFA_CONSUMER_DEFAULT_CONFIG
     SIMPLE_CONSUMER_DEFAULT_CONFIG = {
-        'buffer_size': KAFKA_BUFFER_SIZE,
+        'buffer_size': MAX_MESSAGE_SIZE_BYTES,
         'auto_commit_every_n': AUTO_COMMIT_MSG_COUNT,
-        'auto_commit_every_t': AUTO_COMMIT_INTERVAL,
+        'auto_commit_every_t': AUTO_COMMIT_INTERVAL_SECS,
         'auto_commit': True,
         'fetch_size_bytes': FETCH_MIN_BYTES,
         'max_buffer_size': None,
@@ -248,11 +263,12 @@ class KafkaConsumerConfig(object):
 
     KAFKA_CONSUMER_DEFAULT_CONFIG = {
         'auto_commit_interval_messages': AUTO_COMMIT_MSG_COUNT,
-        'auto_commit_interval_ms': AUTO_COMMIT_INTERVAL,
+        'auto_commit_interval_ms': AUTO_COMMIT_INTERVAL_SECS,
         'auto_commit_enable': True,
         'fetch_min_bytes': FETCH_MIN_BYTES,
         'consumer_timeout_ms': seconds_to_ms(MAX_ITERATOR_TIMEOUT_SECS),
         'auto_offset_reset': DEFAULT_OFFSET_RESET,
+        'fetch_message_max_bytes': MAX_MESSAGE_SIZE_BYTES,
     }
     """SIMPLE_CONSUMER_DEFAULT_CONFIG converted into a KafkaConsumer config"""
 
@@ -272,7 +288,15 @@ class KafkaConsumerConfig(object):
         return not self == other
 
     def get_simple_consumer_args(self):
-        """Get the configuration args for kafka-python SimpleConsumer."""
+        """Get the configuration args for kafka-python SimpleConsumer.
+        Values used in the generated config are evaluated in the following order:
+
+            1. User provided value for a valid SimpleConsumer config specified
+               as keyword argument in KafkaConsumerConfig
+            2. User provided value for a KafkaConsumer config specified
+               as keyword argument in KafkaConsumerConfig.
+            3. Default value specified in yelp-kafka
+        """
         args = {}
         for key, default in self.SIMPLE_CONSUMER_DEFAULT_CONFIG.iteritems():
             if key in self._config:
@@ -290,7 +314,19 @@ class KafkaConsumerConfig(object):
         return args
 
     def get_kafka_consumer_config(self):
-        """Get the configuration for kafka-python KafkaConsumer."""
+        """Get the configuration for kafka-python KafkaConsumer.
+        The generated config values come from user provided values and
+        default values and are evaluated in the following order:
+
+            1. User provided value for a valid KafkaConsumer config specified
+               as keyword argument in KafkaConsumerConfig
+            2. User provided value for a valid SimpleConsumer config specified
+               as keyword argument in KafkaConsumerConfig.
+               NOTE: not all SimpleConsumer options can be converted
+               in KafkaConsumer
+            3. Default value specified in yelp-kafka for KafkaConsumer
+            4. Default value specified in kafka-python
+        """
         config = {}
         for key, default in DEFAULT_CONSUMER_CONFIG.iteritems():
             if key in self._config:
