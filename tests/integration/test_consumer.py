@@ -40,7 +40,7 @@ def test_simple_consumer():
     producer = kafka.SimpleProducer(kafka.KafkaClient(KAFKA_URL))
     producer.send_messages(topic, *messages)
 
-    cluster_config = ClusterConfig(None, [KAFKA_URL], ZOOKEEPER_URL)
+    cluster_config = ClusterConfig(None, None, [KAFKA_URL], ZOOKEEPER_URL)
     config = KafkaConsumerConfig('test', cluster_config,
                                  auto_offset_reset='smallest',
                                  auto_commit=False,
@@ -73,7 +73,7 @@ def test_kafka_consumer_group_two_consumers_two_partitions():
 
 def run_kafka_consumer_group_test(num_consumers, num_partitions):
     topic = create_random_topic(1, num_partitions)
-    cluster_config = ClusterConfig(None, [KAFKA_URL], ZOOKEEPER_URL)
+    cluster_config = ClusterConfig(None, None, [KAFKA_URL], ZOOKEEPER_URL)
     config = KafkaConsumerConfig('test', cluster_config,
                                  auto_offset_reset='smallest')
 

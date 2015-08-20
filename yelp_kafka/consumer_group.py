@@ -258,7 +258,6 @@ class KafkaConsumerGroup(object):
 
     def _setup_meteorite_reporter(self, config):
         extra_dimensions = config.signalfx_dimensions
-
         self.timers = {}
         for name in metrics.TIME_METRIC_NAMES:
             topic_name = self.METRIC_PREFIX + '.' + name

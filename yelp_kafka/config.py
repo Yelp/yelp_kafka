@@ -35,7 +35,7 @@ cluster_configuration = {}
 class ClusterConfig(
     namedtuple(
         'ClusterConfig',
-        ['name', 'broker_list', 'zookeeper'],
+        ['type', 'name', 'broker_list', 'zookeeper'],
     ),
 ):
     """Cluster configuration.
@@ -57,6 +57,7 @@ class ClusterConfig(
             broker_list = self.broker_list.split(',')
         zk_list = self.zookeeper.split(',')
         return hash((
+            self.type,
             self.name,
             ",".join(sorted(filter(None, broker_list))),
             ",".join(sorted(filter(None, zk_list)))
@@ -73,17 +74,17 @@ class TopologyConfiguration(object):
     A topology configuration represents a kafka cluster
     in all the available regions at Yelp.
 
-    :param kafka_id: kafka cluster id. Ex. standard or scribe
-    :type kafka_id: string
+    :param cluster_type: kafka cluster type. Ex. standard, scribe, etc.
+    :type cluster_type: string
     :param kafka_topology_path: path of the directory containing
         the kafka topology.yaml config
     :type kafka_topology_path: string
     """
 
-    def __init__(self, kafka_id,
+    def __init__(self, cluster_type,
                  kafka_topology_path=DEFAULT_KAFKA_TOPOLOGY_BASE_PATH):
         self.kafka_topology_path = kafka_topology_path
-        self.kafka_id = kafka_id
+        self.cluster_type = cluster_type
         self.log = logging.getLogger(self.__class__.__name__)
         self.clusters = None
         self.local_config = None
@@ -91,7 +92,7 @@ class TopologyConfiguration(object):
 
     def __eq__(self, other):
         if all([
-            self.kafka_id == other.kafka_id,
+            self.cluster_type == other.cluster_type,
             self.clusters == other.clusters,
             self.local_config == other.local_config,
         ]):
@@ -104,7 +105,7 @@ class TopologyConfiguration(object):
     def load_topology_config(self):
         """Load the topology configuration"""
         config_path = os.path.join(self.kafka_topology_path,
-                                   '{id}.yaml'.format(id=self.kafka_id))
+                                   '{id}.yaml'.format(id=self.cluster_type))
         self.log.debug("Loading configuration from %s", config_path)
         if os.path.isfile(config_path):
             topology_config = load_yaml_config(config_path)
@@ -112,7 +113,7 @@ class TopologyConfiguration(object):
             raise ConfigurationError(
                 "Topology configuration {0} for cluster {1} "
                 "does not exist".format(
-                    config_path, self.kafka_id
+                    config_path, self.cluster_type
                 )
             )
         self.log.debug("Topology configuration %s", topology_config)
@@ -125,13 +126,25 @@ class TopologyConfiguration(object):
                 config_path))
 
     def get_all_clusters(self):
-        return [ClusterConfig(name, cluster['broker_list'], cluster['zookeeper'])
-                for name, cluster in self.clusters.iteritems()]
+        return [
+            ClusterConfig(
+                type=self.cluster_type,
+                name=name,
+                broker_list=cluster['broker_list'],
+                zookeeper=cluster['zookeeper'],
+            )
+            for name, cluster in self.clusters.iteritems()
+        ]
 
     def get_cluster_by_name(self, name):
         if name in self.clusters:
             cluster = self.clusters[name]
-            return ClusterConfig(name, cluster['broker_list'], cluster['zookeeper'])
+            return ClusterConfig(
+                type=self.cluster_type,
+                name=name,
+                broker_list=cluster['broker_list'],
+                zookeeper=cluster['zookeeper'],
+            )
         raise ConfigurationError("No cluster with name: {0}".format(name))
 
     def get_local_cluster(self):
@@ -139,6 +152,7 @@ class TopologyConfiguration(object):
             if self.local_config:
                 local_cluster = self.clusters[self.local_config['cluster']]
                 return ClusterConfig(
+                    type=self.cluster_type,
                     name=self.local_config['cluster'],
                     broker_list=local_cluster['broker_list'],
                     zookeeper=local_cluster['zookeeper'])
@@ -151,9 +165,9 @@ class TopologyConfiguration(object):
         return self.local_config.get('prefix')
 
     def __repr__(self):
-        return ("TopologyConfig: kafka_id {0}, clusters: {1},"
+        return ("TopologyConfig: cluster_type {0}, clusters: {1},"
                 "local_config {2}".format(
-                    self.kafka_id,
+                    self.cluster_type,
                     self.clusters,
                     self.local_config
                 ))
@@ -389,7 +403,13 @@ class KafkaConsumerConfig(object):
 
     @property
     def signalfx_dimensions(self):
-        return self._config.get('signalfx_dimensions', {})
+        dimensions = self._config.get('signalfx_dimensions', {})
+        dimensions.update({
+            'group_id': self.group_id,
+            'cluster_name': self.cluster.name,
+            'cluster_type': self.cluster.type,
+        })
+        return dimensions
 
     @property
     def signalfx_send_metrics_interval(self):
