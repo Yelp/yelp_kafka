@@ -14,8 +14,7 @@ RUN apt-get install -y python python2.7
 RUN apt-get install -y python-pkg-resources python-pip python-setuptools
 RUN pip install tox
 
-ADD run_tests.sh /usr/bin/run_tests.sh
-RUN chmod 755 /usr/bin/run_tests.sh
+ADD run_tests.sh /scripts/run_tests.sh
+RUN chmod 755 /scripts/run_tests.sh
 
 WORKDIR /work
-CMD /usr/bin/run_tests.sh

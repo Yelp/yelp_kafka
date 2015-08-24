@@ -75,8 +75,12 @@ def test_kafka_consumer_group_two_consumers_two_partitions():
 def run_kafka_consumer_group_test(num_consumers, num_partitions):
     topic = create_random_topic(1, num_partitions)
     cluster_config = ClusterConfig(None, None, [KAFKA_URL], ZOOKEEPER_URL)
-    config = KafkaConsumerConfig('test', cluster_config,
-                                 auto_offset_reset='smallest')
+    config = KafkaConsumerConfig(
+        'test',
+        cluster_config,
+        auto_offset_reset='smallest',
+        partitioner_cooldown=5,
+    )
 
     queue = Queue()
 
@@ -106,7 +110,7 @@ def run_kafka_consumer_group_test(num_consumers, num_partitions):
 
     # wait until all 100 messages have been consumed
     while queue.qsize() < 100:
-        pass
+        time.sleep(0.1)
 
     received_messages = []
     while not queue.empty():
