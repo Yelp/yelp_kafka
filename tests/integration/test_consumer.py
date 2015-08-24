@@ -4,6 +4,7 @@ import time
 from multiprocessing import Process, Queue
 
 import kafka
+from kafka.common import ConsumerTimeout
 
 from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
 from yelp_kafka.consumer import KafkaSimpleConsumer
@@ -84,7 +85,10 @@ def run_kafka_consumer_group_test(num_consumers, num_partitions):
             consumer = KafkaConsumerGroup([topic], config)
             with consumer:
                 while True:
-                    queue.put(consumer.next())
+                    try:
+                        queue.put(consumer.next())
+                    except ConsumerTimeout:
+                        return
 
         p = Process(target=consume)
         p.daemon = True
