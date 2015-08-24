@@ -9,8 +9,8 @@ from yelp_kafka.error import DiscoveryError
 @pytest.fixture
 def mock_clusters():
     return [
-        ClusterConfig('cluster1', ['mybroker'], 'zk_hosts/kafka'),
-        ClusterConfig('cluster2', ['mybroker2'], 'zk_hosts2/kafa')
+        ClusterConfig('type1', 'cluster1', ['mybroker'], 'zk_hosts/kafka'),
+        ClusterConfig('type1', 'cluster2', ['mybroker2'], 'zk_hosts2/kafa'),
     ]
 
 
@@ -19,7 +19,7 @@ def test_get_local_cluster(mock_topology):
     get_cluster = mock_topology.return_value.get_local_cluster
     get_cluster.return_value = mock.sentinel.cluster
     cluster = discovery.get_local_cluster("mycluster")
-    mock_topology.assert_called_once_with(kafka_id='mycluster')
+    mock_topology.assert_called_once_with(cluster_type='mycluster')
     get_cluster.assert_called_once_with()
     assert cluster == mock.sentinel.cluster
 
@@ -29,7 +29,7 @@ def test_get_all_clusters(mock_topology):
     get_clusters = mock_topology.return_value.get_all_clusters
     get_clusters.return_value = mock.sentinel.clusters
     clusters = discovery.get_all_clusters("mycluster")
-    mock_topology.assert_called_once_with(kafka_id='mycluster')
+    mock_topology.assert_called_once_with(cluster_type='mycluster')
     get_clusters.assert_called_once_with()
     assert clusters == mock.sentinel.clusters
 
@@ -39,14 +39,19 @@ def test_get_cluster_by_name(mock_topology):
     get_cluster_by_name = mock_topology.return_value.get_cluster_by_name
     get_cluster_by_name.return_value = mock.sentinel.cluster
     cluster = discovery.get_cluster_by_name("mycluster", "myname")
-    mock_topology.assert_called_once_with(kafka_id='mycluster')
+    mock_topology.assert_called_once_with(cluster_type='mycluster')
     get_cluster_by_name.assert_called_once_with('myname')
     assert cluster == mock.sentinel.cluster
 
 
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
 def test_get_consumer_config(mock_get_cluster):
-    my_cluster = ClusterConfig('cluster1', ['mybroker'], 'zk_hosts/kafka')
+    my_cluster = ClusterConfig(
+        'type1',
+        'cluster1',
+        ['mybroker'],
+        'zk_hosts/kafka',
+    )
     mock_get_cluster.return_value = my_cluster
     with mock.patch("yelp_kafka.discovery.KafkaConsumerConfig",
                     autospec=True) as mock_config:
@@ -80,7 +85,12 @@ def test_get_all_consumer_config(mock_get_clusters, mock_clusters):
 
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
 def test_get_kafka_connection(mock_get_cluster):
-    my_cluster = ClusterConfig('cluster1', ['mybroker'], 'zk_hosts/kafka')
+    my_cluster = ClusterConfig(
+        'type1',
+        'cluster1',
+        ['mybroker'],
+        'zk_hosts/kafka',
+    )
     mock_get_cluster.return_value = my_cluster
     with mock.patch("yelp_kafka.discovery.KafkaClient",
                     autospec=True) as mock_kafka:
@@ -93,7 +103,12 @@ def test_get_kafka_connection(mock_get_cluster):
 
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
 def test_get_kafka_connection_error(mock_get_cluster):
-    my_cluster = ClusterConfig('cluster1', ['mybroker'], 'zk_hosts/kafka')
+    my_cluster = ClusterConfig(
+        'type1',
+        'cluster1',
+        ['mybroker'],
+        'zk_hosts/kafka',
+    )
     mock_get_cluster.return_value = my_cluster
     with mock.patch("yelp_kafka.discovery.KafkaClient",
                     autospec=True) as mock_kafka:
@@ -140,7 +155,10 @@ def test_discover_topics(mock_kafka, mock_topics):
     }
     mock_topics.return_value = expected
     actual = discovery.discover_topics(ClusterConfig(
-        'mycluster', ['mybroker'], 'zkhosts/kakfa'
+        'type1',
+        'mycluster',
+        ['mybroker'],
+        'zkhosts/kakfa',
     ))
     assert actual == expected
 
@@ -151,7 +169,7 @@ def test_discover_topics_error(mock_kafka, mock_topics):
     mock_topics.side_effect = Exception("Boom!")
     with pytest.raises(DiscoveryError):
         discovery.discover_topics(
-            ClusterConfig('mycluster', ['mybroker'], 'zkhosts')
+            ClusterConfig('type1', 'mycluster', ['mybroker'], 'zkhosts')
         )
 
 

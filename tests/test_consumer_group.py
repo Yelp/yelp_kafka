@@ -9,7 +9,7 @@ from kafka.common import (
     KafkaUnavailableError,
 )
 
-from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
+from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.consumer_group import (
     ConsumerGroup,
     KafkaConsumerGroup,
@@ -101,8 +101,7 @@ class TestKafkaConsumerGroup(object):
         with pytest.raises(AssertionError):
             KafkaConsumerGroup('topic', None)
 
-    def test__should_keep_trying_no_timeout(self):
-        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+    def test__should_keep_trying_no_timeout(self, cluster):
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=-1)
         consumer = KafkaConsumerGroup([], config)
@@ -111,10 +110,9 @@ class TestKafkaConsumerGroup(object):
         assert consumer._should_keep_trying(long_time_ago)
 
     @mock.patch('time.time')
-    def test__should_keep_trying_not_timed_out(self, mock_time):
+    def test__should_keep_trying_not_timed_out(self, mock_time, cluster):
         mock_time.return_value = 0
 
-        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=1000)
         consumer = KafkaConsumerGroup([], config)
@@ -123,10 +121,9 @@ class TestKafkaConsumerGroup(object):
         assert consumer._should_keep_trying(almost_a_second_ago)
 
     @mock.patch('time.time')
-    def test__should_keep_trying_timed_out(self, mock_time):
+    def test__should_keep_trying_timed_out(self, mock_time, cluster):
         mock_time.return_value = 0
 
-        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=1000)
         consumer = KafkaConsumerGroup([], config)
@@ -134,15 +131,13 @@ class TestKafkaConsumerGroup(object):
         over_a_second_ago = time.time() - 1.2
         assert not consumer._should_keep_trying(over_a_second_ago)
 
-    def test__auto_commit_enabled_is_enabled(self):
-        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+    def test__auto_commit_enabled_is_enabled(self, cluster):
         config = KafkaConsumerConfig('my_group', cluster,
                                      auto_commit_enable=True)
         consumer = KafkaConsumerGroup([], config)
         assert consumer._auto_commit_enabled()
 
-    def test__auto_commit_enabled_not_enabled(self):
-        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+    def test__auto_commit_enabled_not_enabled(self, cluster):
         config = KafkaConsumerConfig('my_group', cluster,
                                      auto_commit_enable=False)
         consumer = KafkaConsumerGroup([], config)
@@ -150,8 +145,7 @@ class TestKafkaConsumerGroup(object):
 
     @mock.patch('yelp_kafka.consumer_group.Partitioner')
     @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
-    def test_next(self, mock_consumer, mock_partitioner):
-        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+    def test_next(self, mock_consumer, mock_partitioner, cluster):
         config = KafkaConsumerConfig('my_group', cluster,
                                      consumer_timeout_ms=500)
         consumer = KafkaConsumerGroup([], config)
@@ -173,8 +167,7 @@ class TestKafkaConsumerGroup(object):
         consumer.consumer.next.assert_called_once_with()
         consumer.partitioner.refresh.assert_called_once_with()
 
-    def test__acquire_has_consumer(self):
-        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+    def test__acquire_has_consumer(self, cluster):
         config = KafkaConsumerConfig('my_group', cluster)
         consumer = KafkaConsumerGroup([], config)
 
@@ -184,16 +177,14 @@ class TestKafkaConsumerGroup(object):
         consumer.consumer.set_topic_partitions.assert_called_once_with({'a': 'b'})
 
     @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
-    def test__acquire_has_no_consumer(self, mock_consumer):
-        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+    def test__acquire_has_no_consumer(self, mock_consumer, cluster):
         config = KafkaConsumerConfig('my_group', cluster)
         consumer = KafkaConsumerGroup([], config)
 
         consumer._acquire({'a': 'b'})
         mock_consumer.assert_called_once_with({'a': 'b'}, **consumer.config)
 
-    def test__release(self):
-        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+    def test__release(self, cluster):
         config = KafkaConsumerConfig('my_group', cluster,
                                      auto_commit_enable=True)
         consumer = KafkaConsumerGroup([], config)
@@ -205,8 +196,7 @@ class TestKafkaConsumerGroup(object):
         mock_consumer.commit.assert_called_once_with()
         mock_consumer.set_topic_partitions.assert_called_once_with({})
 
-    def test__release_retry(self):
-        cluster = ClusterConfig('my_cluster', [], 'zookeeper:2181')
+    def test__release_retry(self, cluster):
         config = KafkaConsumerConfig('my_group', cluster,
                                      auto_commit_enable=True)
         consumer = KafkaConsumerGroup([], config)
