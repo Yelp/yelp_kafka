@@ -4,7 +4,8 @@ set -e
 
 function do_at_exit {
   exit_status=$?
-  rm -rf build/ dist/ yelp_kafka.egg-info/ .tox/
+  rm -rf build/ dist/ yelp_kafka.egg-info/
+  rm -rf .tox/log .tox/dist
   find . -name '*.pyc' -delete
   find . -name '__pycache__' -delete
   exit $exit_status
@@ -13,4 +14,4 @@ function do_at_exit {
 # Clean up artifacts from tests
 trap do_at_exit EXIT INT TERM
 
-tox tests/integration
+tox -e integration

@@ -239,6 +239,10 @@ class KafkaConsumerGroup(object):
         self.metrics_reporter = None
 
         consumer_config = config.get_kafka_consumer_config()
+        self.log.debug(
+            "Using config: %s",
+            consumer_config,
+        )
 
         if config.metrics_reporter == 'signalfx':
             self._setup_signalfx_reporter(config)

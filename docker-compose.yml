@@ -5,15 +5,16 @@ itest:
     - zookeeper
   volumes:
     - .:/work
+  command: echo "dummy command"
 
 kafka:
   build: docker/kafka
-  ports:
-    - "9092:9092"
+  expose:
+    - "9092"
   links:
     - zookeeper
 
 zookeeper:
   build: docker/zookeeper
-  ports:
-    - "2181:2181"
+  expose:
+    - "2181"
