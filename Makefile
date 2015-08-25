@@ -1,12 +1,12 @@
 .DELETE_ON_ERROR:
 
-all: test
+all: test itest
 
 test:
 	tox tests
 
 itest:
-	tox -e integration
+	tox -e docker_itest
 
 sdist:
 	python setup.py sdist
