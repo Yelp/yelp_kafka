@@ -1,9 +1,9 @@
 This changelog only guarantees backward incompatible changes will be listed.
 
-# v2.0.0 (2015-03-26)
+# v4.0.0 (2015-08-24)
 ## backward incompatible changes
-- `yelp_kafka.monitoring.*` function signatures have been changed to
-  (client, group, topics) and (client, group, topic, partitions).
+- `yelp_kafka.config.ClusterConfig`:
+  - add 'type' attribute to ClusterConfig nametuple
 
 # v3.0.0 (2015-05-28)
 ## backward incompatible changes
@@ -20,3 +20,8 @@ This changelog only guarantees backward incompatible changes will be listed.
 ## added
 - `yelp_kafka.offsets` new functions added:
   advance_consumer_offsets, rewind_consumer_offsets, set_consumer_offsets
+
+# v2.0.0 (2015-03-26)
+## backward incompatible changes
+- `yelp_kafka.monitoring.*` function signatures have been changed to
+  (client, group, topics) and (client, group, topic, partitions).

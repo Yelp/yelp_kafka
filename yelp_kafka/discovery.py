@@ -30,7 +30,7 @@ def get_local_cluster(cluster_type):
     :type cluster_type: string
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
-    topology = TopologyConfiguration(kafka_id=cluster_type)
+    topology = TopologyConfiguration(cluster_type=cluster_type)
     return topology.get_local_cluster()
 
 
@@ -43,7 +43,7 @@ def get_all_clusters(cluster_type):
     :type cluster_type: string
     :returns: list of py:class:`yelp_kafka.config.ClusterConfig`
     """
-    topology = TopologyConfiguration(kafka_id=cluster_type)
+    topology = TopologyConfiguration(cluster_type=cluster_type)
     return topology.get_all_clusters()
 
 
@@ -59,7 +59,7 @@ def get_cluster_by_name(cluster_type, cluster_name):
     :type cluster_type: string
     :returns: :py:class:`yelp_kafka.config.ClusterConfig`
     """
-    topology = TopologyConfiguration(kafka_id=cluster_type)
+    topology = TopologyConfiguration(cluster_type=cluster_type)
     return topology.get_cluster_by_name(cluster_name)
 
 
@@ -259,7 +259,7 @@ def search_local_scribe_topics_by_regex(pattern):
     :returns: ([topics], cluster)
     :raises DiscoveryError: if no matching topics exist
     """
-    topology = TopologyConfiguration(kafka_id=DEFAULT_KAFKA_SCRIBE)
+    topology = TopologyConfiguration(cluster_type=DEFAULT_KAFKA_SCRIBE)
     prefix = re.escape(topology.get_scribe_local_prefix())
     return search_local_topics_by_regex('scribe', prefix + pattern)
 
@@ -292,7 +292,7 @@ def local_scribe_topic_exists(stream):
     :returns: True if the topic exists in the local cluster
     :raises ConfigurationError: if the local prefix is not in the config file
     """
-    topology = TopologyConfiguration(kafka_id=DEFAULT_KAFKA_SCRIBE)
+    topology = TopologyConfiguration(cluster_type=DEFAULT_KAFKA_SCRIBE)
     cluster = topology.get_local_cluster()
     prefix = topology.get_scribe_local_prefix()
     if not prefix:
@@ -315,7 +315,7 @@ def get_local_scribe_topic(stream):
     :returns: (topic, cluster)
     :raises DiscoveryError: if the topic does not exist
     """
-    topology = TopologyConfiguration(kafka_id=DEFAULT_KAFKA_SCRIBE)
+    topology = TopologyConfiguration(cluster_type=DEFAULT_KAFKA_SCRIBE)
     cluster = topology.get_local_cluster()
     prefix = topology.get_scribe_local_prefix()
     if not prefix:

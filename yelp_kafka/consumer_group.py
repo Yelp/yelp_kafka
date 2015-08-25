@@ -186,6 +186,9 @@ class KafkaConsumerGroup(object):
     committed before repartitioning. To commit messages immediately, you can
     call `commit()`.
 
+    If metrics_reporter is enabled in config, the metrics prefix in SignalFx
+    will be: "yelp_kafka.KafkaConsumerGroup."
+
     .. warning::
         Do not create multiple KafkaConsumerGroups in the same process;
         the Partitioner class does not work if there are multiple instances of it in
@@ -258,7 +261,6 @@ class KafkaConsumerGroup(object):
 
     def _setup_meteorite_reporter(self, config):
         extra_dimensions = config.signalfx_dimensions
-
         self.timers = {}
         for name in metrics.TIME_METRIC_NAMES:
             topic_name = self.METRIC_PREFIX + '.' + name

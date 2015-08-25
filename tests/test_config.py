@@ -6,8 +6,8 @@ from StringIO import StringIO
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 
 from yelp_kafka.config import (
-    KAFKA_BUFFER_SIZE,
-    AUTO_COMMIT_INTERVAL,
+    MAX_MESSAGE_SIZE_BYTES,
+    AUTO_COMMIT_INTERVAL_SECS,
     ClusterConfig,
     KafkaConsumerConfig,
     load_yaml_config,
@@ -70,11 +70,13 @@ MOCK_NO_SCRIBE_YAML = {
 class TestClusterConfig():
     def test___eq___broker_list(self):
         cluster_config1 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         cluster_config2 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
@@ -82,6 +84,7 @@ class TestClusterConfig():
         assert cluster_config1 == cluster_config2
         # Re-ordering the list of brokers
         cluster_config2 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list=['kafka-cluster-2:9092', 'kafka-cluster-1:9092'],
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
@@ -90,11 +93,13 @@ class TestClusterConfig():
 
     def test___eq___broker_str(self):
         cluster_config1 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         cluster_config2 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
@@ -102,6 +107,7 @@ class TestClusterConfig():
         assert cluster_config1 == cluster_config2
         # Re-order the comma separated pair of brokers and zookeeper nodes
         cluster_config2 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list='kafka-cluster-2:9092,kafka-cluster-1:9092',
             zookeeper='zookeeper-cluster-2:2181,zookeeper-cluster-1:2181,'
@@ -110,12 +116,14 @@ class TestClusterConfig():
 
     def test___ne___broker_str(self):
         cluster_config1 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         # Different comma separated pair of brokers
         cluster_config2 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list='kafka-cluster-2:9092,kafka-cluster-3:9092',
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
@@ -123,6 +131,7 @@ class TestClusterConfig():
         assert cluster_config1 != cluster_config2
         # Different comma separated pair of zookeeper nodes
         cluster_config2 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list='kafka-cluster-1:9092,kafka-cluster-2:9092',
             zookeeper='zookeeper-cluster-2:2181,zookeeper-cluster-3:2181,'
@@ -131,12 +140,14 @@ class TestClusterConfig():
 
     def test___ne___broker_list(self):
         cluster_config1 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
         )
         # Different broker list
         cluster_config2 = ClusterConfig(
+            type='some_type',
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-3:9092'],
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
@@ -172,19 +183,22 @@ class TestTopologyConfig(object):
         with pytest.raises(ConfigurationError):
             with mock.patch("os.path.isfile", return_value=False):
                 TopologyConfiguration(
-                    kafka_id="wrong_cluster",
+                    cluster_type="wrong_cluster",
                     kafka_topology_path=TEST_BASE_KAFKA
                 )
 
     def test_get_local_cluster(self, mock_yaml):
         topology = TopologyConfiguration(
-            kafka_id='mykafka',
+            cluster_type='mykafka',
             kafka_topology_path=TEST_BASE_KAFKA,
         )
         mock_yaml.assert_called_once_with('/base/kafka_discovery/mykafka.yaml')
         actual_cluster = topology.get_local_cluster()
         expected_cluster = ClusterConfig(
-            'cluster1', ['mybrokerhost1:9092'], '0.1.2.3,0.2.3.4/kafka'
+            'mykafka',
+            'cluster1',
+            ['mybrokerhost1:9092'],
+            '0.1.2.3,0.2.3.4/kafka',
         )
         assert actual_cluster == expected_cluster
 
@@ -203,7 +217,7 @@ class TestTopologyConfig(object):
                 }
             }
             topology = TopologyConfiguration(
-                kafka_id='mykafka',
+                cluster_type='mykafka',
                 kafka_topology_path=TEST_BASE_KAFKA,
             )
             # Raise ConfigurationError because cluster 3 does not exist
@@ -212,7 +226,7 @@ class TestTopologyConfig(object):
 
     def test_get_scribe_prefix(self, mock_yaml):
         topology = TopologyConfiguration(
-            kafka_id='mykafka',
+            cluster_type='mykafka',
             kafka_topology_path=TEST_BASE_KAFKA,
         )
         assert 'my.prefix.' == topology.get_scribe_local_prefix()
@@ -220,35 +234,35 @@ class TestTopologyConfig(object):
     def test_get_scribe_prefix_None(self, mock_yaml):
         mock_yaml.return_value = MOCK_NO_SCRIBE_YAML
         topology = TopologyConfiguration(
-            kafka_id='mykafka',
+            cluster_type='mykafka',
             kafka_topology_path=TEST_BASE_KAFKA,
         )
         assert not topology.get_scribe_local_prefix()
 
     def test_get_all_clusters(self, mock_yaml):
         topology = TopologyConfiguration(
-            kafka_id='mykafka',
+            cluster_type='mykafka',
             kafka_topology_path=TEST_BASE_KAFKA,
         )
         actual_clusters = topology.get_all_clusters()
         expected_clusters = [
             ClusterConfig(
-                'cluster1', ["mybrokerhost1:9092"], "0.1.2.3,0.2.3.4/kafka"
+                'mykafka', 'cluster1', ["mybrokerhost1:9092"], "0.1.2.3,0.2.3.4/kafka"
             ),
             ClusterConfig(
-                'cluster2', ["mybrokerhost2:9092"], "0.3.4.5,0.4.5.6/kafka"
+                'mykafka', 'cluster2', ["mybrokerhost2:9092"], "0.3.4.5,0.4.5.6/kafka"
             )
         ]
         assert sorted(expected_clusters) == sorted(actual_clusters)
 
     def test_get_cluster_by_name(self, mock_yaml):
         topology = TopologyConfiguration(
-            kafka_id='mykafka',
+            cluster_type='mykafka',
             kafka_topology_path=TEST_BASE_KAFKA,
         )
         actual_cluster = topology.get_cluster_by_name('cluster1')
         expected_cluster = ClusterConfig(
-            'cluster1', ["mybrokerhost1:9092"], "0.1.2.3,0.2.3.4/kafka"
+            'mykafka', 'cluster1', ["mybrokerhost1:9092"], "0.1.2.3,0.2.3.4/kafka"
         )
         assert expected_cluster == actual_cluster
 
@@ -286,6 +300,7 @@ class TestKafkaConsumerConfig(object):
             'iter_timeout': 120,
         }
         cluster_config = ClusterConfig(
+            type='mykafka',
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
@@ -302,6 +317,7 @@ class TestKafkaConsumerConfig(object):
             'auto_commit_every_n': 100,
         }
         cluster_config_reordered = ClusterConfig(
+            type='mykafka',
             name='some_cluster',
             broker_list=['kafka-cluster-2:9092', 'kafka-cluster-1:9092'],
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
@@ -337,6 +353,7 @@ class TestKafkaConsumerConfig(object):
             'iter_timeout': 120,
         }
         cluster_config = ClusterConfig(
+            type='mykafka',
             name='some_cluster',
             broker_list=['kafka-cluster-1:9092', 'kafka-cluster-2:9092'],
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
@@ -352,6 +369,7 @@ class TestKafkaConsumerConfig(object):
             'auto_commit_every_n': 10,
         }
         cluster_config_1 = ClusterConfig(
+            type='mykafka',
             name='some_cluster',
             broker_list=['kafka-cluster-4:9092', 'kafka-cluster-1:9092'],
             zookeeper='zookeeper-cluster-1:2181,zookeeper-cluster-2:2181,'
@@ -398,6 +416,7 @@ class TestKafkaConsumerConfig(object):
 
     def test_get_simple_consumer_args(self):
         cluster_config = ClusterConfig(
+            type='mykafka',
             name='some_cluster',
             broker_list=['kafka:9092'],
             zookeeper='zookeeper:2181'
@@ -410,7 +429,7 @@ class TestKafkaConsumerConfig(object):
                                      consumer_timeout_ms=5000)
         args = config.get_simple_consumer_args()
 
-        assert args['buffer_size'] == KAFKA_BUFFER_SIZE
+        assert args['buffer_size'] == MAX_MESSAGE_SIZE_BYTES
         assert args['auto_commit']
         assert args['auto_offset_reset'] == 'smallest'
         assert args['fetch_size_bytes'] == 456
@@ -418,6 +437,7 @@ class TestKafkaConsumerConfig(object):
 
     def test_get_kafka_consumer_config(self):
         cluster_config = ClusterConfig(
+            type='mykafka',
             name='some_cluster',
             broker_list=['kafka:9092'],
             zookeeper='zookeeper:2181'
@@ -432,6 +452,6 @@ class TestKafkaConsumerConfig(object):
 
         assert kafka_config['fetch_message_max_bytes'] == 123
         assert kafka_config['auto_commit_enable'] == False
-        assert kafka_config['auto_commit_interval_ms'] == AUTO_COMMIT_INTERVAL
+        assert kafka_config['auto_commit_interval_ms'] == AUTO_COMMIT_INTERVAL_SECS
         assert kafka_config['socket_timeout_ms'] == DEFAULT_CONSUMER_CONFIG['socket_timeout_ms']
         assert kafka_config['consumer_timeout_ms'] == 5000
