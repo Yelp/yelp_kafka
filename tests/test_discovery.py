@@ -278,6 +278,36 @@ def test_search_by_regex(mock_clusters):
             )
 
 
+def test_search_by_scribe_regex(mock_clusters):
+    with mock.patch("yelp_kafka.discovery.discover_topics",
+                    autospec=True) as mock_discover:
+        mock_discover.side_effect = iter([
+            {
+                'scribe..topic1': [0, 1, 2],
+                'scribe.dev.topic1': [0],
+            },
+            {
+                'scribe.uswest1-dev.topic1': [0],
+                'scribe.uswest1-dev.topic2': [0],
+            }
+        ])
+        # search for all topics starting with top
+        pattern = discovery.make_scribe_regex('topic1')
+        actual = discovery.search_topics_by_regex(pattern, mock_clusters)
+        expected = [
+            (['scribe.dev.topic1'], mock_clusters[0]),
+            (['scribe.uswest1-dev.topic1'], mock_clusters[1]),
+        ]
+
+        assert len(expected) == len(actual)
+        for expected_topic in expected:
+            assert any(
+                sorted(actual_topic[0]) == sorted(expected_topic[0]) and
+                actual_topic[1] == actual_topic[1]
+                for actual_topic in actual
+            )
+
+
 @mock.patch("yelp_kafka.discovery.search_local_topics_by_regex")
 def test_search_local_scribe_topics_by_regex(mock_search):
     discovery.search_local_scribe_topics_by_regex(".*")
@@ -323,7 +353,10 @@ def test_search_topic_by_regex_in_all_clusters(mock_get_clusters, mock_search):
 
 @mock.patch("yelp_kafka.discovery.search_topics_by_regex", autospec=True)
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
-def test_search_topic_by_regex_in_all_clusters_error(mock_get_clusters, mock_search):
+def test_search_topic_by_regex_in_all_clusters_error(
+    mock_get_clusters,
+    mock_search
+):
     mock_get_clusters.return_value = mock.sentinel.clusters
     mock_search.return_value = []
     with pytest.raises(DiscoveryError):
@@ -348,6 +381,21 @@ def test_get_local_scribe_topic(mock_search, mock_top):
     assert actual == mock.sentinel.topic
     mock_search.assert_called_once_with(
         'my.prefix.ranger', [my_cluster]
+    )
+
+
+@mock.patch("yelp_kafka.discovery.search_local_topics_by_regex", autospec=True)
+def test_get_all_local_scribe_topics(mock_search):
+    mock_search.return_value = (
+        [mock.sentinel.topic1, mock.sentinel.topic2],
+        mock.sentinel.cluster,
+    )
+    topics, cluster = discovery.get_all_local_scribe_topics('ranger')
+    assert topics == [mock.sentinel.topic1, mock.sentinel.topic2]
+    assert cluster == mock.sentinel.cluster
+    mock_search.assert_called_once_with(
+        discovery.DEFAULT_KAFKA_SCRIBE,
+        '^scribe\.[\w-]+\.ranger$',
     )
 
 
@@ -454,12 +502,19 @@ def test_get_scribe_topic(mock_get_clusters, mock_clusters):
         }, {
             'scribe.dc1.non_my_scribe_stream': [0, 1]
         }])
-        expected = (['scribe.dc2.my_scribe_stream', 'scribe.dc1.my_scribe_stream'], mock_clusters[0])
+        expected = (
+            [
+                'scribe.dc2.my_scribe_stream',
+                'scribe.dc1.my_scribe_stream',
+            ],
+            mock_clusters[0],
+        )
         actual = discovery.get_scribe_topics('my_scribe_stream')
 
     # actual should be a list containing the expected tuple
     assert len(actual) == 1
-    assert sorted(actual[0][0]) == sorted(expected[0]) and actual[0][1] == expected[1]
+    assert (sorted(actual[0][0]) == sorted(expected[0]) and
+            actual[0][1] == expected[1])
 
 
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)

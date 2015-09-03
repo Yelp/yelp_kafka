@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 
 
 def make_scribe_regex(stream):
-    return '^scribe\.\w*\.{0}$'.format(re.escape(stream))
+    return '^scribe\.[\w-]+\.{0}$'.format(re.escape(stream))
 
 
 def get_local_cluster(cluster_type):
@@ -219,7 +219,8 @@ def search_topics_by_regex(pattern, clusters=None):
 
     :param pattern: regex to match topics
     :param clusters: list of cluster config
-    :returns: ([topics], cluster).
+    :returns: [([topics], cluster)].
+    :rtype: list
     """
     matches = []
     for cluster in clusters:
@@ -308,7 +309,7 @@ def local_scribe_topic_exists(stream):
 
 
 def get_local_scribe_topic(stream):
-    """Search for all the topics for a scribe stream in the local kafka cluster.
+    """Search for the local topic matching the given scribe stream.
 
     :param stream: scribe stream name
     :type stream: string
@@ -336,6 +337,18 @@ def get_local_scribe_topic(stream):
         )
     # Return the topic name if it exists
     return result[0]
+
+
+def get_all_local_scribe_topics(stream):
+    """Search for all the topics for a scribe stream in the local kafka cluster.
+
+    :param stream: scribe stream name
+    :type stream: string
+    :returns: ([topics], cluster)
+    :raises DiscoveryError: if the topic does not exist
+    """
+    pattern = make_scribe_regex(stream)
+    return search_local_topics_by_regex(DEFAULT_KAFKA_SCRIBE, pattern)
 
 
 def get_scribe_topics(stream):
