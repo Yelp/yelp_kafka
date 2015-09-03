@@ -124,19 +124,18 @@ class KafkaSimpleConsumer(object):
         :rtype: Message namedtuple, which consists of: partition number,
                 offset, key, and message value
         """
-        while True:
-            fetched_message = self.kafka_consumer.get_message(block, timeout)
-            if fetched_message is None:
-                # get message timed out returns None
-                return None
-            else:
-                partition, kafka_message = fetched_message
-                return Message(
-                    partition=partition,
-                    offset=kafka_message[0],
-                    key=kafka_message[1].key,
-                    value=kafka_message[1].value,
-                )
+        fetched_message = self.kafka_consumer.get_message(block, timeout)
+        if fetched_message is None:
+            # get message timed out returns None
+            return None
+        else:
+            partition, kafka_message = fetched_message
+            return Message(
+                partition=partition,
+                offset=kafka_message[0],
+                key=kafka_message[1].key,
+                value=kafka_message[1].value,
+            )
 
     def commit(self, partitions=None):
         """Commit offset for this consumer group
