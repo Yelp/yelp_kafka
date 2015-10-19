@@ -1,4 +1,5 @@
 test_venv/
+virtualenv_run/
 
 *.py[cod]
 
