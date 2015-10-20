@@ -95,6 +95,10 @@ class TestConsumerGroup(object):
 
 class TestKafkaConsumerGroup(object):
 
+    @pytest.fixture
+    def example_partitions(self):
+        return {'a': 'b'}
+
     topic = 'topic1'
 
     def test___init__string_topics(self):
@@ -167,38 +171,53 @@ class TestKafkaConsumerGroup(object):
         consumer.consumer.next.assert_called_once_with()
         consumer.partitioner.refresh.assert_called_once_with()
 
-    def test__acquire_has_consumer(self, cluster):
-        config = KafkaConsumerConfig('my_group', cluster)
+    def test__acquire_has_consumer(self, cluster, example_partitions):
+        mock_callback = mock.Mock()
+        config = KafkaConsumerConfig(
+            'my_group',
+            cluster,
+            post_repartition_callback=mock_callback
+        )
         consumer = KafkaConsumerGroup([], config)
 
         consumer.consumer = mock.Mock()
-        consumer._acquire({'a': 'b'})
+        consumer._acquire(example_partitions)
 
-        consumer.consumer.set_topic_partitions.assert_called_once_with({'a': 'b'})
+        consumer.consumer.set_topic_partitions.assert_called_once_with(example_partitions)
+        mock_callback.assert_called_once_with(example_partitions)
 
     @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
-    def test__acquire_has_no_consumer(self, mock_consumer, cluster):
+    def test__acquire_has_no_consumer(self, mock_consumer, cluster, example_partitions):
         config = KafkaConsumerConfig('my_group', cluster)
         consumer = KafkaConsumerGroup([], config)
 
-        consumer._acquire({'a': 'b'})
-        mock_consumer.assert_called_once_with({'a': 'b'}, **consumer.config)
+        consumer._acquire(example_partitions)
+        mock_consumer.assert_called_once_with(example_partitions, **consumer.config)
 
-    def test__release(self, cluster):
-        config = KafkaConsumerConfig('my_group', cluster,
-                                     auto_commit_enable=True)
+    def test__release(self, cluster, example_partitions):
+        mock_callback = mock.Mock()
+        config = KafkaConsumerConfig(
+            'my_group',
+            cluster,
+            auto_commit_enable=True,
+            pre_repartition_callback=mock_callback
+        )
         consumer = KafkaConsumerGroup([], config)
 
         mock_consumer = mock.Mock()
         consumer.consumer = mock_consumer
-        consumer._release({})
+        consumer._release(example_partitions)
 
         mock_consumer.commit.assert_called_once_with()
         mock_consumer.set_topic_partitions.assert_called_once_with({})
+        mock_callback.assert_called_once_with(example_partitions)
 
     def test__release_retry(self, cluster):
-        config = KafkaConsumerConfig('my_group', cluster,
-                                     auto_commit_enable=True)
+        config = KafkaConsumerConfig(
+            'my_group',
+            cluster,
+            auto_commit_enable=True
+        )
         consumer = KafkaConsumerGroup([], config)
 
         mock_consumer = mock.Mock()

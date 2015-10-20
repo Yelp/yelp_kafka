@@ -251,6 +251,9 @@ class KafkaConsumerGroup(object):
             self._setup_meteorite_reporter(config)
             consumer_config['metrics_responder'] = self._send_to_yelp_meteorite
 
+        self.pre_repartition_callback = config.pre_repartition_callback
+        self.post_repartition_callback = config.post_repartition_callback
+
         # Intercept the user's timeout and pass in our own instead. We do this
         # in order to periodically refresh the partitioner when calling next()
         self.iter_timeout = consumer_config['consumer_timeout_ms']
@@ -331,11 +334,15 @@ class KafkaConsumerGroup(object):
             self.consumer = KafkaConsumer(partitions, **self.config)
         else:
             self.consumer.set_topic_partitions(partitions)
+        if self.post_repartition_callback:
+            self.post_repartition_callback(partitions)
 
     # set_topic_partitions causes a metadata request, which may fail on the
     # first try.
     @retry(2, exceptions=(KafkaUnavailableError,))
     def _release(self, partitions):
+        if self.pre_repartition_callback:
+            self.pre_repartition_callback(partitions)
         if self._auto_commit_enabled():
             self.consumer.commit()
         self.consumer.set_topic_partitions({})
