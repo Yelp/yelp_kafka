@@ -100,13 +100,14 @@ class TestKafkaConsumerGroup(object):
         return {'a': 'b'}
 
     topic = 'topic1'
+    group = 'my_group'
 
     def test___init__string_topics(self):
         with pytest.raises(AssertionError):
-            KafkaConsumerGroup('topic', None)
+            KafkaConsumerGroup(self.topic, None)
 
     def test__should_keep_trying_no_timeout(self, cluster):
-        config = KafkaConsumerConfig('my_group', cluster,
+        config = KafkaConsumerConfig(self.group, cluster,
                                      consumer_timeout_ms=-1)
         consumer = KafkaConsumerGroup([], config)
 
@@ -117,7 +118,7 @@ class TestKafkaConsumerGroup(object):
     def test__should_keep_trying_not_timed_out(self, mock_time, cluster):
         mock_time.return_value = 0
 
-        config = KafkaConsumerConfig('my_group', cluster,
+        config = KafkaConsumerConfig(self.group, cluster,
                                      consumer_timeout_ms=1000)
         consumer = KafkaConsumerGroup([], config)
 
@@ -128,7 +129,7 @@ class TestKafkaConsumerGroup(object):
     def test__should_keep_trying_timed_out(self, mock_time, cluster):
         mock_time.return_value = 0
 
-        config = KafkaConsumerConfig('my_group', cluster,
+        config = KafkaConsumerConfig(self.group, cluster,
                                      consumer_timeout_ms=1000)
         consumer = KafkaConsumerGroup([], config)
 
@@ -136,13 +137,13 @@ class TestKafkaConsumerGroup(object):
         assert not consumer._should_keep_trying(over_a_second_ago)
 
     def test__auto_commit_enabled_is_enabled(self, cluster):
-        config = KafkaConsumerConfig('my_group', cluster,
+        config = KafkaConsumerConfig(self.group, cluster,
                                      auto_commit_enable=True)
         consumer = KafkaConsumerGroup([], config)
         assert consumer._auto_commit_enabled()
 
     def test__auto_commit_enabled_not_enabled(self, cluster):
-        config = KafkaConsumerConfig('my_group', cluster,
+        config = KafkaConsumerConfig(self.group, cluster,
                                      auto_commit_enable=False)
         consumer = KafkaConsumerGroup([], config)
         assert not consumer._auto_commit_enabled()
@@ -150,7 +151,7 @@ class TestKafkaConsumerGroup(object):
     @mock.patch('yelp_kafka.consumer_group.Partitioner')
     @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
     def test_next(self, mock_consumer, mock_partitioner, cluster):
-        config = KafkaConsumerConfig('my_group', cluster,
+        config = KafkaConsumerConfig(self.group, cluster,
                                      consumer_timeout_ms=500)
         consumer = KafkaConsumerGroup([], config)
         consumer.partitioner = mock_partitioner()
@@ -174,7 +175,7 @@ class TestKafkaConsumerGroup(object):
     def test__acquire_has_consumer(self, cluster, example_partitions):
         mock_callback = mock.Mock()
         config = KafkaConsumerConfig(
-            'my_group',
+            self.group,
             cluster,
             post_repartition_callback=mock_callback
         )
@@ -188,7 +189,7 @@ class TestKafkaConsumerGroup(object):
 
     @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
     def test__acquire_has_no_consumer(self, mock_consumer, cluster, example_partitions):
-        config = KafkaConsumerConfig('my_group', cluster)
+        config = KafkaConsumerConfig(self.group, cluster)
         consumer = KafkaConsumerGroup([], config)
 
         consumer._acquire(example_partitions)
@@ -197,7 +198,7 @@ class TestKafkaConsumerGroup(object):
     def test__release(self, cluster, example_partitions):
         mock_callback = mock.Mock()
         config = KafkaConsumerConfig(
-            'my_group',
+            self.group,
             cluster,
             auto_commit_enable=True,
             pre_repartition_callback=mock_callback
@@ -214,7 +215,7 @@ class TestKafkaConsumerGroup(object):
 
     def test__release_retry(self, cluster):
         config = KafkaConsumerConfig(
-            'my_group',
+            self.group,
             cluster,
             auto_commit_enable=True
         )
