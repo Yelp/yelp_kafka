@@ -436,6 +436,8 @@ class MultiprocessingConsumerGroup(object):
         self.consumer_procs = {}
         self.consumer_factory = consumer_factory
         self.log = logging.getLogger(self.__class__.__name__)
+        self.pre_repartition_callback = config.pre_repartition_callback
+        self.post_repartition_callback = config.post_repartition_callback
 
     def start_group(self, refresh_timeout=DEFAULT_REFRESH_TIMEOUT_IN_SEC):
         """Start the consumer group.
@@ -483,6 +485,8 @@ class MultiprocessingConsumerGroup(object):
                 partitions
             )
             self.log.debug("Allocated consumers %s", self.consumers)
+        if self.post_repartition_callback:
+            self.post_repartition_callback(partitions)
 
     def start(self, acquired_partitions):
         """Start a consumer process for each acquired partition.
@@ -537,6 +541,8 @@ class MultiprocessingConsumerGroup(object):
 
     def release(self, partitions):
         """Terminate all the consumer processes"""
+        if self.pre_repartition_callback:
+            self.pre_repartition_callback(partitions)
         self.log.info("Terminating consumer group")
         for consumer in self.consumer_procs.itervalues():
             consumer.terminate()

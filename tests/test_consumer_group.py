@@ -172,12 +172,16 @@ class TestKafkaConsumerGroup(object):
         consumer.consumer.next.assert_called_once_with()
         consumer.partitioner.refresh.assert_called_once_with()
 
-    def test__acquire_has_consumer(self, cluster, example_partitions):
-        mock_callback = mock.Mock()
+    def test__acquire_has_consumer(
+        self,
+        cluster,
+        example_partitions,
+        mock_post_repartition_cb
+    ):
         config = KafkaConsumerConfig(
             self.group,
             cluster,
-            post_repartition_callback=mock_callback
+            post_repartition_callback=mock_post_repartition_cb
         )
         consumer = KafkaConsumerGroup([], config)
 
@@ -185,7 +189,7 @@ class TestKafkaConsumerGroup(object):
         consumer._acquire(example_partitions)
 
         consumer.consumer.set_topic_partitions.assert_called_once_with(example_partitions)
-        mock_callback.assert_called_once_with(example_partitions)
+        mock_post_repartition_cb.assert_called_once_with(example_partitions)
 
     @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
     def test__acquire_has_no_consumer(self, mock_consumer, cluster, example_partitions):
@@ -195,13 +199,17 @@ class TestKafkaConsumerGroup(object):
         consumer._acquire(example_partitions)
         mock_consumer.assert_called_once_with(example_partitions, **consumer.config)
 
-    def test__release(self, cluster, example_partitions):
-        mock_callback = mock.Mock()
+    def test__release(
+        self,
+        cluster,
+        example_partitions,
+        mock_pre_repartition_cb
+    ):
         config = KafkaConsumerConfig(
             self.group,
             cluster,
             auto_commit_enable=True,
-            pre_repartition_callback=mock_callback
+            pre_repartition_callback=mock_pre_repartition_cb
         )
         consumer = KafkaConsumerGroup([], config)
 
@@ -211,7 +219,7 @@ class TestKafkaConsumerGroup(object):
 
         mock_consumer.commit.assert_called_once_with()
         mock_consumer.set_topic_partitions.assert_called_once_with({})
-        mock_callback.assert_called_once_with(example_partitions)
+        mock_pre_repartition_cb.assert_called_once_with(example_partitions)
 
     def test__release_retry(self, cluster):
         config = KafkaConsumerConfig(
@@ -236,13 +244,19 @@ class TestMultiprocessingConsumerGroup(object):
 
     @pytest.fixture
     @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
-    def group(self, _):
+    def group(
+        self, _,
+        mock_pre_repartition_cb,
+        mock_post_repartition_cb
+    ):
         config = KafkaConsumerConfig(
             cluster={'broker_list': ['test_broker:9292'],
                      'zookeeper': 'zookeeper_uri1:2181,zookeeper_uri2:2181'},
             group_id='test_group',
             client_id='test_client_id',
-            max_termination_timeout_secs=0.1
+            max_termination_timeout_secs=0.1,
+            pre_repartition_callback=mock_pre_repartition_cb,
+            post_repartition_callback=mock_post_repartition_cb
         )
         return MultiprocessingConsumerGroup(
             self.topics,
@@ -250,7 +264,7 @@ class TestMultiprocessingConsumerGroup(object):
         )
 
     @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
-    def test_acquire(self, _, config):
+    def test_acquire(self, _, config, mock_post_repartition_cb):
         consumer_factory = mock.Mock()
         mock_consumer = mock.Mock()
         consumer_factory.return_value = mock_consumer
@@ -270,6 +284,7 @@ class TestMultiprocessingConsumerGroup(object):
             assert consumer_factory.call_count == 4
             assert mock_process.call_count == 4
             assert mock_process.return_value.start.call_count == 4
+            mock_post_repartition_cb.assert_called_once_with(partitions)
 
     def test_start_consumer_fail(self, group):
         consumer = mock.Mock(topic='Test', partitions=[1, 2, 3])
@@ -281,7 +296,7 @@ class TestMultiprocessingConsumerGroup(object):
             with pytest.raises(ConsumerGroupError):
                 group.start_consumer(consumer)
 
-    def test_release(self, group):
+    def test_release(self, group, mock_pre_repartition_cb):
         consumer = mock.Mock()
         args = {'is_alive.return_value': False}
         group.consumers = [consumer, consumer]
@@ -296,6 +311,7 @@ class TestMultiprocessingConsumerGroup(object):
         assert not mock_kill.called
         assert consumer.terminate.call_count == 2
         assert not group.get_consumers()
+        mock_pre_repartition_cb.assert_called_once_with(None)
 
     def test_release_and_kill_unresponsive_consumer(self, group):
         consumer = mock.Mock()
