@@ -1,3 +1,0 @@
-# The -e . syntax means to install the package in this directory as well.
--e .
-

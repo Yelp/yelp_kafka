@@ -251,8 +251,8 @@ class KafkaConsumerGroup(object):
             self._setup_meteorite_reporter(config)
             consumer_config['metrics_responder'] = self._send_to_yelp_meteorite
 
-        self.pre_repartition_callback = config.pre_repartition_callback
-        self.post_repartition_callback = config.post_repartition_callback
+        self.pre_rebalance_callback = config.pre_rebalance_callback
+        self.post_rebalance_callback = config.post_rebalance_callback
 
         # Intercept the user's timeout and pass in our own instead. We do this
         # in order to periodically refresh the partitioner when calling next()
@@ -334,15 +334,15 @@ class KafkaConsumerGroup(object):
             self.consumer = KafkaConsumer(partitions, **self.config)
         else:
             self.consumer.set_topic_partitions(partitions)
-        if self.post_repartition_callback:
-            self.post_repartition_callback(partitions)
+        if self.post_rebalance_callback:
+            self.post_rebalance_callback(partitions)
 
     # set_topic_partitions causes a metadata request, which may fail on the
     # first try.
     @retry(2, exceptions=(KafkaUnavailableError,))
     def _release(self, partitions):
-        if self.pre_repartition_callback:
-            self.pre_repartition_callback(partitions)
+        if self.pre_rebalance_callback:
+            self.pre_rebalance_callback(partitions)
         if self._auto_commit_enabled():
             self.consumer.commit()
         self.consumer.set_topic_partitions({})
@@ -436,8 +436,8 @@ class MultiprocessingConsumerGroup(object):
         self.consumer_procs = {}
         self.consumer_factory = consumer_factory
         self.log = logging.getLogger(self.__class__.__name__)
-        self.pre_repartition_callback = config.pre_repartition_callback
-        self.post_repartition_callback = config.post_repartition_callback
+        self.pre_rebalance_callback = config.pre_rebalance_callback
+        self.post_rebalance_callback = config.post_rebalance_callback
 
     def start_group(self, refresh_timeout=DEFAULT_REFRESH_TIMEOUT_IN_SEC):
         """Start the consumer group.
@@ -485,8 +485,8 @@ class MultiprocessingConsumerGroup(object):
                 partitions
             )
             self.log.debug("Allocated consumers %s", self.consumers)
-        if self.post_repartition_callback:
-            self.post_repartition_callback(partitions)
+        if self.post_rebalance_callback:
+            self.post_rebalance_callback(partitions)
 
     def start(self, acquired_partitions):
         """Start a consumer process for each acquired partition.
@@ -541,8 +541,8 @@ class MultiprocessingConsumerGroup(object):
 
     def release(self, partitions):
         """Terminate all the consumer processes"""
-        if self.pre_repartition_callback:
-            self.pre_repartition_callback(partitions)
+        if self.pre_rebalance_callback:
+            self.pre_rebalance_callback(partitions)
         self.log.info("Terminating consumer group")
         for consumer in self.consumer_procs.itervalues():
             consumer.terminate()

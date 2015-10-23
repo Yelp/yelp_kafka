@@ -206,18 +206,18 @@ class KafkaConsumerConfig(object):
           SignalFx. Only used if metrics_reporter is 'signalfx'.
         * **signalfx_token**: Authentication token to send to SignalFx. Only
           used if metrics_reporter is 'signalfx'.
-        * **pre_repartition_callback**: Optional callback which is passed a
+        * **pre_rebalance_callback**: Optional callback which is passed a
           list of topics/partitions which will be discarded in a repartition.
           This is called directly prior to the actual discarding of the topics.
           It's important to note this may be called multiple times in a single
           repartition, so any actions taken as a result must be idempotent. You
           are guaranteed that no messages will be consumed between this
-          callback and the post_repartition_callback. Currently this only
+          callback and the post_rebalance_callback. Currently this only
           applies to consumer groups.
-        * **post_repartition_callback**: Optional callback which is passed a
+        * **post_rebalance_callback**: Optional callback which is passed a
           list of topics/partitions which were acquired in a repartition. You
           are guaranteed that no messages will be consumed between the
-          pre_repartition_callback and this callback. Currently this only
+          pre_rebalance_callback and this callback. Currently this only
           applies to consumer groups.
 
     Yelp_kafka overrides some kafka-python default settings:
@@ -433,12 +433,12 @@ class KafkaConsumerConfig(object):
         return self._config.get('signalfx_token', None)
 
     @property
-    def pre_repartition_callback(self):
-        return self._config.get('pre_repartition_callback', None)
+    def pre_rebalance_callback(self):
+        return self._config.get('pre_rebalance_callback', None)
 
     @property
-    def post_repartition_callback(self):
-        return self._config.get('post_repartition_callback', None)
+    def post_rebalance_callback(self):
+        return self._config.get('post_rebalance_callback', None)
 
     def __repr__(self):
         return (

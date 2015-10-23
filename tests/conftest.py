@@ -12,26 +12,26 @@ def cluster():
 
 
 @pytest.fixture
-def mock_pre_repartition_cb():
+def mock_pre_rebalance_cb():
     return mock.Mock()
 
 
 @pytest.fixture
-def mock_post_repartition_cb():
+def mock_post_rebalance_cb():
     return mock.Mock()
 
 
 @pytest.fixture
 def config(
     cluster,
-    mock_pre_repartition_cb,
-    mock_post_repartition_cb
+    mock_pre_rebalance_cb,
+    mock_post_rebalance_cb
 ):
     return KafkaConsumerConfig(
         cluster=cluster,
         group_id='test_group',
         client_id='test_client_id',
         partitioner_cooldown=0.5,
-        pre_repartition_callback=mock_pre_repartition_cb,
-        post_repartition_callback=mock_post_repartition_cb
+        pre_rebalance_callback=mock_pre_rebalance_cb,
+        post_rebalance_callback=mock_post_rebalance_cb
     )
