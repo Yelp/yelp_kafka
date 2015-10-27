@@ -207,7 +207,7 @@ class KafkaConsumerConfig(object):
         * **signalfx_token**: Authentication token to send to SignalFx. Only
           used if metrics_reporter is 'signalfx'.
         * **pre_rebalance_callback**: Optional callback which is passed a
-          list of topics/partitions which will be discarded in a repartition.
+          dict of topics/partitions which will be discarded in a repartition.
           This is called directly prior to the actual discarding of the topics.
           It's important to note this may be called multiple times in a single
           repartition, so any actions taken as a result must be idempotent. You
@@ -215,7 +215,7 @@ class KafkaConsumerConfig(object):
           callback and the post_rebalance_callback. Currently this only
           applies to consumer groups.
         * **post_rebalance_callback**: Optional callback which is passed a
-          list of topics/partitions which were acquired in a repartition. You
+          dict of topics/partitions which were acquired in a repartition. You
           are guaranteed that no messages will be consumed between the
           pre_rebalance_callback and this callback. Currently this only
           applies to consumer groups.
