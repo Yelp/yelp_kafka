@@ -451,7 +451,7 @@ class TestKafkaConsumerConfig(object):
         kafka_config = config.get_kafka_consumer_config()
 
         assert kafka_config['fetch_message_max_bytes'] == 123
-        assert kafka_config['auto_commit_enable'] == False
-        assert kafka_config['auto_commit_interval_ms'] == AUTO_COMMIT_INTERVAL_SECS
+        assert kafka_config['auto_commit_enable'] is False
+        assert kafka_config['auto_commit_interval_ms'] == AUTO_COMMIT_INTERVAL_SECS * 1000
         assert kafka_config['socket_timeout_ms'] == DEFAULT_CONSUMER_CONFIG['socket_timeout_ms']
         assert kafka_config['consumer_timeout_ms'] == 5000

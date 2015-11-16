@@ -279,7 +279,7 @@ class KafkaConsumerConfig(object):
     SIMPLE_CONSUMER_DEFAULT_CONFIG = {
         'buffer_size': MAX_MESSAGE_SIZE_BYTES,
         'auto_commit_every_n': AUTO_COMMIT_MSG_COUNT,
-        'auto_commit_every_t': AUTO_COMMIT_INTERVAL_SECS,
+        'auto_commit_every_t': AUTO_COMMIT_INTERVAL_SECS * 1000,
         'auto_commit': True,
         'fetch_size_bytes': FETCH_MIN_BYTES,
         'max_buffer_size': None,
@@ -290,7 +290,7 @@ class KafkaConsumerConfig(object):
 
     KAFKA_CONSUMER_DEFAULT_CONFIG = {
         'auto_commit_interval_messages': AUTO_COMMIT_MSG_COUNT,
-        'auto_commit_interval_ms': AUTO_COMMIT_INTERVAL_SECS,
+        'auto_commit_interval_ms': AUTO_COMMIT_INTERVAL_SECS * 1000,
         'auto_commit_enable': True,
         'fetch_min_bytes': FETCH_MIN_BYTES,
         'consumer_timeout_ms': seconds_to_ms(MAX_ITERATOR_TIMEOUT_SECS),
