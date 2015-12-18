@@ -102,6 +102,25 @@ def test_get_kafka_connection(mock_get_cluster):
 
 
 @mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
+def test_get_kafka_connection_kwargs(mock_get_cluster):
+    my_cluster = ClusterConfig(
+        'type1',
+        'cluster1',
+        ['mybroker'],
+        'zk_hosts/kafka',
+    )
+    mock_get_cluster.return_value = my_cluster
+    with mock.patch("yelp_kafka.discovery.KafkaClient",
+                    autospec=True) as mock_kafka:
+        mock_kafka.return_value = mock.sentinel.kafkaclient
+        actual = discovery.get_kafka_connection("mycluster", timeout=10)
+        mock_kafka.assert_called_once_with(
+            ['mybroker'], client_id='yelp-kafka', timeout=10,
+        )
+        assert actual == mock.sentinel.kafkaclient
+
+
+@mock.patch("yelp_kafka.discovery.get_local_cluster", autospec=True)
 def test_get_kafka_connection_error(mock_get_cluster):
     my_cluster = ClusterConfig(
         'type1',
@@ -125,10 +144,10 @@ def test_get_all_kafka_connections(mock_get_clusters, mock_clusters):
     with mock.patch("yelp_kafka.discovery.KafkaClient",
                     autospec=True) as mock_kafka:
         mock_kafka.return_value = mock.sentinel.kafkaclient
-        actual = discovery.get_all_kafka_connections("mycluster")
+        actual = discovery.get_all_kafka_connections("mycluster", timeout=10)
         assert mock_kafka.call_args_list == [
-            mock.call(['mybroker'], client_id='yelp-kafka'),
-            mock.call(['mybroker2'], client_id='yelp-kafka')
+            mock.call(['mybroker'], client_id='yelp-kafka', timeout=10),
+            mock.call(['mybroker2'], client_id='yelp-kafka', timeout=10)
         ]
         assert actual == [('cluster1', mock.sentinel.kafkaclient),
                           ('cluster2', mock.sentinel.kafkaclient)]
