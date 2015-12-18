@@ -96,19 +96,20 @@ def get_all_consumer_config(cluster_type, group_id, ecosystem=None, **extra):
             for cluster in clusters]
 
 
-def get_kafka_connection(cluster_type, client_id='yelp-kafka'):
+def get_kafka_connection(cluster_type, client_id='yelp-kafka', **kwargs):
     """Get a kafka connection for the local kafka cluster.
 
     :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
     :param client_id: client_id to be used to connect to kafka.
     :type client_id: string
+    :param kwargs: parameters to pass along when creating the KafkaClient instance.
     :returns: KafkaClient
     :raises DiscoveryError: :py:class:`yelp_kafka.error.DiscoveryError` upon failure connecting to a cluster.
     """
     cluster = get_local_cluster(cluster_type)
     try:
-        return KafkaClient(cluster.broker_list, client_id=client_id)
+        return KafkaClient(cluster.broker_list, client_id=client_id, **kwargs)
     except:
         log.exception("Connection to kafka cluster %s using broker"
                       " list %s failed", cluster.name,
@@ -117,13 +118,14 @@ def get_kafka_connection(cluster_type, client_id='yelp-kafka'):
             cluster.name))
 
 
-def get_all_kafka_connections(cluster_type, client_id='yelp-kafka'):
+def get_all_kafka_connections(cluster_type, client_id='yelp-kafka', **kwargs):
     """Get a kafka connection for each available kafka cluster.
 
     :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
     :param client_id: client_id to be used to connect to kafka.
     :type client_id: string
+    :param kwargs: parameters to pass along when creating the KafkaClient instance.
     :returns: list (cluster_name, KafkaClient)
     :raises DiscoveryError: :py:class:`yelp_kafka.error.DiscoveryError` upon failure connecting to a cluster.
 
@@ -134,7 +136,7 @@ def get_all_kafka_connections(cluster_type, client_id='yelp-kafka'):
     connected_clusters = []
     for cluster in clusters:
         try:
-            client = KafkaClient(cluster.broker_list, client_id=client_id)
+            client = KafkaClient(cluster.broker_list, client_id=client_id, **kwargs)
             connected_clusters.append((cluster.name, client))
         except:
             log.exception("Connection to kafka cluster %s using broker"
