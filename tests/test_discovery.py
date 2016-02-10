@@ -564,7 +564,10 @@ def test_get_scribe_topics_with_clusters(mock_get_clusters, mock_clusters):
             actual[0][1] == expected[1])
 
     # get_all_clusters should not be called.
-    assert mock_get_clusters.call_count == 0
+    assert not mock_get_clusters.called
+
+    # discover_topics should be called once for each cluster
+    assert len(test_clusters) == mock_discover.call_count
 
 
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)

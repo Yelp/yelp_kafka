@@ -360,6 +360,7 @@ def get_scribe_topics(stream, clusters=None):
     :param stream: scribe stream name
     :type stream: string
     :param clusters: list of cluster config
+    :type cluster: ClusterConfig
     :returns: [([topics], cluster)]
     :raises DiscoveryError: if the topic does not exist
     """
