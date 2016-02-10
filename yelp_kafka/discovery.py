@@ -353,16 +353,23 @@ def get_all_local_scribe_topics(stream):
     return search_local_topics_by_regex(DEFAULT_KAFKA_SCRIBE, pattern)
 
 
-def get_scribe_topics(stream):
-    """Search for all the topics for a scribe stream in all available clusters.
+def get_scribe_topics(stream, clusters=None):
+    """Search for all the topics for a scribe stream in
+    all available clusters, or in the given list of clusters.
 
     :param stream: scribe stream name
     :type stream: string
+    :param clusters: list of cluster config
+    :type cluster: ClusterConfig
     :returns: [([topics], cluster)]
     :raises DiscoveryError: if the topic does not exist
     """
     pattern = make_scribe_regex(stream)
-    results = search_topics_by_regex_in_all_clusters(DEFAULT_KAFKA_SCRIBE, pattern)
+    if not clusters:
+        results = search_topics_by_regex_in_all_clusters(DEFAULT_KAFKA_SCRIBE, pattern)
+    else:
+        results = search_topics_by_regex(pattern, clusters)
+
     if not results:
         raise DiscoveryError(
             "No Kafka topics for stream {stream}".format(
