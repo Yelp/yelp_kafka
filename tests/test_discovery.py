@@ -537,6 +537,36 @@ def test_get_scribe_topic(mock_get_clusters, mock_clusters):
 
 
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
+def test_get_scribe_topics_with_clusters(mock_get_clusters, mock_clusters):
+    mock_get_clusters.return_value = mock_clusters
+    with mock.patch("yelp_kafka.discovery.discover_topics",
+                    autospec=True) as mock_discover:
+        mock_discover.side_effect = iter([{
+            'scribe.dc1.my_scribe_stream2': [0, 1, 2],
+            'scribe.dc1.my_scribe_stream': [0, 1, 2],
+            'scribe.dc2.my_scribe_stream': [0]
+        }, {
+            'scribe.dc1.non_my_scribe_stream': [0, 1]
+        }])
+        expected = (
+            [
+                'scribe.dc2.my_scribe_stream',
+                'scribe.dc1.my_scribe_stream',
+            ],
+            mock_clusters[1],
+        )
+        # Only search for topics using a subset of the mock clusters.
+        test_clusters = mock_clusters[1:]
+        print test_clusters
+        actual = discovery.get_scribe_topics('my_scribe_stream', test_clusters)
+
+    # actual should be a list containing the expected tuple
+    assert len(actual) == 1
+    assert (sorted(actual[0][0]) == sorted(expected[0]) and
+            actual[0][1] == expected[1])
+
+
+@mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
 def test_get_scribe_topic_error(mock_get_clusters, mock_clusters):
     mock_get_clusters.return_value = mock_clusters
     with mock.patch("yelp_kafka.discovery.discover_topics",
