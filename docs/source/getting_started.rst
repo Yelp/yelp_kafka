@@ -4,7 +4,7 @@ Getting Started
 Standard clusters
 -----------------
 
-:py:mod:`yelp_kafka.discovery` provides functions for connecting to any Kafka clusters at Yelp and search topics on it. While in the scribe Kafka cluster the stream name and datacenter identifies a specific topic, in the other clusters there are currently no conventions for topic naming.
+:py:mod:`yelp_kafka.discovery` provides functions for connecting to any Kafka clusters at Yelp and searching topics on it. While in the scribe Kafka cluster the stream name and datacenter identifies a specific topic, in the other clusters there are currently no conventions for topic naming.
 
 .. _producer_example:
 
@@ -224,7 +224,7 @@ a specific region.
    cluster = discovery.get_cluster_by_name('scribe', 'uswest1-prod')
    # Get the first element because there is only one cluster in the list.
    topics, cluster = discovery.get_scribe_topics('ranger', [cluster])[0]
-   # get scribe topics returns a list of topics but there only be a single topic 
+   # get scribe topics returns a list of topics but there may only be a single topic
    # matching a scribe log for each cluster.
 
    consumer = KafkaConsumerGroup(topics, KafkaConsumerConfig(
