@@ -17,6 +17,11 @@ Create a producer for my_topic in the local standard Kafka cluster.
 
    from yelp_kafka import discovery
    from kafka import SimpleProducer
+   from kafka.common import ConsumerTimeout
+   from kafka.common import FailedPayloadError
+   from kafka.common import KafkaUnavailableError
+   from kafka.common import LeaderNotAvailableError
+   from kafka.common import NotLeaderForPartitionError
 
    # Get a connected KafkaClient from yelp_kafka
    client = discovery.get_kafka_connection('standard', client_id='my-client-id')
@@ -24,7 +29,7 @@ Create a producer for my_topic in the local standard Kafka cluster.
    producer = SimpleProducer(client)
    try:
        producer.send_messages("my_topic", "message1", "message2")
-   except (KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
+   except (FailedPayloadError, KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
        # Usually we want to retry a certain number of times when encountering these exceptions
        pass
        
@@ -32,13 +37,24 @@ Create a producer for my_topic in the local standard Kafka cluster.
 
 This example makes use of the `SimpleProducer`_ class from kafka-python.
 
-*client_id* is optional and it identifies the connection between Kafka and the client.
+``client_id`` identifies the client connection in Kafka and it is used by Kafka 0.9.0 to enforce
+quota limit per client. We recommend to use a ``client_id`` that represents the application.
 
 In the example there are some exceptions that usually should be safe to just retry.
 
-KafkaUnavailableError can happen when the metadata request to Kafka fails, this request is broker unaware so a simple retry would pick another broker of the cluster and possibly succeed.
+``KafkaUnavailableError`` can happen when the metadata request to Kafka fails, this
+request is broker unaware so a simple retry would pick another broker of the cluster and possibly succeed.
 
-LeaderNotAvailableError and NotLeaderForPartitionError may happen during a cluster rolling restart or upon broker failure. In this case a new leader will be elected, kafka-python by default refreshes the metadata when encountering these errors, thus upon retry it would hopefully use a new leader and succeed. However, Kafka doesn't give us any guarantee on how quickly a new leader will be elected. We measured that for small clusters the elections happens in the order of hundreds of ms but for large clusters it can take up to several seconds. Usually an application should retry for a limited amount of time and then consider the request failed and react accordingly.
+``LeaderNotAvailableError`` and ``NotLeaderForPartitionError`` may happen during a cluster
+rolling restart or upon broker failure. In this case a new leader will be elected, kafka-python
+by default refreshes the metadata when encountering these errors, thus upon retry it would
+hopefully use a new leader and succeed. However, Kafka doesn't give us any guarantee on how quickly
+a new leader will be elected. We measured that for small clusters the elections happens in the order
+of hundreds of ms but for large clusters it can take up to several seconds.
+Usually an application should retry for a limited amount of time and then consider the request failed and react accordingly.
+
+Finally, ``FailedPayloadsError`` may happen in many cases, for example when a leader is missing
+or the connection fails in the middle of a request. Metadata is automatically refreshed for this exception as well.
 
 .. seealso:: kafka-python `usage examples`_
 
@@ -55,6 +71,11 @@ Consumer
    from yelp_kafka import discovery
    from yelp_kafka.consumer_group import KafkaConsumerGroup
    from yelp_kafka.config import KafkaConsumerConfig
+   from kafka.common import ConsumerTimeout
+   from kafka.common import FailedPayloadError
+   from kafka.common import KafkaUnavailableError
+   from kafka.common import LeaderNotAvailableError
+   from kafka.common import NotLeaderForPartitionError
 
    cluster = discovery.get_local_cluster('standard')
    config = KafkaConsumerConfig(
@@ -87,7 +108,7 @@ Consumer
               # Applications usually just ignore the ConsumerTimeout
               # exception or check a termination flag.
               pass
-          except (KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
+          except (FailedPayloadError, KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
               # See producer example above, usually these exceptions should be retried 
    
    while True:
@@ -138,7 +159,7 @@ class should be considered deprecated and should not be used anymore.
 Scribe cluster
 --------------
 
-Yelp_Kafka provides some helper functions to interact with the scribe Kafka cluster.
+Yelp_Kafka provides some helper functions to interact with the scribe Kafka clusters.
 Scribe Kafka is a dedicated cluster for scribe streams. This cluster contains all the logs from
 our scribe infrastructure. This has to be considered as a readonly cluster. In fact, no producers
 other than Sekretar are allowed to connect to this cluster, create new topics or write messages to it.
