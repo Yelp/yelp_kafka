@@ -39,6 +39,9 @@ class KafkaSimpleConsumer(object):
     An instance of this class can be used as iterator
     to consume messages from kafka.
 
+    .. warning:: This class is considered deprecated in favor of
+                 K:py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`.
+
     :param topic: topic to consume from.
     :type topic: string.
     :param config: consumer configuration.
@@ -152,11 +155,13 @@ class KafkaSimpleConsumer(object):
         """Commit the message offset for this consumer group. This function does not
         take care of the consumer offset tracking. It should only be used if
         auto_commit is disabled and the commit function never called.
-        NOTE: all the messages received before message itself will be committed
-        as consequence.
+
+        .. note:: all the messages received before message itself will be committed
+                  as consequence.
+
         :param message: message to commit.
         :type message: Message namedtuple, which consists of: partition number,
-        offset, key, and message value
+                       offset, key, and message value
         :return: True on success, False on failure.
         """
         reqs = [
