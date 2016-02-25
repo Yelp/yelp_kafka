@@ -29,8 +29,6 @@ AUTO_COMMIT_INTERVAL_SECS = 60
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
 
 
-cluster_configuration = {}
-
 
 class ClusterConfig(
     namedtuple(
