@@ -49,6 +49,8 @@ class ConsumerGroup(object):
         "offset", "key", "value". This message format is different from those
         yielded by :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`.
 
+    .. warning:: This class is considered deprecated in favor of :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`.
+
     Example:
 
     .. code-block:: python

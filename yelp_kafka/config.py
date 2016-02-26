@@ -29,8 +29,6 @@ AUTO_COMMIT_INTERVAL_SECS = 60
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
 
 
-cluster_configuration = {}
-
 
 class ClusterConfig(
     namedtuple(
@@ -174,8 +172,8 @@ class TopologyConfiguration(object):
 
 
 class KafkaConsumerConfig(object):
-    """Config class for ConsumerGroup, MultiprocessingConsumerGroup,
-    KafkaSimpleConsumer and KakfaConsumerBase.
+    """Config class for KafkaConsumerGroup, ConsumerGroup,
+    MultiprocessingConsumerGroup, KafkaSimpleConsumer and KakfaConsumerBase.
 
     :param group_id: group of the kafka consumer
     :param cluster: cluster config from :py:mod:`yelp_kafka.discovery`
@@ -198,8 +196,8 @@ class KafkaConsumerConfig(object):
         * **metrics_reporter**: Used by
           :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` to send
           metrics data from kafka-python to SignalFx.
-          Valid options are 'yelp_meteorite' (which uses meteorite) and
-          'signalfx' (which uses the SignalFx API directly).
+          Valid options are ``yelp_meteorite`` (which uses meteorite) and
+          ``signalfx`` (deprecated).
         * **signalfx_dimensions**: Additional dimensions to send to SignalFx.
           Both 'signalfx' and 'yelp_meteorite' use this.
         * **signalfx_send_metrics_interval**: How often to send metrics to
@@ -224,17 +222,11 @@ class KafkaConsumerConfig(object):
 
     * **consumer_timeout_ms** is 0.1 seconds by default in yelp_kafka, while it
       is -1 (infinite) in kafka-python.
-    * **fetch_message_max_bytes** is 2MB by default in yelp_kafka. It is twice
-      as much as the max message size allowed by default in our Kafka clusters.
+    * **fetch_message_max_bytes** is 2MB by default in yelp_kafka.
     * **auto_commit_interval_messages** is 100 for both
       :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` and
       :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.
     * **auto_commit_interval_ms** is 60 seconds by default.
-
-    .. warning:: Please do NOT specify topics and partitions as part of config.
-        These should be specified when initializing the consumer. See:
-        :py:mod:`yelp_kafka.consumer.py` or :py:mod:`yelp_kafka.consumer_group`
-
     """
 
     NOT_CONVERTIBLE = object()
@@ -349,10 +341,11 @@ class KafkaConsumerConfig(object):
                as keyword argument in KafkaConsumerConfig
             2. User provided value for a valid SimpleConsumer config specified
                as keyword argument in KafkaConsumerConfig.
-               NOTE: not all SimpleConsumer options can be converted
-               in KafkaConsumer
             3. Default value specified in yelp-kafka for KafkaConsumer
             4. Default value specified in kafka-python
+
+        .. note:: SimpleConsumer is considered deprecated and not all of its
+                  options can be converted in KafkaConsumer.
         """
         config = {}
         for key, default in DEFAULT_CONSUMER_CONFIG.iteritems():
@@ -369,6 +362,7 @@ class KafkaConsumerConfig(object):
 
                 if simple_key in self._config:
                     # the user has provided a key we can convert from
+                    self.log.warning("%s is deprecated use %s instead.", simple_key, key)
                     config[key] = convert_fn(self._config[simple_key])
                 elif key in self.KAFKA_CONSUMER_DEFAULT_CONFIG:
                     # use yelp-kafka's default
