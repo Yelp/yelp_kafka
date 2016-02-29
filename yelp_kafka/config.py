@@ -29,7 +29,6 @@ AUTO_COMMIT_INTERVAL_SECS = 60
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
 
 
-
 class ClusterConfig(
     namedtuple(
         'ClusterConfig',
@@ -292,6 +291,7 @@ class KafkaConsumerConfig(object):
     """SIMPLE_CONSUMER_DEFAULT_CONFIG converted into a KafkaConsumer config"""
 
     def __init__(self, group_id, cluster, **config):
+        self.log = logging.getLogger(self.__class__.__name__)
         self._config = config
         self.cluster = cluster
         self.group_id = kafka_bytestring(group_id)

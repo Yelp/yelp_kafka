@@ -1,5 +1,5 @@
 itest:
-  build: docker/itest_${KAFKA_VERSION}
+  build: docker/itest
   links:
     - kafka
     - zookeeper
@@ -8,7 +8,7 @@ itest:
   command: echo "dummy command"
 
 kafka:
-  build: docker/kafka_${KAFKA_VERSION}
+  build: docker/kafka
   expose:
     - "9092"
   links:
