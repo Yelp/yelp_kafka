@@ -80,6 +80,7 @@ def run_kafka_consumer_group_test(num_consumers, num_partitions):
         cluster_config,
         auto_offset_reset='smallest',
         partitioner_cooldown=5,
+        iter_timeout=20,
     )
 
     queue = Queue()
