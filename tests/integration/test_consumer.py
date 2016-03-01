@@ -69,7 +69,7 @@ def test_kafka_consumer_group_two_consumers_one_partition():
 
 
 def test_kafka_consumer_group_two_consumers_two_partitions():
-    run_kafka_consumer_group_test(2, 2)
+    run_kafka_consumer_group_test(5, 5)
 
 
 def run_kafka_consumer_group_test(num_consumers, num_partitions):
