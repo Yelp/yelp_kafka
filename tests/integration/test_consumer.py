@@ -80,7 +80,7 @@ def run_kafka_consumer_group_test(num_consumers, num_partitions):
         cluster_config,
         auto_offset_reset='smallest',
         partitioner_cooldown=5,
-        iter_timeout=20,
+        auto_commit_interval_messages=1,
     )
 
     queue = Queue()
@@ -91,7 +91,9 @@ def run_kafka_consumer_group_test(num_consumers, num_partitions):
             with consumer:
                 while True:
                     try:
-                        queue.put(consumer.next())
+                        message = consumer.next()
+                        queue.put(message)
+                        consumer.task_done(message)
                     except ConsumerTimeout:
                         return
 
