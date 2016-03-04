@@ -281,10 +281,10 @@ def get_topics_watermarks(kafka_client, topics, raise_on_error=True):
     aggregated_offsets = defaultdict(lambda: defaultdict(dict))
     for resp in highmark_resps:
         aggregated_offsets[resp.topic][resp.partition]['highmark'] = \
-            resp.offsets[0]
+            resp.offsets[0] if resp.error == 0 else -1
     for resp in lowmark_resps:
         aggregated_offsets[resp.topic][resp.partition]['lowmark'] = \
-            resp.offsets[0]
+            resp.offsets[0] if resp.error == 0 else -1
 
     for topic, partition_watermarks in aggregated_offsets.iteritems():
         for partition, watermarks in partition_watermarks.iteritems():
