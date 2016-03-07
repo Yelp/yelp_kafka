@@ -7,6 +7,7 @@ from kafka.common import (
     OffsetFetchResponse,
     OffsetResponse,
     RequestTimedOutError,
+    UnknownTopicOrPartitionError,
 )
 
 from yelp_kafka.offsets import (
@@ -63,8 +64,10 @@ class MyKafkaClient(object):
                 offset = self.low_offsets[req.topic].get(req.partition, -1)
             if self.offset_request_error:
                 error_code = NotLeaderForPartitionError.errno
+            elif req.partition not in self.topics[req.topic]:
+                error_code = UnknownTopicOrPartitionError.errno
             else:
-                error_code = 0 if req.partition in self.topics[req.topic] else 3
+                error_code = 0
             resps.append(OffsetResponse(
                 req.topic,
                 req.partition,
