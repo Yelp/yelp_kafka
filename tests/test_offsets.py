@@ -2,6 +2,7 @@ import pytest
 import copy
 
 from kafka.common import (
+    NotLeaderForPartitionError,
     OffsetCommitResponse,
     OffsetFetchResponse,
     OffsetResponse,
@@ -40,6 +41,7 @@ class MyKafkaClient(object):
         self.high_offsets = high_offsets
         self.low_offsets = low_offsets
         self.commit_error = False
+        self.offset_request_error = False
 
     def load_metadata_for_topics(self):
         pass
@@ -59,16 +61,24 @@ class MyKafkaClient(object):
                 offset = self.high_offsets[req.topic].get(req.partition, -1)
             else:
                 offset = self.low_offsets[req.topic].get(req.partition, -1)
+            if self.offset_request_error:
+                error_code = NotLeaderForPartitionError.errno
+            else:
+                error_code = 0 if req.partition in self.topics[req.topic] else 3
             resps.append(OffsetResponse(
                 req.topic,
                 req.partition,
-                0 if req.partition in self.topics[req.topic] else 3,
+                error_code,
                 (offset,)
             ))
-        return resps
+
+        return [resp if not callback else callback(resp) for resp in resps]
 
     def set_commit_error(self):
         self.commit_error = True
+
+    def set_offset_request_error(self):
+        self.offset_request_error = True
 
     def send_offset_commit_request(
         self,
@@ -304,6 +314,16 @@ class TestOffsets(TestOffsetsBase):
             0: PartitionOffsets('topic1', 0, 30, 10),
             1: PartitionOffsets('topic1', 1, 30, 5),
             2: PartitionOffsets('topic1', 2, 30, 3),
+        }}
+
+    def test_get_topics_watermarks_commit_error(self, topics, kafka_client_mock):
+        kafka_client_mock.set_offset_request_error()
+        actual = get_topics_watermarks(
+            kafka_client_mock,
+            {'topic1': [0]},
+        )
+        assert actual == {'topic1': {
+            0: PartitionOffsets('topic1', 0, -1, -1),
         }}
 
     def test__verify_commit_offsets_requests(self, kafka_client_mock):
