@@ -59,12 +59,12 @@ def _check_fetch_response_error(resp):
     try:
         check_error(resp)
     except BrokerResponseError:
-        # In case of error we set the offset to -1
+        # In case of error we set the offset to (-1,)
         return OffsetResponse(
             resp.topic,
             resp.partition,
             resp.error,
-            -1,
+            (-1,),
         )
     return resp
 
