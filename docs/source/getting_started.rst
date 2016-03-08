@@ -18,7 +18,7 @@ Create a producer for my_topic in the local standard Kafka cluster.
    from yelp_kafka import discovery
    from kafka import SimpleProducer
    from kafka.common import ConsumerTimeout
-   from kafka.common import FailedPayloadError
+   from kafka.common import FailedPayloadsError
    from kafka.common import KafkaUnavailableError
    from kafka.common import LeaderNotAvailableError
    from kafka.common import NotLeaderForPartitionError
@@ -29,7 +29,7 @@ Create a producer for my_topic in the local standard Kafka cluster.
    producer = SimpleProducer(client)
    try:
        producer.send_messages("my_topic", "message1", "message2")
-   except (FailedPayloadError, KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
+   except (FailedPayloadsError, KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
        # Usually we want to retry a certain number of times when encountering these exceptions
        pass
        
@@ -72,7 +72,7 @@ Consumer
    from yelp_kafka.consumer_group import KafkaConsumerGroup
    from yelp_kafka.config import KafkaConsumerConfig
    from kafka.common import ConsumerTimeout
-   from kafka.common import FailedPayloadError
+   from kafka.common import FailedPayloadsError
    from kafka.common import KafkaUnavailableError
    from kafka.common import LeaderNotAvailableError
    from kafka.common import NotLeaderForPartitionError
@@ -108,7 +108,7 @@ Consumer
               # Applications usually just ignore the ConsumerTimeout
               # exception or check a termination flag.
               pass
-          except (FailedPayloadError, KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
+          except (FailedPayloadsError, KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
               # See producer example above, usually these exceptions should be retried 
    
    while True:
