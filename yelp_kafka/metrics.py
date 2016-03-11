@@ -16,21 +16,21 @@ ENQUEUE_LATENCY_SUCCESS_NO_DIMENSIONS_TIMER = 'enqueue_latency_success_no_dimens
 ENQUEUE_LATENCY_FAILURE_NO_DIMENSIONS_TIMER = 'enqueue_latency_failure_no_dimensions'
 ENQUEUE_EXCEPTION_COUNT = 'enqueue_exception_count'
 
-TIME_METRIC_NAMES = [
+TIME_METRIC_NAMES = set([
     'metadata_request_timer',
     'produce_request_timer',
     'fetch_request_timer',
     'offset_request_timer',
     'offset_commit_request_timer',
     'offset_fetch_request_timer',
-]
+])
 
-FAILURE_COUNT_METRIC_NAMES = [
+FAILURE_COUNT_METRIC_NAMES = set([
     'failed_paylads_count',
     'out_of_range_counts',
     'not_leader_for_partition_count',
     'request_timed_out_count'
-]
+])
 
 
 class MetricsReporter(object):

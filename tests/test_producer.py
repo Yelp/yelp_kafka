@@ -10,7 +10,6 @@ import pytest
 
 from yelp_kafka import metrics
 from yelp_kafka.error import YelpKafkaError
-from yelp_kafka.producer import METRIC_PREFIX
 from yelp_kafka.producer import YelpKafkaSimpleProducer
 
 
@@ -56,7 +55,7 @@ def test_send_kafka_metrics(mock_kafka_producer):
 
     # Test sending time metrics
     for name in metrics.TIME_METRIC_NAMES:
-        p._send_kafka_metrics(METRIC_PREFIX + name, 10)
+        p._send_kafka_metrics(name, 10)
         p._get_timer(name).record.assert_called_once_with(10000)
 
 

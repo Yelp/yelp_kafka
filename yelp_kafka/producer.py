@@ -16,7 +16,7 @@ METRIC_PREFIX = 'yelp_kafka.YelpKafkaProducer.'
 
 
 class YelpKafkaSimpleProducer(SimpleProducer):
-    """ YelpKafkaProducer is an extension of the kafka SimpleProducer that
+    """ YelpKafkaSimpleProducer is an extension of the kafka SimpleProducer that
     reports metrics about the producer to yelp_meteorite. These metrics include
     enqueue latency for both success and failure to send and the number of exceptions
     encountered trying to send.
@@ -28,7 +28,7 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     is implemented in KafkaClient
 
     Usage is the same as SimpleProducer:
-        producer = YelpKafkaProducer(client)
+        producer = YelpKafkaSimpleProducer(client)
         producer.send_messages("my_topic", "message1", "message2") # send msgs to kafka
     """
 
@@ -38,7 +38,6 @@ class YelpKafkaSimpleProducer(SimpleProducer):
         self.client.metrics_responder = self._send_kafka_metrics
         self.timers = {}
         self._setup_metrics()
-        self.time_metrics = set([METRIC_PREFIX + name for name in metrics.TIME_METRIC_NAMES])
 
     def _setup_metrics(self):
         default_dimensions = {'hostname': self._get_hostname()}
@@ -58,11 +57,11 @@ class YelpKafkaSimpleProducer(SimpleProducer):
             self._create_timer(name, kafka_dimensions)
 
     def _send_kafka_metrics(self, key, value):
-        if key in self.time_metrics:
+        if key in metrics.TIME_METRIC_NAMES:
             # kafka-python emits time in seconds, but yelp_meteorite wants
             # milliseconds
             time_in_ms = value * 1000
-            self.timers[key].record(time_in_ms)
+            self._get_timer(key).record(time_in_ms)
         else:
             self.log.warn("Unknown metric: {0}".format(key))
 
