@@ -1,0 +1,114 @@
+# -*- coding: utf-8 -*-
+"""
+Tests for `yelp_kafka.producer` module.
+"""
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
+import mock
+import pytest
+
+from yelp_kafka import metrics
+from yelp_kafka.error import YelpKafkaError
+from yelp_kafka.producer import METRIC_PREFIX
+from yelp_kafka.producer import YelpKafkaSimpleProducer
+
+
+@pytest.yield_fixture
+def mock_client_hostname():
+    with mock.patch('socket.gethostname') as mock_client_host:
+        yield mock_client_host
+
+
+@pytest.yield_fixture
+def mock_yelp_meteorite():
+    def generate_mock(*args, **kwargs):
+        return mock.MagicMock()
+
+    with mock.patch('yelp_kafka.producer.yelp_meteorite') as mock_meteorite:
+        # Different mock for each timer creation
+        mock_meteorite.create_timer.side_effect = generate_mock
+        yield mock_meteorite
+
+
+@pytest.yield_fixture
+def mock_kafka_send_messages():
+    with mock.patch('yelp_kafka.producer.SimpleProducer.send_messages') as mock_send_messages:
+        yield mock_send_messages
+
+
+@pytest.fixture
+def mock_kafka_client():
+    return mock.Mock(client_id='test_id')
+
+
+@pytest.fixture
+def mock_kafka_producer(
+    mock_kafka_client,
+    mock_yelp_meteorite,
+    mock_kafka_send_messages,
+):
+    return YelpKafkaSimpleProducer(mock_kafka_client)
+
+
+def test_send_kafka_metrics(mock_kafka_producer):
+    p = mock_kafka_producer
+
+    # Test sending time metrics
+    for name in metrics.TIME_METRIC_NAMES:
+        p._send_kafka_metrics(METRIC_PREFIX + name, 10)
+        p._get_timer(name).record.assert_called_once_with(10000)
+
+
+def test_send_success_metrics(mock_kafka_producer):
+    p = mock_kafka_producer
+    enqueue_timer = p._get_timer(metrics.ENQUEUE_LATENCY_SUCCESS_TIMER)
+    enqueue_no_dims_timer = p._get_timer(metrics.ENQUEUE_LATENCY_SUCCESS_NO_DIMENSIONS_TIMER)
+    p._send_success_metrics(latency=1.234)
+
+    enqueue_timer.record.assert_called_once_with(1.234)
+    enqueue_no_dims_timer.record.assert_called_once_with(1.234)
+
+
+def test_send_failure_metrics(
+    mock_kafka_producer
+):
+    p = mock_kafka_producer
+    enqueue_timer = p._get_timer(metrics.ENQUEUE_LATENCY_FAILURE_TIMER)
+    enqueue_no_dims_timer = p._get_timer(metrics.ENQUEUE_LATENCY_FAILURE_NO_DIMENSIONS_TIMER)
+    p._send_failure_metrics(latency=1.234)
+
+    enqueue_timer.record.assert_called_once_with(1.234)
+    enqueue_no_dims_timer.record.assert_called_once_with(1.234)
+    p.kafka_enqueue_exception_count.count.assert_called_once_with(1)
+
+
+def test_send_msg_to_kafka_success(
+    mock_kafka_producer,
+    mock_kafka_send_messages,
+):
+    mock_msg = mock.Mock()
+    p = mock_kafka_producer
+    p._send_success_metrics = mock.Mock()
+    p._send_failure_metrics = mock.Mock()
+
+    p.send_messages('test_topic', mock_msg)
+    mock_kafka_send_messages.assert_called_once_with('test_topic', mock_msg)
+    assert p._send_success_metrics.called
+
+
+def test_send_task_to_kafka_failure(
+    mock_kafka_producer,
+    mock_kafka_send_messages,
+):
+    mock_msg = mock.Mock()
+    p = mock_kafka_producer
+    p._send_success_metrics = mock.Mock()
+    p._send_failure_metrics = mock.Mock()
+    mock_kafka_send_messages.side_effect = [YelpKafkaError]
+
+    with pytest.raises(YelpKafkaError):
+        p.send_messages('test_topic', mock_msg)
+
+    mock_kafka_send_messages.assert_called_once_with('test_topic', mock_msg)
+    assert p._send_failure_metrics.called

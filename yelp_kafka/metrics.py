@@ -10,6 +10,12 @@ from requests.exceptions import RequestException
 SIGNALFX_ENDPOINT = "https://ingest.signalfx.com/v2/datapoint"
 CONNECTION_TIMEOUT = 1  # Connection timeout in secs
 
+ENQUEUE_LATENCY_SUCCESS_TIMER = 'enqueue_latency_success'
+ENQUEUE_LATENCY_FAILURE_TIMER = 'enqueue_latency_failure'
+ENQUEUE_LATENCY_SUCCESS_NO_DIMENSIONS_TIMER = 'enqueue_latency_success_no_dimensions'
+ENQUEUE_LATENCY_FAILURE_NO_DIMENSIONS_TIMER = 'enqueue_latency_failure_no_dimensions'
+ENQUEUE_EXCEPTION_COUNT = 'enqueue_exception_count'
+
 TIME_METRIC_NAMES = [
     'metadata_request_timer',
     'produce_request_timer',
