@@ -2,9 +2,6 @@
 """
 Tests for `yelp_kafka.producer` module.
 """
-from __future__ import absolute_import
-from __future__ import unicode_literals
-
 import mock
 import pytest
 
@@ -44,6 +41,7 @@ def mock_kafka_client():
 @pytest.fixture
 def mock_kafka_producer(
     mock_kafka_client,
+    mock_client_hostname,
     mock_yelp_meteorite,
     mock_kafka_send_messages,
 ):
@@ -59,41 +57,15 @@ def test_send_kafka_metrics(mock_kafka_producer):
         p._get_timer(name).record.assert_called_once_with(10000)
 
 
-def test_send_success_metrics(mock_kafka_producer):
-    p = mock_kafka_producer
-    enqueue_timer = p._get_timer(metrics.ENQUEUE_LATENCY_SUCCESS_TIMER)
-    enqueue_no_dims_timer = p._get_timer(metrics.ENQUEUE_LATENCY_SUCCESS_NO_DIMENSIONS_TIMER)
-    p._send_success_metrics(latency=1.234)
-
-    enqueue_timer.record.assert_called_once_with(1.234)
-    enqueue_no_dims_timer.record.assert_called_once_with(1.234)
-
-
-def test_send_failure_metrics(
-    mock_kafka_producer
-):
-    p = mock_kafka_producer
-    enqueue_timer = p._get_timer(metrics.ENQUEUE_LATENCY_FAILURE_TIMER)
-    enqueue_no_dims_timer = p._get_timer(metrics.ENQUEUE_LATENCY_FAILURE_NO_DIMENSIONS_TIMER)
-    p._send_failure_metrics(latency=1.234)
-
-    enqueue_timer.record.assert_called_once_with(1.234)
-    enqueue_no_dims_timer.record.assert_called_once_with(1.234)
-    p.kafka_enqueue_exception_count.count.assert_called_once_with(1)
-
-
 def test_send_msg_to_kafka_success(
     mock_kafka_producer,
     mock_kafka_send_messages,
 ):
     mock_msg = mock.Mock()
     p = mock_kafka_producer
-    p._send_success_metrics = mock.Mock()
-    p._send_failure_metrics = mock.Mock()
 
     p.send_messages('test_topic', mock_msg)
     mock_kafka_send_messages.assert_called_once_with('test_topic', mock_msg)
-    assert p._send_success_metrics.called
 
 
 def test_send_task_to_kafka_failure(
@@ -102,12 +74,10 @@ def test_send_task_to_kafka_failure(
 ):
     mock_msg = mock.Mock()
     p = mock_kafka_producer
-    p._send_success_metrics = mock.Mock()
-    p._send_failure_metrics = mock.Mock()
     mock_kafka_send_messages.side_effect = [YelpKafkaError]
 
     with pytest.raises(YelpKafkaError):
         p.send_messages('test_topic', mock_msg)
 
     mock_kafka_send_messages.assert_called_once_with('test_topic', mock_msg)
-    assert p._send_failure_metrics.called
+    p.kafka_enqueue_exception_count.count.assert_called_once_with(1)

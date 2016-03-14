@@ -2,7 +2,6 @@
 import logging
 import os
 import socket
-import time
 
 import yelp_meteorite
 from kafka import SimpleProducer
@@ -37,21 +36,23 @@ class YelpKafkaSimpleProducer(SimpleProducer):
         self.log = logging.getLogger(self.__class__.__name__)
         self.client.metrics_responder = self._send_kafka_metrics
         self.timers = {}
-        self._setup_metrics()
+        self.setup_metrics()
 
-    def _setup_metrics(self):
-        default_dimensions = {'hostname': self._get_hostname()}
-        self._create_timer(metrics.ENQUEUE_LATENCY_SUCCESS_TIMER, default_dimensions)
-        self._create_timer(metrics.ENQUEUE_LATENCY_FAILURE_TIMER, default_dimensions)
-        self._create_timer(metrics.ENQUEUE_LATENCY_SUCCESS_NO_DIMENSIONS_TIMER)
-        self._create_timer(metrics.ENQUEUE_LATENCY_FAILURE_NO_DIMENSIONS_TIMER)
+    def get_kafka_dimensions(self):
+        return {'client_id': self.client.client_id}
+
+    def get_default_dimensions(self):
+        return {'hostname': self._get_hostname()}
+
+    def setup_metrics(self):
+        default_dimensions = self.get_default_dimensions()
 
         self.kafka_enqueue_exception_count = yelp_meteorite.create_counter(
-            METRIC_PREFIX + metrics.ENQUEUE_EXCEPTION_COUNT,
+            METRIC_PREFIX + metrics.PRODUCE_EXCEPTION_COUNT,
             default_dimensions
         )
 
-        kafka_dimensions = {'client_id': self.client.client_id}
+        kafka_dimensions = self.get_kafka_dimensions()
         kafka_dimensions.update(default_dimensions)
         for name in metrics.TIME_METRIC_NAMES:
             self._create_timer(name, kafka_dimensions)
@@ -75,24 +76,12 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     def _get_timer(self, name):
         return self.timers[METRIC_PREFIX + name]
 
-    def _send_success_metrics(self, latency):
-        self._get_timer(metrics.ENQUEUE_LATENCY_SUCCESS_TIMER).record(latency)
-        self._get_timer(metrics.ENQUEUE_LATENCY_SUCCESS_NO_DIMENSIONS_TIMER).record(latency)
-
-    def _send_failure_metrics(self, latency):
-        self._get_timer(metrics.ENQUEUE_LATENCY_FAILURE_TIMER).record(latency)
-        self._get_timer(metrics.ENQUEUE_LATENCY_FAILURE_NO_DIMENSIONS_TIMER).record(latency)
-        self.kafka_enqueue_exception_count.count(1)
-
     def send_messages(self, topic, *msg):
-        start_time = time.time()
         try:
             super(YelpKafkaSimpleProducer, self).send_messages(topic, *msg)
         except (YelpKafkaError, KafkaError):
-            self._send_failure_metrics(time.time() - start_time)
+            self.kafka_enqueue_exception_count.count(1)
             raise
-        else:
-            self._send_success_metrics(time.time() - start_time)
 
     def _get_hostname(self):
         hostname = socket.gethostname()
