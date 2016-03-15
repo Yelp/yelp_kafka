@@ -71,7 +71,7 @@ def test_send_kafka_metrics(mock_kafka_producer):
     # Create unknown metric timer
     mock_kafka_producer._create_timer('unknown_metric')
     mock_kafka_producer._send_kafka_metrics('unknown_metric', 10)
-    assert mock_kafka_producer._get_timer('unknown_metric').call_count == 0
+    assert mock_kafka_producer._get_timer('unknown_metric').record.call_count == 0
 
 
 def test_send_msg_to_kafka_success(
