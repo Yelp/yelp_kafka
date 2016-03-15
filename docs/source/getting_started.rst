@@ -71,6 +71,7 @@ Consumer
    from yelp_kafka import discovery
    from yelp_kafka.consumer_group import KafkaConsumerGroup
    from yelp_kafka.config import KafkaConsumerConfig
+   from yelp_kafka.error import PartitionerError
    from kafka.common import ConsumerTimeout
    from kafka.common import FailedPayloadsError
    from kafka.common import KafkaUnavailableError
@@ -90,27 +91,27 @@ Consumer
    )
 
    consumer = KafkaConsumerGroup(['my_topic'], config)
-   
-   def consume_messages(consumer):
-      while True:
-          try:
-              message = consumer.next():
-              print message.value
-              consumer.task_done(message)
-             # If auto_commit is disabled in KafkaConsumerGroup, then you must call
-             # consumer.commit() yourself.
-             #
-             # auto_commit is enabled by default, so here we are implicitly
-             # letting KafkaConsumerGroup decide when to inform Kafka of our
-             # completed messages.
 
-          except ConsumerTimeout:
-              # Applications usually just ignore the ConsumerTimeout
-              # exception or check a termination flag.
-              pass
-          except (FailedPayloadsError, KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
-              # See producer example above, usually these exceptions should be retried 
-   
+   def consume_messages(consumer):
+       while True:
+           try:
+               message = consumer.next()
+               print message.value
+               consumer.task_done(message)
+               # If auto_commit is disabled in KafkaConsumerGroup, then you must call
+               # consumer.commit() yourself.
+               #
+               # auto_commit is enabled by default, so here we are implicitly
+               # letting KafkaConsumerGroup decide when to inform Kafka of our
+               # completed messages.
+
+           except ConsumerTimeout:
+               # Applications usually just ignore the ConsumerTimeout
+               # exception or check a termination flag.
+               pass
+           except (FailedPayloadsError, KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
+               # See producer example above, usually these exceptions should be retried
+
    while True:
        try:
            with consumer:
