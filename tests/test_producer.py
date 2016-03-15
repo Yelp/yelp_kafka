@@ -52,11 +52,26 @@ def mock_kafka_producer(
     return YelpKafkaSimpleProducer(mock_kafka_client)
 
 
+def test_setup_metrics(
+    mock_kafka_client,
+    mock_client_hostname,
+    mock_yelp_meteorite,
+):
+    # setup metrics called at init
+    YelpKafkaSimpleProducer(mock_kafka_client)
+    assert mock_yelp_meteorite.create_timer.call_count == len(metrics.TIME_METRIC_NAMES)
+
+
 def test_send_kafka_metrics(mock_kafka_producer):
-    # Test sending time metrics
-    for name in metrics.TIME_METRIC_NAMES:
-        mock_kafka_producer._send_kafka_metrics(name, 10)
-        mock_kafka_producer._get_timer(name).record.assert_called_once_with(10000)
+    # Test sending a time metrics
+    metric = next(iter(metrics.TIME_METRIC_NAMES))
+    mock_kafka_producer._send_kafka_metrics(metric, 10)
+    mock_kafka_producer._get_timer(metric).record.assert_called_once_with(10000)
+
+    # Create unknown metric timer
+    mock_kafka_producer._create_timer('unknown_metric')
+    mock_kafka_producer._send_kafka_metrics('unknown_metric', 10)
+    assert mock_kafka_producer._get_timer('unknown_metric').call_count == 0
 
 
 def test_send_msg_to_kafka_success(
