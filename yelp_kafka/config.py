@@ -123,6 +123,15 @@ class TopologyConfiguration(object):
                 config_path))
 
     def get_all_clusters(self):
+        blacklist = set()
+        # YELPKAFKA-88 Temporary hack to rename the Scribe Kafka clusters.
+        # For a short period we will have 2 names for the same Kafka cluster. We
+        # have to remove the duplicate clusters when searching topics to avoid
+        # consuming duplicate messages.
+        if "uswest2-prod" in self.clusters and "sfo12-prod" in self.clusters:
+            blacklist.add("uswest2-prod")
+        if "useast1-prod" in self.clusters and "dc6-prod" in self.clusters:
+            blacklist.add("useast1-prod")
         return [
             ClusterConfig(
                 type=self.cluster_type,
@@ -131,6 +140,7 @@ class TopologyConfiguration(object):
                 zookeeper=cluster['zookeeper'],
             )
             for name, cluster in self.clusters.iteritems()
+            if name not in blacklist
         ]
 
     def get_cluster_by_name(self, name):
