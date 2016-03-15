@@ -45,15 +45,12 @@ class YelpKafkaSimpleProducer(SimpleProducer):
         return {'hostname': self._get_hostname()}
 
     def setup_metrics(self):
-        default_dimensions = self.get_default_dimensions()
-
+        kafka_dimensions = self.get_kafka_dimensions()
+        kafka_dimensions.update(self.get_default_dimensions())
         self.kafka_enqueue_exception_count = yelp_meteorite.create_counter(
             METRIC_PREFIX + metrics.PRODUCE_EXCEPTION_COUNT,
-            default_dimensions
+            kafka_dimensions
         )
-
-        kafka_dimensions = self.get_kafka_dimensions()
-        kafka_dimensions.update(default_dimensions)
         for name in metrics.TIME_METRIC_NAMES:
             self._create_timer(name, kafka_dimensions)
 
@@ -70,8 +67,10 @@ class YelpKafkaSimpleProducer(SimpleProducer):
         if dimensions is None:
             dimensions = {}
         new_name = METRIC_PREFIX + name
-        timer = yelp_meteorite.create_timer(new_name, default_dimensions=dimensions)
-        self.timers[new_name] = timer
+        self.timers[new_name] = yelp_meteorite.create_timer(
+            new_name,
+            default_dimensions=dimensions
+        )
 
     def _get_timer(self, name):
         return self.timers[METRIC_PREFIX + name]
