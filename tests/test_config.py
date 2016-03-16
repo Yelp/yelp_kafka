@@ -67,7 +67,12 @@ MOCK_SCRIBE_YAML_2 = {
         'dc6-prod': {
             'broker_list': ["mybrokerhost1-dc6-prod:9092"],
             'zookeeper': "0.5.6.7,0.8.9.1/kafka"
-        }
+        },
+        'uswest1-prod': {
+            'broker_list': ["mybrokerhost1-uswest1-prod:9092"],
+            'zookeeper': "0.2.6.8,1.3.5.7/kafka"
+        },
+
     },
     'local_config': {
         'cluster': 'uswest2-prod',
@@ -318,7 +323,13 @@ class TestTopologyConfig(object):
                 'dc6-prod',
                 ["mybrokerhost1-dc6-prod:9092"],
                 "0.5.6.7,0.8.9.1/kafka",
-            )
+            ),
+            ClusterConfig(
+                'scribe',
+                'uswest1-prod',
+                ["mybrokerhost1-uswest1-prod:9092"],
+                "0.2.6.8,1.3.5.7/kafka",
+            ),
         ])
 
     def test_get_all_clusters_empty_blacklist(self, mock_yaml):
