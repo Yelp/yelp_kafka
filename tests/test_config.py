@@ -50,6 +50,53 @@ MOCK_SCRIBE_YAML = {
     }
 }
 
+MOCK_SCRIBE_YAML_2 = {
+    'clusters': {
+        'uswest2-prod': {
+            'broker_list': ["mybrokerhost1-uswest2-prod:9092"],
+            'zookeeper': "0.1.2.3,0.2.3.4/kafka"
+        },
+        'sfo12-prod': {
+            'broker_list': ["mybrokerhost1-sfo12-prod:9092"],
+            'zookeeper': "0.1.2.3,0.2.3.4/kafka"
+        },
+        'useast1-prod': {
+            'broker_list': ["mybrokerhost1-useast1-prod:9092"],
+            'zookeeper': "0.5.6.7,0.8.9.1/kafka"
+        },
+        'dc6-prod': {
+            'broker_list': ["mybrokerhost1-dc6-prod:9092"],
+            'zookeeper': "0.5.6.7,0.8.9.1/kafka"
+        },
+        'uswest1-prod': {
+            'broker_list': ["mybrokerhost1-uswest1-prod:9092"],
+            'zookeeper': "0.2.6.8,1.3.5.7/kafka"
+        },
+
+    },
+    'local_config': {
+        'cluster': 'uswest2-prod',
+        'prefix': 'my.prefix.'
+    }
+}
+
+MOCK_SCRIBE_YAML_3 = {
+    'clusters': {
+        'uswest2-prod': {
+            'broker_list': ["mybrokerhost1-uswest2-prod:9092"],
+            'zookeeper': "0.1.2.3,0.2.3.4/kafka"
+        },
+        'useast1-prod': {
+            'broker_list': ["mybrokerhost1-useast1-prod:9092"],
+            'zookeeper': "0.5.6.7,0.8.9.1/kafka"
+        },
+    },
+    'local_config': {
+        'cluster': 'uswest2-prod',
+        'prefix': 'my.prefix.'
+    }
+}
+
 MOCK_NO_SCRIBE_YAML = {
     'clusters': {
         'cluster1': {
@@ -254,6 +301,60 @@ class TestTopologyConfig(object):
             )
         ]
         assert sorted(expected_clusters) == sorted(actual_clusters)
+
+    def test_get_all_clusters_exclude_blacklist(self, mock_yaml):
+        mock_yaml.return_value = MOCK_SCRIBE_YAML_2
+        topology = TopologyConfiguration(
+            cluster_type='scribe',
+            kafka_topology_path=TEST_BASE_KAFKA,
+        )
+
+        actual = topology.get_all_clusters()
+
+        assert sorted(actual) == sorted([
+            ClusterConfig(
+                'scribe',
+                'sfo12-prod',
+                ["mybrokerhost1-sfo12-prod:9092"],
+                "0.1.2.3,0.2.3.4/kafka",
+            ),
+            ClusterConfig(
+                'scribe',
+                'dc6-prod',
+                ["mybrokerhost1-dc6-prod:9092"],
+                "0.5.6.7,0.8.9.1/kafka",
+            ),
+            ClusterConfig(
+                'scribe',
+                'uswest1-prod',
+                ["mybrokerhost1-uswest1-prod:9092"],
+                "0.2.6.8,1.3.5.7/kafka",
+            ),
+        ])
+
+    def test_get_all_clusters_empty_blacklist(self, mock_yaml):
+        mock_yaml.return_value = MOCK_SCRIBE_YAML_3
+        topology = TopologyConfiguration(
+            cluster_type='scribe',
+            kafka_topology_path=TEST_BASE_KAFKA,
+        )
+
+        actual = topology.get_all_clusters()
+
+        assert sorted(actual) == sorted([
+            ClusterConfig(
+                'scribe',
+                'uswest2-prod',
+                ["mybrokerhost1-uswest2-prod:9092"],
+                "0.1.2.3,0.2.3.4/kafka",
+            ),
+            ClusterConfig(
+                'scribe',
+                'useast1-prod',
+                ["mybrokerhost1-useast1-prod:9092"],
+                "0.5.6.7,0.8.9.1/kafka",
+            )
+        ])
 
     def test_get_cluster_by_name(self, mock_yaml):
         topology = TopologyConfiguration(
