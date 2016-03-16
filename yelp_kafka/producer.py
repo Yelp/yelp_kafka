@@ -46,17 +46,14 @@ class YelpKafkaSimpleProducer(SimpleProducer):
 
     def get_kafka_dimensions(self):
         return {
+            'hostname': self._get_hostname(),
             'client_id': self.client.client_id,
             'cluster_type': self.cluster_config.type,
             'cluster_name': self.cluster_config.name,
         }
 
-    def get_default_dimensions(self):
-        return {'hostname': self._get_hostname()}
-
     def setup_metrics(self):
         kafka_dimensions = self.get_kafka_dimensions()
-        kafka_dimensions.update(self.get_default_dimensions())
         self.kafka_enqueue_exception_count = yelp_meteorite.create_counter(
             METRIC_PREFIX + metrics.PRODUCE_EXCEPTION_COUNT,
             kafka_dimensions
