@@ -42,6 +42,7 @@ setup(
         'kafka-python==0.9.4.post2',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
+        'mock==1.0.1',
         'requests',
         'setproctitle>=1.1.8',
         'yelp-lib',
