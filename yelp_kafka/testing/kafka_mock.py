@@ -249,7 +249,7 @@ class Registrar(object):
 def mock_kafka_python():
     registrar = Registrar()
     with contextlib.nested(
-        mock.patch.object(kafka, 'KafkaClient', autospec=True),
+        mock.patch.object(kafka, 'KafkaClient', spec=kafka.KafkaClient),
         mock.patch.object(kafka, 'SimpleProducer', registrar.mock_producer_with_registry()),
         mock.patch.object(kafka, 'KeyedProducer', registrar.mock_keyed_producer_with_registry()),
         mock.patch.object(kafka, 'SimpleConsumer', registrar.mock_simple_consumer_with_registrar()),

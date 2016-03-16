@@ -91,28 +91,20 @@ class TestPartitioner(object):
         )
         expected_partitions = {'topic1': [0, 1, 3]}
         partitioner.acquired_partitions = expected_partitions
-        with contextlib.nested(
-            mock.patch.object(Partitioner, 'release_and_finish'),
-            mock.patch.object(Partitioner, '_close_connections'),
-        ) as (mock_destroy, mock_close):
+        with mock.patch.object(Partitioner, 'release_and_finish') as mock_destroy:
             with pytest.raises(PartitionerZookeeperError):
                 partitioner._handle_group(mock_kpartitioner)
-            mock_destroy.assert_called_once()
-            mock_close.assert_called_once()
+            assert mock_destroy.call_count == 1
 
     def test_handle_failed_and_release_no_acquired_partitions(self, partitioner):
         mock_kpartitioner = mock.MagicMock(
             spec=SetPartitioner,
             **get_partitioner_state(PartitionState.FAILURE)
         )
-        with contextlib.nested(
-            mock.patch.object(Partitioner, 'release_and_finish'),
-            mock.patch.object(Partitioner, '_close_connections'),
-        ) as (mock_destroy, mock_close):
+        with mock.patch.object(Partitioner, 'release_and_finish') as mock_destroy:
             with pytest.raises(PartitionerZookeeperError):
                 partitioner._handle_group(mock_kpartitioner)
-            mock_destroy.assert_called_once()
-            mock_close.assert_called_once()
+            assert mock_destroy.call_count == 1
 
     def test_handle_acquired(self, partitioner):
         mock_kpartitioner = mock.MagicMock(
@@ -206,7 +198,6 @@ class TestPartitioner(object):
     @mock.patch('yelp_kafka.partitioner.KafkaClient')
     @mock.patch('yelp_kafka.partitioner.KazooClient')
     def test__close_connections(self, mock_kazoo, mock_kafka, config):
-        mock_kpartitioner = mock.MagicMock(spec=SetPartitioner)
         partitioner = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
         with mock.patch.object(
             Partitioner, '_refresh'
@@ -216,9 +207,6 @@ class TestPartitioner(object):
             mock_refresh.assert_called_once_with()
             # destroy the partitioner and ensure we cleanup all open handles.
             partitioner._close_connections()
-            # did we release acquired partitions?
-            # did we cleanup the kafka partitioner?
-            mock_kpartitioner.finish.assert_called_once()
             # did we close all open connections with kafka and zk?
             mock_kazoo.return_value.stop.assert_called_once_with()
             mock_kazoo.return_value.close.assert_called_once_with()
@@ -293,7 +281,7 @@ class TestPartitioner(object):
                 set=expected_partitions,
                 time_boundary=0.5
             )
-            mock_kazoo.return_value.start.assert_called_once()
+            assert mock_kazoo.return_value.start.call_count == 1
 
     def test_get_partitions_kafka_unavailable(self, partitioner):
         expected_partitions = set(['fake-topic'])
