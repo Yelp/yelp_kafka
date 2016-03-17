@@ -7,6 +7,7 @@ import pytest
 from kafka import SimpleProducer
 
 from yelp_kafka import metrics
+from yelp_kafka.config import ClusterConfig
 from yelp_kafka.error import YelpKafkaError
 from yelp_kafka.producer import YelpKafkaSimpleProducer
 
@@ -44,7 +45,7 @@ def mock_kafka_client():
 
 @pytest.fixture()
 def mock_cluster_config():
-    return mock.Mock(type='test_cluster_type', name='mock_cluster')
+    return mock.Mock(type='test_cluster_type', name='mock_cluster', spec=ClusterConfig)
 
 
 @pytest.fixture
