@@ -7,6 +7,7 @@ import pytest
 from kafka import SimpleProducer
 
 from yelp_kafka import metrics
+from yelp_kafka.config import ClusterConfig
 from yelp_kafka.error import YelpKafkaError
 from yelp_kafka.producer import YelpKafkaSimpleProducer
 
@@ -42,23 +43,30 @@ def mock_kafka_client():
     return mock.Mock(client_id='test_id')
 
 
+@pytest.fixture()
+def mock_cluster_config():
+    return mock.Mock(type='test_cluster_type', name='mock_cluster', spec=ClusterConfig)
+
+
 @pytest.fixture
 def mock_kafka_producer(
     mock_kafka_client,
     mock_client_hostname,
     mock_yelp_meteorite,
     mock_kafka_send_messages,
+    mock_cluster_config,
 ):
-    return YelpKafkaSimpleProducer(mock_kafka_client)
+    return YelpKafkaSimpleProducer(mock_cluster_config, mock_kafka_client)
 
 
 def test_setup_metrics(
     mock_kafka_client,
     mock_client_hostname,
     mock_yelp_meteorite,
+    mock_cluster_config,
 ):
     # setup metrics called at init
-    YelpKafkaSimpleProducer(mock_kafka_client)
+    YelpKafkaSimpleProducer(mock_cluster_config, mock_kafka_client)
     assert mock_yelp_meteorite.create_timer.call_count == len(metrics.TIME_METRIC_NAMES)
 
 

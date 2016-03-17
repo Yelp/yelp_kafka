@@ -26,27 +26,34 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     Note: This producer expects usage of kafka-python==0.9.4.post2 where metrics_responder
     is implemented in KafkaClient
 
-    Usage is the same as SimpleProducer:
-        producer = YelpKafkaSimpleProducer(client)
+    Usage is the similar to SimpleProducer, the only difference is cluster_config is
+    required in order to report metrics per cluster. E.g.:
+
+        # Get a connected KafkaClient and cluster_config from yelp_kafka for standard cluster type
+        client = discovery.get_kafka_connection('standard', client_id='my-client-id')
+        cluster_config = discovery.get_local_cluster('standard')
+        producer = YelpKafkaSimpleProducer(cluster_config, client)
         producer.send_messages("my_topic", "message1", "message2") # send msgs to kafka
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, cluster_config, *args, **kwargs):
         super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
         self.log = logging.getLogger(self.__class__.__name__)
         self.client.metrics_responder = self._send_kafka_metrics
+        self.cluster_config = cluster_config
         self.timers = {}
         self.setup_metrics()
 
     def get_kafka_dimensions(self):
-        return {'client_id': self.client.client_id}
-
-    def get_default_dimensions(self):
-        return {'hostname': self._get_hostname()}
+        return {
+            'hostname': self._get_hostname(),
+            'client_id': self.client.client_id,
+            'cluster_type': self.cluster_config.type,
+            'cluster_name': self.cluster_config.name,
+        }
 
     def setup_metrics(self):
         kafka_dimensions = self.get_kafka_dimensions()
-        kafka_dimensions.update(self.get_default_dimensions())
         self.kafka_enqueue_exception_count = yelp_meteorite.create_counter(
             METRIC_PREFIX + metrics.PRODUCE_EXCEPTION_COUNT,
             kafka_dimensions
