@@ -31,7 +31,7 @@ Create a producer for my_topic in the local standard Kafka cluster.
    producer = YelpKafkaSimpleProducer(
        client=client,
        cluster_config=cluster_config,
-       report_metrics=True
+       report_metrics=True,
    )
    try:
        producer.send_messages("my_topic", "message1", "message2")
@@ -357,7 +357,7 @@ through the `report_metrics` parameter. This defaults to True but can be turned 
    producer = YelpKafkaSimpleProducer(
        client=client,
        cluster_config=cluster_config,
-       report_metrics=True
+       report_metrics=True,
    )
 
 .. note::
