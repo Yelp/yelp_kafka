@@ -16,7 +16,7 @@ Create a producer for my_topic in the local standard Kafka cluster.
 .. code-block:: python
 
    from yelp_kafka import discovery
-   from kafka import SimpleProducer
+   from yelp_kafka.producer import YelpKafkaSimpleProducer
    from kafka.common import ConsumerTimeout
    from kafka.common import FailedPayloadsError
    from kafka.common import KafkaUnavailableError
@@ -25,8 +25,14 @@ Create a producer for my_topic in the local standard Kafka cluster.
 
    # Get a connected KafkaClient from yelp_kafka
    client = discovery.get_kafka_connection('standard', client_id='my-client-id')
+   # Get cluster configuration
+   cluster_config = discovery.get_local_cluster('standard')
    # Create the producer and send 2 messages
-   producer = SimpleProducer(client)
+   producer = YelpKafkaSimpleProducer(
+       client=client,
+       cluster_config=cluster_config,
+       report_metrics=True
+   )
    try:
        producer.send_messages("my_topic", "message1", "message2")
    except (FailedPayloadsError, KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
@@ -35,7 +41,7 @@ Create a producer for my_topic in the local standard Kafka cluster.
        
 
 
-This example makes use of the `SimpleProducer`_ class from kafka-python.
+This example makes use of the `YelpKafkaSimpleProducer`_ class from yelp_kafka.
 
 ``client_id`` identifies the client connection in Kafka and it is used by Kafka 0.9.0 to enforce
 quota limit per client. We recommend to use a ``client_id`` that represents the application.
@@ -337,6 +343,22 @@ can send metrics on request latency and error counts by setting the
 Reporting metrics directly from the kafka client is an option that is only
 available in Yelp's fork of kafka-python (which yelp_kafka uses as
 a dependency).
+
+Producer metrics can also be reported and are reported by default by the YelpKafkaSimpleProducer
+through the `report_metrics` parameter. This defaults to True but can be turned off
+
+.. code-block:: python
+
+    # Get a connected KafkaClient from yelp_kafka
+    client = discovery.get_kafka_connection('standard', client_id='my-client-id')
+    # Get cluster configuration
+    cluster_config = discovery.get_local_cluster('standard')
+    # Create the producer and send 2 messages
+    producer = YelpKafkaSimpleProducer(
+        client=client,
+        cluster_config=cluster_config,
+        report_metrics=True
+    )
 
 .. note::
 
