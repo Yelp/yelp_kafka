@@ -349,16 +349,16 @@ through the `report_metrics` parameter. This defaults to True but can be turned 
 
 .. code-block:: python
 
-    # Get a connected KafkaClient from yelp_kafka
-    client = discovery.get_kafka_connection('standard', client_id='my-client-id')
-    # Get cluster configuration
-    cluster_config = discovery.get_local_cluster('standard')
-    # Create the producer and send 2 messages
-    producer = YelpKafkaSimpleProducer(
-        client=client,
-        cluster_config=cluster_config,
-        report_metrics=True
-    )
+   # Get a connected KafkaClient from yelp_kafka
+   client = discovery.get_kafka_connection('standard', client_id='my-client-id')
+   # Get cluster configuration
+   cluster_config = discovery.get_local_cluster('standard')
+   # Create the producer and send 2 messages
+   producer = YelpKafkaSimpleProducer(
+       client=client,
+       cluster_config=cluster_config,
+       report_metrics=True
+   )
 
 .. note::
 
