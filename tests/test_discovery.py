@@ -1,5 +1,5 @@
-import pytest
 import mock
+import pytest
 
 from yelp_kafka import discovery
 from yelp_kafka.config import ClusterConfig
@@ -53,8 +53,9 @@ def test_get_consumer_config(mock_get_cluster):
         'zk_hosts/kafka',
     )
     mock_get_cluster.return_value = my_cluster
-    with mock.patch("yelp_kafka.discovery.KafkaConsumerConfig",
-                    autospec=True) as mock_config:
+    with mock.patch(
+            "yelp_kafka.discovery.KafkaConsumerConfig",
+            autospec=True) as mock_config:
         mock_config.return_value = mock.sentinel.kafka_config
         actual = discovery.get_consumer_config(
             "mycluster", group_id='mygroup', auto_offset_reset='largest')
@@ -68,16 +69,19 @@ def test_get_consumer_config(mock_get_cluster):
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
 def test_get_all_consumer_config(mock_get_clusters, mock_clusters):
     mock_get_clusters.return_value = mock_clusters
-    with mock.patch("yelp_kafka.discovery.KafkaConsumerConfig",
-                    autospec=True) as mock_config:
+    with mock.patch(
+            "yelp_kafka.discovery.KafkaConsumerConfig",
+            autospec=True) as mock_config:
         mock_config.return_value = mock.sentinel.kafka_config
         actual = discovery.get_all_consumer_config(
             "mycluster", group_id='mygroup', auto_offset_reset='largest')
         assert mock_config.call_args_list == [
-            mock.call(cluster=mock_clusters[0], group_id='mygroup',
-                      auto_offset_reset='largest'),
-            mock.call(cluster=mock_clusters[1], group_id='mygroup',
-                      auto_offset_reset='largest'),
+            mock.call(
+                cluster=mock_clusters[0], group_id='mygroup',
+                auto_offset_reset='largest'),
+            mock.call(
+                cluster=mock_clusters[1], group_id='mygroup',
+                auto_offset_reset='largest'),
         ]
         assert actual == [mock.sentinel.kafka_config,
                           mock.sentinel.kafka_config]
@@ -92,12 +96,14 @@ def test_get_kafka_connection(mock_get_cluster):
         'zk_hosts/kafka',
     )
     mock_get_cluster.return_value = my_cluster
-    with mock.patch("yelp_kafka.discovery.KafkaClient",
-                    autospec=True) as mock_kafka:
+    with mock.patch(
+            "yelp_kafka.discovery.KafkaClient",
+            autospec=True) as mock_kafka:
         mock_kafka.return_value = mock.sentinel.kafkaclient
         actual = discovery.get_kafka_connection("mycluster")
-        mock_kafka.assert_called_once_with(['mybroker'],
-                                           client_id='yelp-kafka')
+        mock_kafka.assert_called_once_with(
+            ['mybroker'],
+            client_id='yelp-kafka')
         assert actual == mock.sentinel.kafkaclient
 
 
@@ -110,8 +116,9 @@ def test_get_kafka_connection_kwargs(mock_get_cluster):
         'zk_hosts/kafka',
     )
     mock_get_cluster.return_value = my_cluster
-    with mock.patch("yelp_kafka.discovery.KafkaClient",
-                    autospec=True) as mock_kafka:
+    with mock.patch(
+            "yelp_kafka.discovery.KafkaClient",
+            autospec=True) as mock_kafka:
         mock_kafka.return_value = mock.sentinel.kafkaclient
         actual = discovery.get_kafka_connection("mycluster", timeout=10)
         mock_kafka.assert_called_once_with(
@@ -129,20 +136,23 @@ def test_get_kafka_connection_error(mock_get_cluster):
         'zk_hosts/kafka',
     )
     mock_get_cluster.return_value = my_cluster
-    with mock.patch("yelp_kafka.discovery.KafkaClient",
-                    autospec=True) as mock_kafka:
+    with mock.patch(
+            "yelp_kafka.discovery.KafkaClient",
+            autospec=True) as mock_kafka:
         mock_kafka.side_effect = Exception("Boom!")
         with pytest.raises(DiscoveryError):
             discovery.get_kafka_connection("mycluster")
-        mock_kafka.assert_called_once_with(['mybroker'],
-                                           client_id='yelp-kafka')
+        mock_kafka.assert_called_once_with(
+            ['mybroker'],
+            client_id='yelp-kafka')
 
 
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
 def test_get_all_kafka_connections(mock_get_clusters, mock_clusters):
     mock_get_clusters.return_value = mock_clusters
-    with mock.patch("yelp_kafka.discovery.KafkaClient",
-                    autospec=True) as mock_kafka:
+    with mock.patch(
+            "yelp_kafka.discovery.KafkaClient",
+            autospec=True) as mock_kafka:
         mock_kafka.return_value = mock.sentinel.kafkaclient
         actual = discovery.get_all_kafka_connections("mycluster", timeout=10)
         assert mock_kafka.call_args_list == [
@@ -156,8 +166,9 @@ def test_get_all_kafka_connections(mock_get_clusters, mock_clusters):
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
 def test_get_all_kafka_connections_error(mock_get_clusters, mock_clusters):
     mock_get_clusters.return_value = mock_clusters
-    with mock.patch("yelp_kafka.discovery.KafkaClient",
-                    autospec=True) as mock_kafka:
+    with mock.patch(
+            "yelp_kafka.discovery.KafkaClient",
+            autospec=True) as mock_kafka:
         client = mock.MagicMock()
         mock_kafka.side_effect = [client, Exception("Boom!")]
         with pytest.raises(DiscoveryError):
@@ -193,8 +204,9 @@ def test_discover_topics_error(mock_kafka, mock_topics):
 
 
 def test_search_topic(mock_clusters):
-    with mock.patch("yelp_kafka.discovery.discover_topics",
-                    autospec=True) as mock_discover:
+    with mock.patch(
+            "yelp_kafka.discovery.discover_topics",
+            autospec=True) as mock_discover:
         mock_discover.side_effect = iter([
             {'topic1': [0, 1, 2], 'topic2': [0]}
         ])
@@ -205,8 +217,9 @@ def test_search_topic(mock_clusters):
 
 
 def test_search_topic_in_2_clusters(mock_clusters):
-    with mock.patch("yelp_kafka.discovery.discover_topics",
-                    autospec=True) as mock_discover:
+    with mock.patch(
+            "yelp_kafka.discovery.discover_topics",
+            autospec=True) as mock_discover:
         mock_discover.side_effect = iter([
             {'topic1': [0, 1, 2], 'topic2': [0]},
             {'topic2': [0]}
@@ -219,8 +232,9 @@ def test_search_topic_in_2_clusters(mock_clusters):
 
 
 def test_search_no_topic(mock_clusters):
-    with mock.patch("yelp_kafka.discovery.discover_topics",
-                    autospec=True) as mock_discover:
+    with mock.patch(
+            "yelp_kafka.discovery.discover_topics",
+            autospec=True) as mock_discover:
         mock_discover.side_effect = iter([
             {'topic1': [0, 1, 2], 'topic2': [0]},
             {'topic2': [0]}
@@ -277,8 +291,9 @@ def test_search_topics_no_topics_in_clusters(mock_get_clusters, mock_search):
 
 
 def test_search_by_regex(mock_clusters):
-    with mock.patch("yelp_kafka.discovery.discover_topics",
-                    autospec=True) as mock_discover:
+    with mock.patch(
+            "yelp_kafka.discovery.discover_topics",
+            autospec=True) as mock_discover:
         mock_discover.side_effect = iter([
             {'topic1': [0, 1, 2], 'topic2': [0]},
             {'topic2': [0]}
@@ -298,8 +313,9 @@ def test_search_by_regex(mock_clusters):
 
 
 def test_search_by_scribe_regex(mock_clusters):
-    with mock.patch("yelp_kafka.discovery.discover_topics",
-                    autospec=True) as mock_discover:
+    with mock.patch(
+            "yelp_kafka.discovery.discover_topics",
+            autospec=True) as mock_discover:
         mock_discover.side_effect = iter([
             {
                 'scribe..topic1': [0, 1, 2],
@@ -334,8 +350,9 @@ def test_search_local_scribe_topics_by_regex(mock_search):
 
 
 def test_search_by_regex_no_topic(mock_clusters):
-    with mock.patch("yelp_kafka.discovery.discover_topics",
-                    autospec=True) as mock_discover:
+    with mock.patch(
+            "yelp_kafka.discovery.discover_topics",
+            autospec=True) as mock_discover:
         mock_discover.side_effect = iter([
             {'topic1': [0, 1, 2], 'topic2': [0]},
             {'topic2': [0]}
@@ -512,8 +529,9 @@ def test_get_scribe_topic_in_datacenter_error(mock_search):
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
 def test_get_scribe_topic(mock_get_clusters, mock_clusters):
     mock_get_clusters.return_value = mock_clusters
-    with mock.patch("yelp_kafka.discovery.discover_topics",
-                    autospec=True) as mock_discover:
+    with mock.patch(
+            "yelp_kafka.discovery.discover_topics",
+            autospec=True) as mock_discover:
         mock_discover.side_effect = iter([{
             'scribe.dc1.my_scribe_stream2': [0, 1, 2],
             'scribe.dc1.my_scribe_stream': [0, 1, 2],
@@ -538,8 +556,9 @@ def test_get_scribe_topic(mock_get_clusters, mock_clusters):
 
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
 def test_get_scribe_topics_with_clusters(mock_get_clusters, mock_clusters):
-    with mock.patch("yelp_kafka.discovery.discover_topics",
-                    autospec=True) as mock_discover:
+    with mock.patch(
+            "yelp_kafka.discovery.discover_topics",
+            autospec=True) as mock_discover:
         mock_discover.side_effect = iter([{
             'scribe.dc1.my_scribe_stream2': [0, 1, 2],
             'scribe.dc1.my_scribe_stream': [0, 1, 2],
@@ -573,8 +592,9 @@ def test_get_scribe_topics_with_clusters(mock_get_clusters, mock_clusters):
 @mock.patch("yelp_kafka.discovery.get_all_clusters", autospec=True)
 def test_get_scribe_topic_error(mock_get_clusters, mock_clusters):
     mock_get_clusters.return_value = mock_clusters
-    with mock.patch("yelp_kafka.discovery.discover_topics",
-                    autospec=True) as mock_discover:
+    with mock.patch(
+            "yelp_kafka.discovery.discover_topics",
+            autospec=True) as mock_discover:
         mock_discover.side_effect = iter([{
             'scribe.dc1.my_scribe_stream2': [0, 1, 2],
             'scribe.dc1.my_scribe_stream': [0, 1, 2],

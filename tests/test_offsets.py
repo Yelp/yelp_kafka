@@ -1,27 +1,23 @@
-import pytest
 import copy
 
-from kafka.common import (
-    NotLeaderForPartitionError,
-    OffsetCommitResponse,
-    OffsetFetchResponse,
-    OffsetResponse,
-    RequestTimedOutError,
-    UnknownTopicOrPartitionError,
-)
+import pytest
+from kafka.common import NotLeaderForPartitionError
+from kafka.common import OffsetCommitResponse
+from kafka.common import OffsetFetchResponse
+from kafka.common import OffsetResponse
+from kafka.common import RequestTimedOutError
+from kafka.common import UnknownTopicOrPartitionError
 
-from yelp_kafka.offsets import (
-    advance_consumer_offsets,
-    get_current_consumer_offsets,
-    get_topics_watermarks,
-    OffsetCommitError,
-    PartitionOffsets,
-    rewind_consumer_offsets,
-    set_consumer_offsets,
-    UnknownPartitions,
-    UnknownTopic,
-    _verify_commit_offsets_requests,
-)
+from yelp_kafka.offsets import _verify_commit_offsets_requests
+from yelp_kafka.offsets import advance_consumer_offsets
+from yelp_kafka.offsets import get_current_consumer_offsets
+from yelp_kafka.offsets import get_topics_watermarks
+from yelp_kafka.offsets import OffsetCommitError
+from yelp_kafka.offsets import PartitionOffsets
+from yelp_kafka.offsets import rewind_consumer_offsets
+from yelp_kafka.offsets import set_consumer_offsets
+from yelp_kafka.offsets import UnknownPartitions
+from yelp_kafka.offsets import UnknownTopic
 
 
 @pytest.fixture(params=[['topic1'], set(['topic1']), ('topic1',)])
@@ -30,6 +26,7 @@ def topics(request):
 
 
 class MyKafkaClient(object):
+
     def __init__(
         self,
         topics,
@@ -186,6 +183,7 @@ class TestOffsetsBase(object):
 
 
 class TestOffsets(TestOffsetsBase):
+
     def test_get_current_consumer_offsets_invalid_arguments(self, kafka_client_mock):
         with pytest.raises(TypeError):
             get_current_consumer_offsets(

@@ -1,5 +1,6 @@
 import mock
 import pytest
+
 from yelp_kafka.config import ClusterConfig
 from yelp_kafka.config import KafkaConsumerConfig
 

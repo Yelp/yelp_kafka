@@ -1,26 +1,20 @@
-import mock
-from multiprocessing import Process
 import os
 import time
-import pytest
+from multiprocessing import Process
 
-from kafka.common import (
-    ConsumerTimeout,
-    KafkaUnavailableError,
-)
+import mock
+import pytest
+from kafka.common import ConsumerTimeout
+from kafka.common import KafkaUnavailableError
 
 from yelp_kafka.config import KafkaConsumerConfig
-from yelp_kafka.consumer_group import (
-    ConsumerGroup,
-    KafkaConsumerGroup,
-    MultiprocessingConsumerGroup,
-)
-from yelp_kafka.error import (
-    ProcessMessageError,
-    PartitionerError,
-    PartitionerZookeeperError,
-    ConsumerGroupError,
-)
+from yelp_kafka.consumer_group import ConsumerGroup
+from yelp_kafka.consumer_group import KafkaConsumerGroup
+from yelp_kafka.consumer_group import MultiprocessingConsumerGroup
+from yelp_kafka.error import ConsumerGroupError
+from yelp_kafka.error import PartitionerError
+from yelp_kafka.error import PartitionerZookeeperError
+from yelp_kafka.error import ProcessMessageError
 
 
 @mock.patch('yelp_kafka.consumer_group.Partitioner', autospec=True)
@@ -107,8 +101,9 @@ class TestKafkaConsumerGroup(object):
             KafkaConsumerGroup(self.topic, None)
 
     def test__should_keep_trying_no_timeout(self, cluster):
-        config = KafkaConsumerConfig(self.group, cluster,
-                                     consumer_timeout_ms=-1)
+        config = KafkaConsumerConfig(
+            self.group, cluster,
+            consumer_timeout_ms=-1)
         consumer = KafkaConsumerGroup([], config)
 
         long_time_ago = time.time() - 1000
@@ -118,8 +113,9 @@ class TestKafkaConsumerGroup(object):
     def test__should_keep_trying_not_timed_out(self, mock_time, cluster):
         mock_time.return_value = 0
 
-        config = KafkaConsumerConfig(self.group, cluster,
-                                     consumer_timeout_ms=1000)
+        config = KafkaConsumerConfig(
+            self.group, cluster,
+            consumer_timeout_ms=1000)
         consumer = KafkaConsumerGroup([], config)
 
         almost_a_second_ago = time.time() - 0.8
@@ -129,30 +125,34 @@ class TestKafkaConsumerGroup(object):
     def test__should_keep_trying_timed_out(self, mock_time, cluster):
         mock_time.return_value = 0
 
-        config = KafkaConsumerConfig(self.group, cluster,
-                                     consumer_timeout_ms=1000)
+        config = KafkaConsumerConfig(
+            self.group, cluster,
+            consumer_timeout_ms=1000)
         consumer = KafkaConsumerGroup([], config)
 
         over_a_second_ago = time.time() - 1.2
         assert not consumer._should_keep_trying(over_a_second_ago)
 
     def test__auto_commit_enabled_is_enabled(self, cluster):
-        config = KafkaConsumerConfig(self.group, cluster,
-                                     auto_commit_enable=True)
+        config = KafkaConsumerConfig(
+            self.group, cluster,
+            auto_commit_enable=True)
         consumer = KafkaConsumerGroup([], config)
         assert consumer._auto_commit_enabled()
 
     def test__auto_commit_enabled_not_enabled(self, cluster):
-        config = KafkaConsumerConfig(self.group, cluster,
-                                     auto_commit_enable=False)
+        config = KafkaConsumerConfig(
+            self.group, cluster,
+            auto_commit_enable=False)
         consumer = KafkaConsumerGroup([], config)
         assert not consumer._auto_commit_enabled()
 
     @mock.patch('yelp_kafka.consumer_group.Partitioner')
     @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
     def test_next(self, mock_consumer, mock_partitioner, cluster):
-        config = KafkaConsumerConfig(self.group, cluster,
-                                     consumer_timeout_ms=500)
+        config = KafkaConsumerConfig(
+            self.group, cluster,
+            consumer_timeout_ms=500)
         consumer = KafkaConsumerGroup([], config)
         consumer.partitioner = mock_partitioner()
         consumer.consumer = mock_consumer()
@@ -276,8 +276,9 @@ class TestMultiprocessingConsumerGroup(object):
             'topic1': [0, 1, 2],
             'topic2': [3]
         }
-        with mock.patch('yelp_kafka.consumer_group.Process',
-                        autospec=True) as mock_process:
+        with mock.patch(
+                'yelp_kafka.consumer_group.Process',
+                autospec=True) as mock_process:
             group.acquire(partitions)
             assert all(consumer is mock_consumer
                        for consumer in group.get_consumers())

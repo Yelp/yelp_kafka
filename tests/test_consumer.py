@@ -1,19 +1,15 @@
 import contextlib
+
 import mock
 import pytest
-
+from kafka.common import KafkaError
+from kafka.common import OffsetCommitRequest
 from setproctitle import getproctitle
-from kafka.common import (
-    KafkaError,
-    OffsetCommitRequest,
-)
 
 from yelp_kafka.config import KafkaConsumerConfig
-from yelp_kafka.consumer import(
-    KafkaConsumerBase,
-    KafkaSimpleConsumer,
-    Message,
-)
+from yelp_kafka.consumer import KafkaConsumerBase
+from yelp_kafka.consumer import KafkaSimpleConsumer
+from yelp_kafka.consumer import Message
 from yelp_kafka.error import ProcessMessageError
 
 
@@ -53,8 +49,9 @@ class TestKafkaSimpleConsumer(object):
             mock_client.return_value = mock.sentinel.client
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
-            mock_client.assert_called_once_with(['test_broker:9292'],
-                                                client_id='test_client_id')
+            mock_client.assert_called_once_with(
+                ['test_broker:9292'],
+                client_id='test_client_id')
             assert not mock_consumer.call_args[0]
             kwargs = mock_consumer.call_args[1]
             assert kwargs['topic'] == 'test_topic'
@@ -185,7 +182,7 @@ class TestKafkaConsumer(object):
                 consumer.dispose = mock.Mock()
                 consumer.terminate()
                 consumer.run()
-                consumer.initialize.called_once()
+                assert consumer.initialize.call_count == 1
                 # process should have been called 3 times
                 assert consumer.process.call_count == 3
                 # check just last call arguments

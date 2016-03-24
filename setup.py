@@ -1,14 +1,16 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-
 import sys
-from setuptools import setup, find_packages
+
+from setuptools import find_packages
+from setuptools import setup
 from setuptools.command.test import test as TestCommand
 
 import yelp_kafka
 
 
 class Tox(TestCommand):
+
     def finalize_options(self):
         TestCommand.finalize_options(self)
         self.test_args = []
@@ -22,6 +24,7 @@ class Tox(TestCommand):
 
 
 class Coverage(Tox):
+
     def finalize_options(self):
         TestCommand.finalize_options(self)
         self.test_args = ['-e', 'coverage']

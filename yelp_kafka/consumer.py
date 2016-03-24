@@ -1,20 +1,14 @@
-from collections import namedtuple
 import logging
+from collections import namedtuple
 from multiprocessing import Event
 
-from kafka import (
-    KafkaClient,
-    SimpleConsumer,
-)
-from kafka.common import (
-    KafkaError,
-    OffsetCommitRequest,
-)
+from kafka import KafkaClient
+from kafka import SimpleConsumer
+from kafka.common import KafkaError
+from kafka.common import OffsetCommitRequest
 from kafka.util import kafka_bytestring
-from setproctitle import (
-    setproctitle,
-    getproctitle,
-)
+from setproctitle import getproctitle
+from setproctitle import setproctitle
 
 from yelp_kafka.error import ProcessMessageError
 
@@ -67,8 +61,9 @@ class KafkaSimpleConsumer(object):
         KafkaClient and SimpleConsumer.
         """
         # Instantiate a kafka client connected to kafka.
-        self.client = KafkaClient(self.config.broker_list,
-                                  client_id=self.config.client_id)
+        self.client = KafkaClient(
+            self.config.broker_list,
+            client_id=self.config.client_id)
 
         # Create a kafka SimpleConsumer.
         self.kafka_consumer = SimpleConsumer(
@@ -253,9 +248,10 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
             # We explicitly catch and log the exception.
             self.connect()
         except:
-            self.log.exception("Consumer topic %s, partition %s, config %s:"
-                               " failed connecting to kafka", self.topic,
-                               self.partitions, self.config)
+            self.log.exception(
+                "Consumer topic %s, partition %s, config %s:"
+                " failed connecting to kafka", self.topic,
+                self.partitions, self.config)
             raise
         while True:
             for message in self:

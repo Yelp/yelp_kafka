@@ -1,9 +1,9 @@
-from collections import defaultdict
 import copy
 import hashlib
 import logging
 import time
 import traceback
+from collections import defaultdict
 
 from kafka.client import KafkaClient
 from kazoo.client import KazooClient
@@ -11,7 +11,8 @@ from kazoo.protocol.states import KazooState
 from kazoo.recipe.partitioner import PartitionState
 from kazoo.retry import KazooRetry
 
-from yelp_kafka.error import PartitionerError, PartitionerZookeeperError
+from yelp_kafka.error import PartitionerError
+from yelp_kafka.error import PartitionerZookeeperError
 from yelp_kafka.utils import get_kafka_topics
 
 MAX_START_TIME_SECS = 300
@@ -50,6 +51,7 @@ class Partitioner(object):
                     partitions have to be release. It should usually stops the consumers.
 
     """
+
     def __init__(self, config, topics, acquire, release):
         self.log = logging.getLogger(self.__class__.__name__)
         self.config = config
@@ -192,9 +194,10 @@ class Partitioner(object):
                 self.release_and_finish()
                 raise PartitionerError("Zookeeper connection failure")
 
-        self.log.debug("Creating partitioner for group %s, topic %s,"
-                       " partitions set %s", self.config.group_id,
-                       self.topics, partitions)
+        self.log.debug(
+            "Creating partitioner for group %s, topic %s,"
+            " partitions set %s", self.config.group_id,
+            self.topics, partitions)
         return self.kazoo_client.SetPartitioner(
             path=self.zk_group_path,
             set=partitions,

@@ -1,28 +1,25 @@
 from collections import defaultdict
 from collections import namedtuple
 
-from kafka.common import (
-    BrokerResponseError,
-    check_error,
-    OffsetCommitRequest,
-    OffsetFetchRequest,
-    OffsetFetchResponse,
-    OffsetRequest,
-    OffsetResponse,
-    UnknownTopicOrPartitionError,
-)
+from kafka.common import BrokerResponseError
+from kafka.common import check_error
+from kafka.common import OffsetCommitRequest
+from kafka.common import OffsetFetchRequest
+from kafka.common import OffsetFetchResponse
+from kafka.common import OffsetRequest
+from kafka.common import OffsetResponse
+from kafka.common import UnknownTopicOrPartitionError
 from kafka.util import kafka_bytestring
 
-from yelp_kafka.error import (
-    OffsetCommitError,
-    UnknownPartitions,
-    UnknownTopic,
-)
+from yelp_kafka.error import OffsetCommitError
+from yelp_kafka.error import UnknownPartitions
+from yelp_kafka.error import UnknownTopic
 
 
-PartitionOffsets = namedtuple('PartitionOffsets',
-                              ['topic', 'partition',
-                               'highmark', 'lowmark'])
+PartitionOffsets = namedtuple(
+    'PartitionOffsets',
+    ['topic', 'partition',
+     'highmark', 'lowmark'])
 """Tuple representing the offsets for a topic partition.
 
 * **topic**\(``str``): Name of the topic
@@ -157,8 +154,9 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
     )
 
 
-def get_current_consumer_offsets(kafka_client, group, topics,
-                                 raise_on_error=True):
+def get_current_consumer_offsets(
+        kafka_client, group, topics,
+        raise_on_error=True):
     """ Get current consumer offsets.
 
     NOTE: This method does not refresh client metadata. It is up to the caller
@@ -300,8 +298,9 @@ def get_topics_watermarks(kafka_client, topics, raise_on_error=True):
     return watermark_offsets
 
 
-def _commit_offsets_to_watermark(kafka_client, group, topics,
-                                 watermark, raise_on_error):
+def _commit_offsets_to_watermark(
+        kafka_client, group, topics,
+        watermark, raise_on_error):
     topics = _verify_topics_and_partitions(kafka_client, topics, raise_on_error)
 
     watermark_offsets = get_topics_watermarks(kafka_client, topics, raise_on_error)
@@ -341,8 +340,9 @@ def _commit_offsets_to_watermark(kafka_client, group, topics,
     return filter(None, status)
 
 
-def advance_consumer_offsets(kafka_client, group, topics,
-                             raise_on_error=True):
+def advance_consumer_offsets(
+        kafka_client, group, topics,
+        raise_on_error=True):
     """Advance consumer offsets to the latest message in the topic
     partition (the high watermark).
 
@@ -377,8 +377,9 @@ def advance_consumer_offsets(kafka_client, group, topics,
     )
 
 
-def rewind_consumer_offsets(kafka_client, group, topics,
-                            raise_on_error=True):
+def rewind_consumer_offsets(
+        kafka_client, group, topics,
+        raise_on_error=True):
     """Rewind consumer offsets to the earliest message in the topic
     partition (the low watermark).
 
@@ -413,8 +414,9 @@ def rewind_consumer_offsets(kafka_client, group, topics,
     )
 
 
-def set_consumer_offsets(kafka_client, group, new_offsets,
-                         raise_on_error=True):
+def set_consumer_offsets(
+        kafka_client, group, new_offsets,
+        raise_on_error=True):
     """Set consumer offsets to the specified offsets.
 
     This method does not validate the specified offsets, it is up to

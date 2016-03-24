@@ -1,9 +1,10 @@
 import logging
 import math
-import requests
-import simplejson as json
 import time
 from multiprocessing import Event
+
+import requests
+import simplejson as json
 from requests.exceptions import RequestException
 
 
@@ -30,6 +31,7 @@ FAILURE_COUNT_METRIC_NAMES = set([
 
 
 class MetricsReporter(object):
+
     def __init__(self, metric_prefix, queue, config):
         self.log = logging.getLogger(self.__class__.__name__)
         self.die_event = Event()
@@ -135,10 +137,11 @@ class MetricsReporter(object):
         headers = {'X-SF-Token': self.token}
 
         try:
-            response = requests.post(SIGNALFX_ENDPOINT,
-                                     data=data,
-                                     headers=headers,
-                                     timeout=CONNECTION_TIMEOUT)
+            response = requests.post(
+                SIGNALFX_ENDPOINT,
+                data=data,
+                headers=headers,
+                timeout=CONNECTION_TIMEOUT)
 
             if not response.ok:
                 msg = "Got bad response code from signalfx: {0}"

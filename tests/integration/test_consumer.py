@@ -1,12 +1,14 @@
 import subprocess
-import uuid
 import time
-from multiprocessing import Process, Queue
+import uuid
+from multiprocessing import Process
+from multiprocessing import Queue
 
 import kafka
 from kafka.common import ConsumerTimeout
 
-from yelp_kafka.config import ClusterConfig, KafkaConsumerConfig
+from yelp_kafka.config import ClusterConfig
+from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.consumer import KafkaSimpleConsumer
 from yelp_kafka.consumer_group import KafkaConsumerGroup
 
@@ -42,10 +44,11 @@ def test_simple_consumer():
     producer.send_messages(topic, *messages)
 
     cluster_config = ClusterConfig(None, None, [KAFKA_URL], ZOOKEEPER_URL)
-    config = KafkaConsumerConfig('test', cluster_config,
-                                 auto_offset_reset='smallest',
-                                 auto_commit=False,
-                                 consumer_timeout_ms=1000)
+    config = KafkaConsumerConfig(
+        'test', cluster_config,
+        auto_offset_reset='smallest',
+        auto_commit=False,
+        consumer_timeout_ms=1000)
     consumer = KafkaSimpleConsumer(topic, config)
 
     with consumer:

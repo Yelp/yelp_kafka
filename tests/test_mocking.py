@@ -96,6 +96,7 @@ def assert_is_partition_message(kafka_message):
 
 @pytest.mark.usefixtures('kafka_mocks_with_messages')
 class TestConsumers(object):
+
     def test_simple_consumer(self, kafka_mocks_with_messages):
         consumer = kafka_mocks_with_messages.SimpleConsumer(
             client=mock.ANY,

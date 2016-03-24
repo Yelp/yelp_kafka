@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-
 import contextlib
 from collections import namedtuple
 
 import kafka
 import mock
+
 import yelp_kafka
 
 KafkaMocks = namedtuple(
@@ -20,6 +20,7 @@ KafkaMocks = namedtuple(
 
 
 class Registrar(object):
+
     def __init__(self):
         self.topic_registry = {}
 
@@ -192,6 +193,7 @@ class Registrar(object):
 
     def mock_yelp_consumer_with_registrar(self):
         class MockSimpleConsumer(object):
+
             def __init__(
                 inner_self,
                 topic,
