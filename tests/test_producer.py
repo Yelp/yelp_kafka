@@ -13,12 +13,6 @@ from yelp_kafka.producer import YelpKafkaSimpleProducer
 
 
 @pytest.yield_fixture
-def mock_client_hostname():
-    with mock.patch('socket.gethostname', autospec=True) as mock_client_host:
-        yield mock_client_host
-
-
-@pytest.yield_fixture
 def mock_yelp_meteorite():
     def generate_mock(*args, **kwargs):
         return mock.MagicMock()
@@ -51,22 +45,20 @@ def mock_cluster_config():
 @pytest.fixture
 def mock_kafka_producer(
     mock_kafka_client,
-    mock_client_hostname,
     mock_yelp_meteorite,
     mock_kafka_send_messages,
     mock_cluster_config,
 ):
-    return YelpKafkaSimpleProducer(mock_cluster_config, mock_kafka_client)
+    return YelpKafkaSimpleProducer(client=mock_kafka_client, cluster_config=mock_cluster_config)
 
 
 def test_setup_metrics(
     mock_kafka_client,
-    mock_client_hostname,
     mock_yelp_meteorite,
     mock_cluster_config,
 ):
     # setup metrics called at init
-    YelpKafkaSimpleProducer(mock_cluster_config, mock_kafka_client)
+    YelpKafkaSimpleProducer(client=mock_kafka_client, cluster_config=mock_cluster_config)
     assert mock_yelp_meteorite.create_timer.call_count == len(metrics.TIME_METRIC_NAMES)
 
 
