@@ -1,19 +1,18 @@
-from collections import namedtuple
 import logging
+from collections import namedtuple
 
 from kafka.common import KafkaUnavailableError
 
-from yelp_kafka.offsets import(
-    get_current_consumer_offsets,
-    get_topics_watermarks,
-)
+from yelp_kafka.offsets import get_current_consumer_offsets
+from yelp_kafka.offsets import get_topics_watermarks
 
 
 log = logging.getLogger(__name__)
 
-ConsumerPartitionOffsets = namedtuple('ConsumerPartitionOffsets',
-                                      ['topic', 'partition', 'current',
-                                       'highmark', 'lowmark'])
+ConsumerPartitionOffsets = namedtuple(
+    'ConsumerPartitionOffsets',
+    ['topic', 'partition', 'current', 'highmark', 'lowmark']
+)
 """Tuple representing the consumer offsets for a topic partition.
 
 * **topic**\(``str``): Name of the topic
@@ -24,8 +23,12 @@ ConsumerPartitionOffsets = namedtuple('ConsumerPartitionOffsets',
 """
 
 
-def get_consumer_offsets_metadata(kafka_client, group,
-                                  topics, raise_on_error=True):
+def get_consumer_offsets_metadata(
+    kafka_client,
+    group,
+    topics,
+    raise_on_error=True
+):
     """This method:
         * refreshes metadata for the kafka client
         * fetches group offsets

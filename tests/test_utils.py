@@ -1,6 +1,5 @@
-import pytest
 import mock
-
+import pytest
 from kafka.common import KafkaUnavailableError
 
 from yelp_kafka import utils

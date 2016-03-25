@@ -1,18 +1,16 @@
 import contextlib
-import mock
-import pytest
 from StringIO import StringIO
 
+import mock
+import pytest
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 
-from yelp_kafka.config import (
-    MAX_MESSAGE_SIZE_BYTES,
-    AUTO_COMMIT_INTERVAL_SECS,
-    ClusterConfig,
-    KafkaConsumerConfig,
-    load_yaml_config,
-    TopologyConfiguration,
-)
+from yelp_kafka.config import AUTO_COMMIT_INTERVAL_SECS
+from yelp_kafka.config import ClusterConfig
+from yelp_kafka.config import KafkaConsumerConfig
+from yelp_kafka.config import load_yaml_config
+from yelp_kafka.config import MAX_MESSAGE_SIZE_BYTES
+from yelp_kafka.config import TopologyConfiguration
 from yelp_kafka.error import ConfigurationError
 
 TEST_BASE_KAFKA = '/base/kafka_discovery'
@@ -115,6 +113,7 @@ MOCK_NO_SCRIBE_YAML = {
 
 
 class TestClusterConfig():
+
     def test___eq___broker_list(self):
         cluster_config1 = ClusterConfig(
             type='some_type',
@@ -205,9 +204,11 @@ class TestClusterConfig():
 @pytest.yield_fixture
 def mock_yaml():
     with contextlib.nested(
-        mock.patch('yelp_kafka.config.load_yaml_config',
-                   return_value=MOCK_SCRIBE_YAML,
-                   create=True),
+        mock.patch(
+            'yelp_kafka.config.load_yaml_config',
+            return_value=MOCK_SCRIBE_YAML,
+            create=True
+        ),
         mock.patch('os.path.isfile', return_value=True)
     ) as (m, mock_isfile):
         yield m
@@ -217,8 +218,10 @@ def test_load_yaml():
     stio = StringIO()
     stio.write(MOCK_TOPOLOGY_CONFIG)
     stio.seek(0)
-    with mock.patch('__builtin__.open',
-                    return_value=contextlib.closing(stio)) as mock_open:
+    with mock.patch(
+        '__builtin__.open',
+        return_value=contextlib.closing(stio)
+    ) as mock_open:
         actual = load_yaml_config('test')
         mock_open.assert_called_once_with("test", "r")
         assert actual == MOCK_SCRIBE_YAML
@@ -252,24 +255,24 @@ class TestTopologyConfig(object):
     def test_get_local_cluster_error(self, mock_yaml):
         # Should raise ConfigurationError if a cluster is in region but not in
         # the cluster list
-            mock_yaml.return_value = {
-                'clusters': {
-                    'cluster1': {
-                        'broker_list': ['mybroker'],
-                        'zookeeper': '0.1.2.3,0.2.3.4/kafka'
-                    },
+        mock_yaml.return_value = {
+            'clusters': {
+                'cluster1': {
+                    'broker_list': ['mybroker'],
+                    'zookeeper': '0.1.2.3,0.2.3.4/kafka'
                 },
-                'local_config': {
-                    'cluster': 'cluster3'
-                }
+            },
+            'local_config': {
+                'cluster': 'cluster3'
             }
-            topology = TopologyConfiguration(
-                cluster_type='mykafka',
-                kafka_topology_path=TEST_BASE_KAFKA,
-            )
-            # Raise ConfigurationError because cluster 3 does not exist
-            with pytest.raises(ConfigurationError):
-                topology.get_local_cluster()
+        }
+        topology = TopologyConfiguration(
+            cluster_type='mykafka',
+            kafka_topology_path=TEST_BASE_KAFKA,
+        )
+        # Raise ConfigurationError because cluster 3 does not exist
+        with pytest.raises(ConfigurationError):
+            topology.get_local_cluster()
 
     def test_get_scribe_prefix(self, mock_yaml):
         topology = TopologyConfiguration(
@@ -390,6 +393,7 @@ class TestTopologyConfig(object):
 
 
 class TestKafkaConsumerConfig(object):
+
     def test___eq__(self):
         consumer_config = {
             'buffer_size': 1024,
@@ -523,11 +527,13 @@ class TestKafkaConsumerConfig(object):
             zookeeper='zookeeper:2181'
         )
 
-        config = KafkaConsumerConfig('some_group',
-                                     cluster_config,
-                                     auto_offset_reset='smallest',
-                                     fetch_min_bytes=456,
-                                     consumer_timeout_ms=5000)
+        config = KafkaConsumerConfig(
+            'some_group',
+            cluster_config,
+            auto_offset_reset='smallest',
+            fetch_min_bytes=456,
+            consumer_timeout_ms=5000
+        )
         args = config.get_simple_consumer_args()
 
         assert args['buffer_size'] == MAX_MESSAGE_SIZE_BYTES
@@ -544,11 +550,13 @@ class TestKafkaConsumerConfig(object):
             zookeeper='zookeeper:2181'
         )
 
-        config = KafkaConsumerConfig('some_group',
-                                     cluster_config,
-                                     fetch_message_max_bytes=123,
-                                     auto_commit=False,
-                                     iter_timeout=5)
+        config = KafkaConsumerConfig(
+            'some_group',
+            cluster_config,
+            fetch_message_max_bytes=123,
+            auto_commit=False,
+            iter_timeout=5
+        )
         kafka_config = config.get_kafka_consumer_config()
 
         assert kafka_config['fetch_message_max_bytes'] == 123

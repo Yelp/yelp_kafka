@@ -3,26 +3,24 @@ import os
 import signal
 import time
 import traceback
-from multiprocessing import Event, Lock, Process
+from multiprocessing import Event
+from multiprocessing import Lock
+from multiprocessing import Process
 from Queue import Queue
 from threading import Thread
 
 import yelp_meteorite
 from kafka import KafkaConsumer
-from kafka.common import (
-    ConsumerTimeout,
-    KafkaUnavailableError,
-)
+from kafka.common import ConsumerTimeout
+from kafka.common import KafkaUnavailableError
 from yelp_lib.decorators import retry
 
 from yelp_kafka import metrics
 from yelp_kafka.consumer import KafkaSimpleConsumer
-from yelp_kafka.error import (
-    ConsumerGroupError,
-    PartitionerError,
-    PartitionerZookeeperError,
-    ProcessMessageError,
-)
+from yelp_kafka.error import ConsumerGroupError
+from yelp_kafka.error import PartitionerError
+from yelp_kafka.error import PartitionerZookeeperError
+from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
 
 
@@ -148,8 +146,11 @@ class ConsumerGroup(object):
            changes and the partitions have been acquired.
         """
         if partitions.get(self.topic):
-            self.consumer = KafkaSimpleConsumer(self.topic, self.config,
-                                                partitions[self.topic])
+            self.consumer = KafkaSimpleConsumer(
+                self.topic,
+                self.config,
+                partitions[self.topic]
+            )
             try:
                 # We explicitly catch and log the exception.
                 self.consumer.connect()
@@ -234,8 +235,12 @@ class KafkaConsumerGroup(object):
 
         self.log = logging.getLogger(self.__class__.__name__)
         self.topics = topics
-        self.partitioner = Partitioner(config, topics, self._acquire,
-                                       self._release)
+        self.partitioner = Partitioner(
+            config,
+            topics,
+            self._acquire,
+            self._release
+        )
         self.consumer = None
         self.metrics_queue = Queue()
         self.metrics_reporter = None
@@ -263,9 +268,11 @@ class KafkaConsumerGroup(object):
         self.config = consumer_config
 
     def _setup_signalfx_reporter(self, config):
-        self.metrics_reporter = metrics.MetricsReporter(self.METRIC_PREFIX,
-                                                        self.metrics_queue,
-                                                        config)
+        self.metrics_reporter = metrics.MetricsReporter(
+            self.METRIC_PREFIX,
+            self.metrics_queue,
+            config
+        )
         Thread(target=self.metrics_reporter.main_loop).start()
 
     def _setup_meteorite_reporter(self, config):
@@ -424,6 +431,7 @@ class MultiprocessingConsumerGroup(object):
         an instance of a subclass of
         :py:class:`yelp_kafka.consumer.KafkaConsumerBase`.
     """
+
     def __init__(self, topics, config, consumer_factory):
         self.config = config
         self.termination_flag = None

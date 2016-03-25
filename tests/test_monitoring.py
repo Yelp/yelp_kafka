@@ -1,25 +1,16 @@
 import mock
 import pytest
+from kafka.common import KafkaUnavailableError
+from kafka.common import OffsetFetchResponse
+from test_offsets import MyKafkaClient
+from test_offsets import TestOffsetsBase
 
-from kafka.common import (
-    KafkaUnavailableError,
-    OffsetFetchResponse,
-)
-
-from yelp_kafka.error import(
-    UnknownPartitions,
-    UnknownTopic,
-)
-from yelp_kafka.monitoring import (
-    ConsumerPartitionOffsets,
-    get_consumer_offsets_metadata,
-    offset_distance,
-    topics_offset_distance,
-)
-from test_offsets import(
-    MyKafkaClient,
-    TestOffsetsBase,
-)
+from yelp_kafka.error import UnknownPartitions
+from yelp_kafka.error import UnknownTopic
+from yelp_kafka.monitoring import ConsumerPartitionOffsets
+from yelp_kafka.monitoring import get_consumer_offsets_metadata
+from yelp_kafka.monitoring import offset_distance
+from yelp_kafka.monitoring import topics_offset_distance
 
 
 class TestMonitoring(TestOffsetsBase):
