@@ -147,8 +147,10 @@ class ConsumerGroup(object):
         """
         if partitions.get(self.topic):
             self.consumer = KafkaSimpleConsumer(
-                self.topic, self.config,
-                partitions[self.topic])
+                self.topic,
+                self.config,
+                partitions[self.topic]
+            )
             try:
                 # We explicitly catch and log the exception.
                 self.consumer.connect()
@@ -234,8 +236,11 @@ class KafkaConsumerGroup(object):
         self.log = logging.getLogger(self.__class__.__name__)
         self.topics = topics
         self.partitioner = Partitioner(
-            config, topics, self._acquire,
-            self._release)
+            config,
+            topics,
+            self._acquire,
+            self._release
+        )
         self.consumer = None
         self.metrics_queue = Queue()
         self.metrics_reporter = None
@@ -266,7 +271,8 @@ class KafkaConsumerGroup(object):
         self.metrics_reporter = metrics.MetricsReporter(
             self.METRIC_PREFIX,
             self.metrics_queue,
-            config)
+            config
+        )
         Thread(target=self.metrics_reporter.main_loop).start()
 
     def _setup_meteorite_reporter(self, config):

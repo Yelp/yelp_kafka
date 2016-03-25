@@ -30,8 +30,9 @@ class TestPartitioner(object):
 
     def test_get_partitions_set(self, partitioner):
         with mock.patch(
-                'yelp_kafka.partitioner.get_kafka_topics',
-                autospec=True) as mock_topics:
+            'yelp_kafka.partitioner.get_kafka_topics',
+            autospec=True
+        ) as mock_topics:
             mock_topics.return_value = {
                 'topic1': [0, 1, 2, 3],
                 'topic2': [0, 1, 2],
@@ -142,9 +143,10 @@ class TestPartitioner(object):
         expected_partitions = set(['top-1', 'top1-2'])
         with contextlib.nested(
             mock.patch.object(
-                Partitioner, '_create_partitioner',
-                side_effect=[mock.sentinel.partitioner1,
-                             mock.sentinel.partitioner2]),
+                Partitioner,
+                '_create_partitioner',
+                side_effect=[mock.sentinel.partitioner1, mock.sentinel.partitioner2]
+            ),
             mock.patch.object(Partitioner, 'get_partitions_set'),
         ) as (mock_create, mock_partitions):
             mock_partitions.return_value = expected_partitions
@@ -173,9 +175,10 @@ class TestPartitioner(object):
 
         with contextlib.nested(
             mock.patch.object(
-                Partitioner, '_create_partitioner',
-                side_effect=[mock.sentinel.partitioner1,
-                             mock.sentinel.partitioner2]),
+                Partitioner,
+                '_create_partitioner',
+                side_effect=[mock.sentinel.partitioner1, mock.sentinel.partitioner2]
+            ),
             mock.patch.object(Partitioner, 'release_and_finish'),
             mock.patch.object(Partitioner, 'get_partitions_set'),
         ) as (mock_create, mock_destroy, mock_partitions):

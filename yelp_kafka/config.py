@@ -79,8 +79,10 @@ class TopologyConfiguration(object):
     """
 
     def __init__(
-            self, cluster_type,
-            kafka_topology_path=DEFAULT_KAFKA_TOPOLOGY_BASE_PATH):
+        self,
+        cluster_type,
+        kafka_topology_path=DEFAULT_KAFKA_TOPOLOGY_BASE_PATH
+    ):
         self.kafka_topology_path = kafka_topology_path
         self.cluster_type = cluster_type
         self.log = logging.getLogger(self.__class__.__name__)
@@ -104,7 +106,8 @@ class TopologyConfiguration(object):
         """Load the topology configuration"""
         config_path = os.path.join(
             self.kafka_topology_path,
-            '{id}.yaml'.format(id=self.cluster_type))
+            '{id}.yaml'.format(id=self.cluster_type)
+        )
         self.log.debug("Loading configuration from %s", config_path)
         if os.path.isfile(config_path):
             topology_config = load_yaml_config(config_path)
@@ -410,7 +413,8 @@ class KafkaConsumerConfig(object):
     def max_termination_timeout_secs(self):
         return self._config.get(
             'max_termination_timeout_secs',
-            MAX_ITERATOR_TIMEOUT_SECS)
+            MAX_ITERATOR_TIMEOUT_SECS
+        )
 
     @property
     def client_id(self):
@@ -434,7 +438,8 @@ class KafkaConsumerConfig(object):
     def signalfx_send_metrics_interval(self):
         return self._config.get(
             'signalfx_send_metrics_interval',
-            DEFAULT_SIGNALFX_METRICS_INTERVAL)
+            DEFAULT_SIGNALFX_METRICS_INTERVAL
+        )
 
     @property
     def signalfx_token(self):

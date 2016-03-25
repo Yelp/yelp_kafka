@@ -197,7 +197,9 @@ class Partitioner(object):
         self.log.debug(
             "Creating partitioner for group %s, topic %s,"
             " partitions set %s", self.config.group_id,
-            self.topics, partitions)
+            self.topics,
+            partitions
+        )
         return self.kazoo_client.SetPartitioner(
             path=self.zk_group_path,
             set=partitions,

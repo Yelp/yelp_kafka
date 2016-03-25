@@ -18,8 +18,8 @@ from yelp_kafka.error import UnknownTopic
 
 PartitionOffsets = namedtuple(
     'PartitionOffsets',
-    ['topic', 'partition',
-     'highmark', 'lowmark'])
+    ['topic', 'partition', 'highmark', 'lowmark']
+)
 """Tuple representing the offsets for a topic partition.
 
 * **topic**\(``str``): Name of the topic
@@ -155,8 +155,11 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
 
 
 def get_current_consumer_offsets(
-        kafka_client, group, topics,
-        raise_on_error=True):
+    kafka_client,
+    group,
+    topics,
+    raise_on_error=True
+):
     """ Get current consumer offsets.
 
     NOTE: This method does not refresh client metadata. It is up to the caller
@@ -299,8 +302,12 @@ def get_topics_watermarks(kafka_client, topics, raise_on_error=True):
 
 
 def _commit_offsets_to_watermark(
-        kafka_client, group, topics,
-        watermark, raise_on_error):
+    kafka_client,
+    group,
+    topics,
+    watermark,
+    raise_on_error
+):
     topics = _verify_topics_and_partitions(kafka_client, topics, raise_on_error)
 
     watermark_offsets = get_topics_watermarks(kafka_client, topics, raise_on_error)
@@ -341,8 +348,11 @@ def _commit_offsets_to_watermark(
 
 
 def advance_consumer_offsets(
-        kafka_client, group, topics,
-        raise_on_error=True):
+    kafka_client,
+    group,
+    topics,
+    raise_on_error=True
+):
     """Advance consumer offsets to the latest message in the topic
     partition (the high watermark).
 
@@ -378,8 +388,11 @@ def advance_consumer_offsets(
 
 
 def rewind_consumer_offsets(
-        kafka_client, group, topics,
-        raise_on_error=True):
+    kafka_client,
+    group,
+    topics,
+    raise_on_error=True
+):
     """Rewind consumer offsets to the earliest message in the topic
     partition (the low watermark).
 
@@ -415,8 +428,11 @@ def rewind_consumer_offsets(
 
 
 def set_consumer_offsets(
-        kafka_client, group, new_offsets,
-        raise_on_error=True):
+    kafka_client,
+    group,
+    new_offsets,
+    raise_on_error=True
+):
     """Set consumer offsets to the specified offsets.
 
     This method does not validate the specified offsets, it is up to

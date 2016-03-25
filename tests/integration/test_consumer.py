@@ -45,10 +45,12 @@ def test_simple_consumer():
 
     cluster_config = ClusterConfig(None, None, [KAFKA_URL], ZOOKEEPER_URL)
     config = KafkaConsumerConfig(
-        'test', cluster_config,
+        'test',
+        cluster_config,
         auto_offset_reset='smallest',
         auto_commit=False,
-        consumer_timeout_ms=1000)
+        consumer_timeout_ms=1000
+    )
     consumer = KafkaSimpleConsumer(topic, config)
 
     with consumer:

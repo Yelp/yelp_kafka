@@ -63,7 +63,8 @@ class KafkaSimpleConsumer(object):
         # Instantiate a kafka client connected to kafka.
         self.client = KafkaClient(
             self.config.broker_list,
-            client_id=self.config.client_id)
+            client_id=self.config.client_id
+        )
 
         # Create a kafka SimpleConsumer.
         self.kafka_consumer = SimpleConsumer(
@@ -250,8 +251,11 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
         except:
             self.log.exception(
                 "Consumer topic %s, partition %s, config %s:"
-                " failed connecting to kafka", self.topic,
-                self.partitions, self.config)
+                " failed connecting to kafka",
+                self.topic,
+                self.partitions,
+                self.config
+            )
             raise
         while True:
             for message in self:

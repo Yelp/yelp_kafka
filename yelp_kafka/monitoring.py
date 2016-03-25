@@ -11,8 +11,8 @@ log = logging.getLogger(__name__)
 
 ConsumerPartitionOffsets = namedtuple(
     'ConsumerPartitionOffsets',
-    ['topic', 'partition', 'current',
-     'highmark', 'lowmark'])
+    ['topic', 'partition', 'current', 'highmark', 'lowmark']
+)
 """Tuple representing the consumer offsets for a topic partition.
 
 * **topic**\(``str``): Name of the topic
@@ -24,8 +24,11 @@ ConsumerPartitionOffsets = namedtuple(
 
 
 def get_consumer_offsets_metadata(
-        kafka_client, group,
-        topics, raise_on_error=True):
+    kafka_client,
+    group,
+    topics,
+    raise_on_error=True
+):
     """This method:
         * refreshes metadata for the kafka client
         * fetches group offsets

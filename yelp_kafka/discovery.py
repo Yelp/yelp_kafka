@@ -112,9 +112,10 @@ def get_kafka_connection(cluster_type, client_id='yelp-kafka', **kwargs):
         return KafkaClient(cluster.broker_list, client_id=client_id, **kwargs)
     except:
         log.exception(
-            "Connection to kafka cluster %s using broker"
-            " list %s failed", cluster.name,
-            cluster.broker_list)
+            "Connection to kafka cluster %s using broker list %s failed",
+            cluster.name,
+            cluster.broker_list
+        )
         raise DiscoveryError("Failed to connect to cluster {0}".format(
             cluster.name))
 
@@ -141,9 +142,10 @@ def get_all_kafka_connections(cluster_type, client_id='yelp-kafka', **kwargs):
             connected_clusters.append((cluster.name, client))
         except:
             log.exception(
-                "Connection to kafka cluster %s using broker"
-                " list %s failed", cluster.name,
-                cluster.broker_list)
+                "Connection to kafka cluster %s using broker list %s failed",
+                cluster.name,
+                cluster.broker_list
+            )
             for _, client in connected_clusters:
                 client.close()
             raise DiscoveryError("Failed to connect to cluster {0}".format(
@@ -165,7 +167,8 @@ def discover_topics(cluster):
     except:
         log.exception(
             "Topics discovery failed for %s",
-            cluster.broker_list)
+            cluster.broker_list
+        )
         raise DiscoveryError("Failed to get topics information from "
                              "{cluster}".format(cluster=cluster))
 
@@ -392,7 +395,8 @@ def scribe_topic_exists_in_datacenter(stream, datacenter):
     """
     result = search_topic_in_all_clusters(
         DEFAULT_KAFKA_SCRIBE,
-        make_scribe_topic(stream, datacenter))
+        make_scribe_topic(stream, datacenter)
+    )
     return len(result) > 0
 
 
@@ -409,7 +413,8 @@ def get_scribe_topic_in_datacenter(stream, datacenter):
     """
     result = search_topic_in_all_clusters(
         DEFAULT_KAFKA_SCRIBE,
-        make_scribe_topic(stream, datacenter))
+        make_scribe_topic(stream, datacenter)
+    )
     if not result:
         raise DiscoveryError(
             "No Kafka topic for stream {stream} in {datacenter}".format(

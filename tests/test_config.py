@@ -207,7 +207,8 @@ def mock_yaml():
         mock.patch(
             'yelp_kafka.config.load_yaml_config',
             return_value=MOCK_SCRIBE_YAML,
-            create=True),
+            create=True
+        ),
         mock.patch('os.path.isfile', return_value=True)
     ) as (m, mock_isfile):
         yield m
@@ -218,8 +219,9 @@ def test_load_yaml():
     stio.write(MOCK_TOPOLOGY_CONFIG)
     stio.seek(0)
     with mock.patch(
-            '__builtin__.open',
-            return_value=contextlib.closing(stio)) as mock_open:
+        '__builtin__.open',
+        return_value=contextlib.closing(stio)
+    ) as mock_open:
         actual = load_yaml_config('test')
         mock_open.assert_called_once_with("test", "r")
         assert actual == MOCK_SCRIBE_YAML
@@ -530,7 +532,8 @@ class TestKafkaConsumerConfig(object):
             cluster_config,
             auto_offset_reset='smallest',
             fetch_min_bytes=456,
-            consumer_timeout_ms=5000)
+            consumer_timeout_ms=5000
+        )
         args = config.get_simple_consumer_args()
 
         assert args['buffer_size'] == MAX_MESSAGE_SIZE_BYTES
@@ -552,7 +555,8 @@ class TestKafkaConsumerConfig(object):
             cluster_config,
             fetch_message_max_bytes=123,
             auto_commit=False,
-            iter_timeout=5)
+            iter_timeout=5
+        )
         kafka_config = config.get_kafka_consumer_config()
 
         assert kafka_config['fetch_message_max_bytes'] == 123

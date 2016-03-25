@@ -51,7 +51,8 @@ class TestKafkaSimpleConsumer(object):
             consumer.connect()
             mock_client.assert_called_once_with(
                 ['test_broker:9292'],
-                client_id='test_client_id')
+                client_id='test_client_id'
+            )
             assert not mock_consumer.call_args[0]
             kwargs = mock_consumer.call_args[1]
             assert kwargs['topic'] == 'test_topic'

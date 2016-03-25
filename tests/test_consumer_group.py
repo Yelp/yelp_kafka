@@ -102,8 +102,10 @@ class TestKafkaConsumerGroup(object):
 
     def test__should_keep_trying_no_timeout(self, cluster):
         config = KafkaConsumerConfig(
-            self.group, cluster,
-            consumer_timeout_ms=-1)
+            self.group,
+            cluster,
+            consumer_timeout_ms=-1
+        )
         consumer = KafkaConsumerGroup([], config)
 
         long_time_ago = time.time() - 1000
@@ -114,8 +116,10 @@ class TestKafkaConsumerGroup(object):
         mock_time.return_value = 0
 
         config = KafkaConsumerConfig(
-            self.group, cluster,
-            consumer_timeout_ms=1000)
+            self.group,
+            cluster,
+            consumer_timeout_ms=1000
+        )
         consumer = KafkaConsumerGroup([], config)
 
         almost_a_second_ago = time.time() - 0.8
@@ -126,8 +130,10 @@ class TestKafkaConsumerGroup(object):
         mock_time.return_value = 0
 
         config = KafkaConsumerConfig(
-            self.group, cluster,
-            consumer_timeout_ms=1000)
+            self.group,
+            cluster,
+            consumer_timeout_ms=1000
+        )
         consumer = KafkaConsumerGroup([], config)
 
         over_a_second_ago = time.time() - 1.2
@@ -135,15 +141,19 @@ class TestKafkaConsumerGroup(object):
 
     def test__auto_commit_enabled_is_enabled(self, cluster):
         config = KafkaConsumerConfig(
-            self.group, cluster,
-            auto_commit_enable=True)
+            self.group,
+            cluster,
+            auto_commit_enable=True
+        )
         consumer = KafkaConsumerGroup([], config)
         assert consumer._auto_commit_enabled()
 
     def test__auto_commit_enabled_not_enabled(self, cluster):
         config = KafkaConsumerConfig(
-            self.group, cluster,
-            auto_commit_enable=False)
+            self.group,
+            cluster,
+            auto_commit_enable=False
+        )
         consumer = KafkaConsumerGroup([], config)
         assert not consumer._auto_commit_enabled()
 
@@ -151,8 +161,10 @@ class TestKafkaConsumerGroup(object):
     @mock.patch('yelp_kafka.consumer_group.KafkaConsumer')
     def test_next(self, mock_consumer, mock_partitioner, cluster):
         config = KafkaConsumerConfig(
-            self.group, cluster,
-            consumer_timeout_ms=500)
+            self.group,
+            cluster,
+            consumer_timeout_ms=500
+        )
         consumer = KafkaConsumerGroup([], config)
         consumer.partitioner = mock_partitioner()
         consumer.consumer = mock_consumer()
@@ -277,8 +289,9 @@ class TestMultiprocessingConsumerGroup(object):
             'topic2': [3]
         }
         with mock.patch(
-                'yelp_kafka.consumer_group.Process',
-                autospec=True) as mock_process:
+            'yelp_kafka.consumer_group.Process',
+            autospec=True
+        ) as mock_process:
             group.acquire(partitions)
             assert all(consumer is mock_consumer
                        for consumer in group.get_consumers())

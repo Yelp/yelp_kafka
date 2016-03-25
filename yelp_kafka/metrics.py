@@ -141,7 +141,8 @@ class MetricsReporter(object):
                 SIGNALFX_ENDPOINT,
                 data=data,
                 headers=headers,
-                timeout=CONNECTION_TIMEOUT)
+                timeout=CONNECTION_TIMEOUT
+            )
 
             if not response.ok:
                 msg = "Got bad response code from signalfx: {0}"
