@@ -15,6 +15,7 @@ consumer instances to coordinate with each other while consuming messages from d
    getting_started
    discovery
    config
+   producer
    consumer
    partitioner
    consumer_group
