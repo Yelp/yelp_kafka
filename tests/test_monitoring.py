@@ -11,7 +11,7 @@ from yelp_kafka.monitoring import ConsumerPartitionOffsets
 from yelp_kafka.monitoring import get_consumer_offsets_metadata
 from yelp_kafka.monitoring import offset_distance
 from yelp_kafka.monitoring import topics_offset_distance
-from yelp_kafka.offsets import BadOffsetStorageChoice
+from yelp_kafka.offsets import InvalidOffsetStorageError
 
 
 class TestMonitoring(TestOffsetsBase):
@@ -38,7 +38,7 @@ class TestMonitoring(TestOffsetsBase):
         assert kafka_client_mock.call_counts['send_offset_fetch_request_kafka'] == 1
 
     def test_offset_metadata_unknown_offset_api(self, kafka_client_mock):
-        with pytest.raises(BadOffsetStorageChoice):
+        with pytest.raises(InvalidOffsetStorageError):
             get_consumer_offsets_metadata(
                 kafka_client_mock,
                 self.group,

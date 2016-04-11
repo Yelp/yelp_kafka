@@ -154,7 +154,7 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
     )
 
 
-class BadOffsetStorageChoice(ValueError):
+class InvalidOffsetStorageError(ValueError):
     pass
 
 
@@ -188,7 +188,7 @@ def get_current_consumer_offsets(
       :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
       partitions and raise_on_error=True
 
-      :py:class:`yelp_kafka.offsets.BadOffsetStorageChoice: upon unknown
+      :py:class:`yelp_kafka.offsets.InvalidOffsetStorageError: upon unknown
       offset_storage choice.
 
       FailedPayloadsError: upon send request error.
@@ -209,7 +209,7 @@ def get_current_consumer_offsets(
     elif offset_storage == 'kafka':
         send_api = kafka_client.send_offset_fetch_request_kafka
     else:
-        raise BadOffsetStorageChoice(str(offset_storage))
+        raise InvalidOffsetStorageError(offset_storage)
 
     if group_offset_reqs:
         # fail_on_error = False does not prevent network errors
