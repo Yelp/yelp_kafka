@@ -1,3 +1,4 @@
+import collections
 import copy
 
 import pytest
@@ -40,6 +41,9 @@ class MyKafkaClient(object):
         self.low_offsets = low_offsets
         self.commit_error = False
         self.offset_request_error = False
+
+        # TODO(pmu): consider wrapping MyKafkaClient instance with a call counter.
+        self.call_counts = collections.defaultdict(int)
 
     def load_metadata_for_topics(self):
         pass
@@ -118,7 +122,20 @@ class MyKafkaClient(object):
     def get_partition_ids_for_topic(self, topic):
         return self.topics[topic]
 
-    def send_offset_fetch_request(self, group, reqs, fail_on_error, callback):
+    def send_offset_fetch_request(
+            self, group, payloads, fail_on_error, callback):
+        self.call_counts['send_offset_fetch_request'] += 1
+        return self._send_offset_fetch_request_either(
+            group, payloads, fail_on_error, callback)
+
+    def send_offset_fetch_request_kafka(
+            self, group, payloads, fail_on_error, callback):
+        self.call_counts['send_offset_fetch_request_kafka'] += 1
+        return self._send_offset_fetch_request_either(
+            group, payloads, fail_on_error, callback)
+
+    def _send_offset_fetch_request_either(
+            self, group, payloads, fail_on_error, callback):
         return [
             callback(
                 OffsetFetchResponse(
@@ -129,7 +146,7 @@ class MyKafkaClient(object):
                     0 if req.partition in self.group_offsets[req.topic] else 3
                 ),
             )
-            for req in reqs
+            for req in payloads
         ]
 
 

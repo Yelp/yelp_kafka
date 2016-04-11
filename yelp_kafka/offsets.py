@@ -154,11 +154,16 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
     )
 
 
+class BadOffsetStorageChoice(ValueError):
+    pass
+
+
 def get_current_consumer_offsets(
     kafka_client,
     group,
     topics,
-    raise_on_error=True
+    raise_on_error=True,
+    offset_storage='zookeeper',
 ):
     """ Get current consumer offsets.
 
@@ -174,6 +179,7 @@ def get_current_consumer_offsets(
     :param topics: topic list or dict {<topic>: [partitions]}
     :param raise_on_error: if False the method ignores missing topics and
       missing partitions. It still may fail on the request send.
+    :param offset_storage: String, one of {zookeeper, kafka}.
     :returns: a dict topic: partition: offset
     :raises:
       :py:class:`yelp_kafka.error.UnknownTopic`: upon missing
@@ -181,6 +187,9 @@ def get_current_consumer_offsets(
 
       :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
       partitions and raise_on_error=True
+
+      :py:class:`yelp_kafka.offsets.BadOffsetStorageChoice: upon unknown
+      offset_storage choice.
 
       FailedPayloadsError: upon send request error.
     """
@@ -195,11 +204,18 @@ def get_current_consumer_offsets(
 
     group_offsets = {}
 
+    if offset_storage == 'zookeeper':
+        send_api = kafka_client.send_offset_fetch_request
+    elif offset_storage == 'kafka':
+        send_api = kafka_client.send_offset_fetch_request_kafka
+    else:
+        raise BadOffsetStorageChoice(str(offset_storage))
+
     if group_offset_reqs:
         # fail_on_error = False does not prevent network errors
-        group_resps = kafka_client.send_offset_fetch_request(
-            kafka_bytestring(group),
-            group_offset_reqs,
+        group_resps = send_api(
+            group=kafka_bytestring(group),
+            payloads=group_offset_reqs,
             fail_on_error=False,
             callback=pluck_topic_offset_or_zero_on_unknown,
         )

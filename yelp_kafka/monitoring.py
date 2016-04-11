@@ -27,7 +27,8 @@ def get_consumer_offsets_metadata(
     kafka_client,
     group,
     topics,
-    raise_on_error=True
+    raise_on_error=True,
+    offset_storage='zookeeper',
 ):
     """This method:
         * refreshes metadata for the kafka client
@@ -36,7 +37,10 @@ def get_consumer_offsets_metadata(
 
     :param kafka_client: KafkaClient instance
     :param group: group id
-    :topics: list of topics
+    :param topics: list of topics
+    :param raise_on_error: if False the method ignores missing topics and
+      missing partitions. It still may fail on the request send.
+    :param offset_storage: String, one of {zookeeper, kafka}.
     :returns: dict <topic>: [ConsumerPartitionOffsets]
     """
 
@@ -49,7 +53,7 @@ def get_consumer_offsets_metadata(
         kafka_client.load_metadata_for_topics()
 
     group_offsets = get_current_consumer_offsets(
-        kafka_client, group, topics, raise_on_error
+        kafka_client, group, topics, raise_on_error, offset_storage
     )
 
     watermarks = get_topics_watermarks(

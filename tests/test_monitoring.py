@@ -11,9 +11,41 @@ from yelp_kafka.monitoring import ConsumerPartitionOffsets
 from yelp_kafka.monitoring import get_consumer_offsets_metadata
 from yelp_kafka.monitoring import offset_distance
 from yelp_kafka.monitoring import topics_offset_distance
+from yelp_kafka.offsets import BadOffsetStorageChoice
 
 
 class TestMonitoring(TestOffsetsBase):
+
+    def test_offset_metadata_correct_zookeeper_offset_api(self, kafka_client_mock):
+        get_consumer_offsets_metadata(
+            kafka_client_mock,
+            self.group,
+            {'topic1': [1, 99]},
+            raise_on_error=False
+        )
+        assert kafka_client_mock.call_counts['send_offset_fetch_request'] == 1
+        assert kafka_client_mock.call_counts['send_offset_fetch_request_kafka'] == 0
+
+    def test_offset_metadata_correct_kafka_offset_api(self, kafka_client_mock):
+        get_consumer_offsets_metadata(
+            kafka_client_mock,
+            self.group,
+            {'topic1': [1, 99]},
+            raise_on_error=False,
+            offset_storage='kafka',
+        )
+        assert kafka_client_mock.call_counts['send_offset_fetch_request'] == 0
+        assert kafka_client_mock.call_counts['send_offset_fetch_request_kafka'] == 1
+
+    def test_offset_metadata_unknown_offset_api(self, kafka_client_mock):
+        with pytest.raises(BadOffsetStorageChoice):
+            get_consumer_offsets_metadata(
+                kafka_client_mock,
+                self.group,
+                {'topic1': [1, 99]},
+                raise_on_error=False,
+                offset_storage='unknown',
+            )
 
     def test_offset_metadata_invalid_arguments(self, kafka_client_mock):
         with pytest.raises(TypeError):
@@ -136,11 +168,11 @@ class TestMonitoring(TestOffsetsBase):
         with mock.patch.object(
             MyKafkaClient,
             'send_offset_fetch_request',
-            side_effect=lambda group, reqs, fail_on_error, callback: [
+            side_effect=lambda group, payloads, fail_on_error, callback: [
                 callback(
                     OffsetFetchResponse(req.topic, req.partition, -1, None, 3)
                 )
-                for req in reqs
+                for req in payloads
             ]
         ):
             assert self.high_offsets['topic1'] == offset_distance(
