@@ -123,19 +123,40 @@ class MyKafkaClient(object):
         return self.topics[topic]
 
     def send_offset_fetch_request(
-            self, group, payloads, fail_on_error, callback):
-        self.call_counts['send_offset_fetch_request'] += 1
+        self,
+        group,
+        payloads,
+        fail_on_error,
+        callback,
+    ):
         return self._send_offset_fetch_request_either(
-            group, payloads, fail_on_error, callback)
+            group,
+            payloads,
+            fail_on_error,
+            callback,
+        )
 
     def send_offset_fetch_request_kafka(
-            self, group, payloads, fail_on_error, callback):
-        self.call_counts['send_offset_fetch_request_kafka'] += 1
+        self,
+        group,
+        payloads,
+        fail_on_error,
+        callback
+    ):
         return self._send_offset_fetch_request_either(
-            group, payloads, fail_on_error, callback)
+            group,
+            payloads,
+            fail_on_error,
+            callback,
+        )
 
     def _send_offset_fetch_request_either(
-            self, group, payloads, fail_on_error, callback):
+        self,
+        group,
+        payloads,
+        fail_on_error,
+        callback
+    ):
         return [
             callback(
                 OffsetFetchResponse(
