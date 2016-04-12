@@ -19,6 +19,11 @@ class ConfigurationError(YelpKafkaError):
     pass
 
 
+class InvalidOffsetStorageError(YelpKafkaError):
+    """Unknown source of offsets."""
+    pass
+
+
 class ProcessMessageError(YelpKafkaError):
     """Error processing a message from kafka."""
     pass

@@ -11,6 +11,7 @@ from kafka.common import OffsetResponse
 from kafka.common import UnknownTopicOrPartitionError
 from kafka.util import kafka_bytestring
 
+from yelp_kafka.error import InvalidOffsetStorageError
 from yelp_kafka.error import OffsetCommitError
 from yelp_kafka.error import UnknownPartitions
 from yelp_kafka.error import UnknownTopic
@@ -154,10 +155,6 @@ def _verify_commit_offsets_requests(kafka_client, new_offsets, raise_on_error):
     )
 
 
-class InvalidOffsetStorageError(ValueError):
-    pass
-
-
 def get_current_consumer_offsets(
     kafka_client,
     group,
@@ -188,7 +185,7 @@ def get_current_consumer_offsets(
       :py:class:`yelp_kafka.error.UnknownPartition`: upon missing
       partitions and raise_on_error=True
 
-      :py:class:`yelp_kafka.offsets.InvalidOffsetStorageError: upon unknown
+      :py:class:`yelp_kafka.error.InvalidOffsetStorageError: upon unknown
       offset_storage choice.
 
       FailedPayloadsError: upon send request error.

@@ -11,46 +11,9 @@ from yelp_kafka.monitoring import ConsumerPartitionOffsets
 from yelp_kafka.monitoring import get_consumer_offsets_metadata
 from yelp_kafka.monitoring import offset_distance
 from yelp_kafka.monitoring import topics_offset_distance
-from yelp_kafka.offsets import InvalidOffsetStorageError
 
 
 class TestMonitoring(TestOffsetsBase):
-
-    def test_offset_metadata_correct_zookeeper_offset_api(self, kafka_client_mock):
-        kafka_client_mock = mock.Mock(wraps=kafka_client_mock)
-        get_consumer_offsets_metadata(
-            kafka_client_mock,
-            self.group,
-            {'topic1': [1, 99]},
-            raise_on_error=False,
-        )
-        assert kafka_client_mock.send_offset_fetch_request.call_count == 1
-        assert kafka_client_mock.send_offset_fetch_request_kafka.call_count == 0
-
-    def test_offset_metadata_correct_kafka_offset_api(self, kafka_client_mock):
-        kafka_client_mock = mock.Mock(wraps=kafka_client_mock)
-        get_consumer_offsets_metadata(
-            kafka_client_mock,
-            self.group,
-            {'topic1': [1, 99]},
-            raise_on_error=False,
-            offset_storage='kafka',
-        )
-        assert kafka_client_mock.send_offset_fetch_request.call_count == 0
-        assert kafka_client_mock.send_offset_fetch_request_kafka.call_count == 1
-
-    def test_offset_metadata_unknown_offset_api(self, kafka_client_mock):
-        kafka_client_mock = mock.Mock(wraps=kafka_client_mock)
-        with pytest.raises(InvalidOffsetStorageError):
-            get_consumer_offsets_metadata(
-                kafka_client_mock,
-                self.group,
-                {'topic1': [1, 99]},
-                raise_on_error=False,
-                offset_storage='unknown',
-            )
-        assert kafka_client_mock.send_offset_fetch_request.call_count == 0
-        assert kafka_client_mock.send_offset_fetch_request_kafka.call_count == 0
 
     def test_offset_metadata_invalid_arguments(self, kafka_client_mock):
         with pytest.raises(TypeError):
