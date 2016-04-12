@@ -1,4 +1,3 @@
-import collections
 import copy
 
 import pytest
@@ -41,9 +40,6 @@ class MyKafkaClient(object):
         self.low_offsets = low_offsets
         self.commit_error = False
         self.offset_request_error = False
-
-        # TODO(pmu): consider wrapping MyKafkaClient instance with a call counter.
-        self.call_counts = collections.defaultdict(int)
 
     def load_metadata_for_topics(self):
         pass
