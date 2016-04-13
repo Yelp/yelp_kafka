@@ -80,7 +80,9 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     :param report_metrics: whether or not to report kafka production metrics. Defaults to True
     :type report_metrics: bool
 
-    Additionally all kafka.SimpleProducer params are usable here.
+    Additionally all kafka.SimpleProducer params are usable here. See `_SimpleProducer`_.
+
+    .. _SimpleProducer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.producer.html
     """
 
     def __init__(self, cluster_config=None, report_metrics=True, *args, **kwargs):
@@ -108,7 +110,9 @@ class YelpKafkaKeyedProducer(KeyedProducer):
     :param report_metrics: whether or not to report kafka production metrics. Defaults to True
     :type report_metrics: bool
 
-    Additionally all kafka.KeyedProducer params are usable here.
+    Additionally all kafka.KeyedProducer params are usable here. See `_KeyedProducer`_.
+
+    .. _KeyedProducer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.producer.html
     """
 
     def __init__(self, cluster_config=None, report_metrics=True, *args, **kwargs):
