@@ -136,11 +136,11 @@ class TestMonitoring(TestOffsetsBase):
         with mock.patch.object(
             MyKafkaClient,
             'send_offset_fetch_request',
-            side_effect=lambda group, reqs, fail_on_error, callback: [
+            side_effect=lambda group, payloads, fail_on_error, callback: [
                 callback(
                     OffsetFetchResponse(req.topic, req.partition, -1, None, 3)
                 )
-                for req in reqs
+                for req in payloads
             ]
         ):
             assert self.high_offsets['topic1'] == offset_distance(

@@ -27,7 +27,8 @@ def get_consumer_offsets_metadata(
     kafka_client,
     group,
     topics,
-    raise_on_error=True
+    raise_on_error=True,
+    offset_storage='zookeeper',
 ):
     """This method:
         * refreshes metadata for the kafka client
@@ -36,7 +37,10 @@ def get_consumer_offsets_metadata(
 
     :param kafka_client: KafkaClient instance
     :param group: group id
-    :topics: list of topics
+    :param topics: list of topics
+    :param raise_on_error: if False the method ignores missing topics and
+      missing partitions. It still may fail on the request send.
+    :param offset_storage: String, one of {zookeeper, kafka}.
     :returns: dict <topic>: [ConsumerPartitionOffsets]
     """
 
@@ -49,7 +53,7 @@ def get_consumer_offsets_metadata(
         kafka_client.load_metadata_for_topics()
 
     group_offsets = get_current_consumer_offsets(
-        kafka_client, group, topics, raise_on_error
+        kafka_client, group, topics, raise_on_error, offset_storage
     )
 
     watermarks = get_topics_watermarks(
@@ -70,7 +74,12 @@ def get_consumer_offsets_metadata(
     return result
 
 
-def topics_offset_distance(kafka_client, group, topics):
+def topics_offset_distance(
+    kafka_client,
+    group,
+    topics,
+    offset_storage='zookeeper',
+):
     """Get the distance a group_id is from the current latest offset
     for topics.
 
@@ -82,8 +91,9 @@ def topics_offset_distance(kafka_client, group, topics):
     the group offsets.
 
     :param kafka_client: KafkaClient instance
-    :param topics: topics list or dict <topic>: <[partitions]>
     :param group: consumer group id
+    :param topics: topics list or dict <topic>: <[partitions]>
+    :param offset_storage: String, one of {zookeeper, kafka}.
     :returns: dict <topic>: {<partition>: <distance>}
     """
 
@@ -92,6 +102,7 @@ def topics_offset_distance(kafka_client, group, topics):
         kafka_client,
         group,
         topics,
+        offset_storage,
     ).iteritems():
         distance[topic] = dict([
             (offset.partition, offset.highmark - offset.current)
@@ -100,7 +111,13 @@ def topics_offset_distance(kafka_client, group, topics):
     return distance
 
 
-def offset_distance(kafka_client, group, topic, partitions=None):
+def offset_distance(
+    kafka_client,
+    group,
+    topic,
+    partitions=None,
+    offset_storage='zookeeper',
+):
     """Get the distance a group_id is from the current latest in a topic.
 
     If the group is unknown to kafka, it's assumed to be on offset 0. All other
@@ -112,9 +129,10 @@ def offset_distance(kafka_client, group, topic, partitions=None):
     the group offsets.
 
     :param kafka_client: KafkaClient instance
-    :param topic: topic name
     :param group: consumer group id
+    :param topic: topic name
     :partitions: partitions list
+    :param offset_storage: String, one of {zookeeper, kafka}.
     :returns: dict <partition>: <distance>
     """
 
@@ -126,6 +144,7 @@ def offset_distance(kafka_client, group, topic, partitions=None):
         kafka_client,
         group,
         topics,
+        offset_storage,
     )
     return dict(
         [(offset.partition, offset.highmark - offset.current)
