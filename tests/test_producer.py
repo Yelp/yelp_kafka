@@ -9,6 +9,7 @@ from kafka import SimpleProducer
 from yelp_kafka import metrics
 from yelp_kafka.config import ClusterConfig
 from yelp_kafka.error import YelpKafkaError
+from yelp_kafka.producer import YelpKafkaProducerMetrics
 from yelp_kafka.producer import YelpKafkaSimpleProducer
 
 
@@ -52,26 +53,45 @@ def mock_kafka_producer(
     return YelpKafkaSimpleProducer(client=mock_kafka_client, cluster_config=mock_cluster_config)
 
 
+@pytest.fixture
+def mock_producer_metrics(
+    mock_kafka_client,
+    mock_yelp_meteorite,
+    mock_cluster_config,
+):
+    return YelpKafkaProducerMetrics(
+        client=mock_kafka_client,
+        cluster_config=mock_cluster_config,
+        report_metrics=True,
+        log=mock.Mock()
+    )
+
+
 def test_setup_metrics(
     mock_kafka_client,
     mock_yelp_meteorite,
     mock_cluster_config,
 ):
     # setup metrics called at init
-    YelpKafkaSimpleProducer(client=mock_kafka_client, cluster_config=mock_cluster_config)
+    YelpKafkaProducerMetrics(
+        client=mock_kafka_client,
+        cluster_config=mock_cluster_config,
+        report_metrics=True,
+        log=mock.Mock()
+    )
     assert mock_yelp_meteorite.create_timer.call_count == len(metrics.TIME_METRIC_NAMES)
 
 
-def test_send_kafka_metrics(mock_kafka_producer):
+def test_send_kafka_metrics(mock_producer_metrics):
     # Test sending a time metrics
     metric = next(iter(metrics.TIME_METRIC_NAMES))
-    mock_kafka_producer._send_kafka_metrics(metric, 10)
-    mock_kafka_producer._get_timer(metric).record.assert_called_once_with(10000)
+    mock_producer_metrics._send_kafka_metrics(metric, 10)
+    mock_producer_metrics._get_timer(metric).record.assert_called_once_with(10000)
 
     # Create unknown metric timer
-    mock_kafka_producer._create_timer('unknown_metric')
-    mock_kafka_producer._send_kafka_metrics('unknown_metric', 10)
-    assert mock_kafka_producer._get_timer('unknown_metric').record.call_count == 0
+    mock_producer_metrics._create_timer('unknown_metric')
+    mock_producer_metrics._send_kafka_metrics('unknown_metric', 10)
+    assert mock_producer_metrics._get_timer('unknown_metric').record.call_count == 0
 
 
 def test_send_msg_to_kafka_success(
@@ -94,4 +114,4 @@ def test_send_task_to_kafka_failure(
         mock_kafka_producer.send_messages('test_topic', mock_msg)
 
     mock_kafka_send_messages.assert_called_once_with('test_topic', mock_msg)
-    mock_kafka_producer.kafka_enqueue_exception_count.count.assert_called_once_with(1)
+    mock_kafka_producer.metrics.kafka_enqueue_exception_count.count.assert_called_once_with(1)

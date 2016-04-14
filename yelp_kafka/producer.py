@@ -2,6 +2,7 @@
 import logging
 
 import yelp_meteorite
+from kafka import KeyedProducer
 from kafka import SimpleProducer
 from kafka.common import KafkaError
 
@@ -12,43 +13,12 @@ from yelp_kafka.error import YelpKafkaError
 METRIC_PREFIX = 'yelp_kafka.YelpKafkaProducer.'
 
 
-class YelpKafkaSimpleProducer(SimpleProducer):
-    """ YelpKafkaSimpleProducer is an extension of the kafka SimpleProducer that
-    reports metrics about the producer to yelp_meteorite. These metrics include
-    enqueue latency for both success and failure to send and the number of exceptions
-    encountered trying to send.
+class YelpKafkaProducerMetrics(object):
 
-    If metrics reporting isn't required for your producer, specify report_metrics=False.
-    We highly recommend reporting metrics for monitoring purposes e.g. production latency.
-
-    Note: This producer expects usage of kafka-python==0.9.4.post2 where metrics_responder
-    is implemented in KafkaClient
-
-    Usage is the similar to SimpleProducer, the only difference is cluster_config is
-    required. E.g.:
-
-        # Get a connected KafkaClient and cluster_config from yelp_kafka for standard cluster type
-        client = discovery.get_kafka_connection('standard', client_id='my-client-id')
-        cluster_config = discovery.get_local_cluster('standard')
-        producer = YelpKafkaSimpleProducer(
-            client=client,
-            cluster_config=cluster_config,
-            report_metrics=True
-        )
-        producer.send_messages("my_topic", "message1", "message2") # send msgs to kafka
-
-    :param cluster_config: producer cluster configuration
-    :type cluster_config: config.ClusterConfig
-    :param report_metrics: whether or not to report kafka production metrics. Defaults to True
-    :type report_metrics: bool
-
-    Additionally all kafka.SimpleProducer params are usable here.
-    """
-
-    def __init__(self, cluster_config=None, report_metrics=True, *args, **kwargs):
-        super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
-        self.log = logging.getLogger(self.__class__.__name__)
+    def __init__(self, cluster_config, report_metrics, client, log):
+        self.log = log
         self.cluster_config = cluster_config
+        self.client = client
         self.timers = {}
         self.report_metrics = report_metrics
         self.setup_metrics()
@@ -92,10 +62,68 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     def _get_timer(self, name):
         return self.timers[METRIC_PREFIX + name]
 
+
+class YelpKafkaSimpleProducer(SimpleProducer):
+    """ YelpKafkaSimpleProducer is an extension of the kafka SimpleProducer that
+    reports metrics about the producer to yelp_meteorite. These metrics include
+    enqueue latency for both success and failure to send and the number of exceptions
+    encountered trying to send.
+
+    If metrics reporting isn't required for your producer, specify report_metrics=False.
+    We highly recommend reporting metrics for monitoring purposes e.g. production latency.
+
+    Note: This producer expects usage of kafka-python==0.9.4.post2 where metrics_responder
+    is implemented in KafkaClient
+
+    :param cluster_config: producer cluster configuration
+    :type cluster_config: config.ClusterConfig
+    :param report_metrics: whether or not to report kafka production metrics. Defaults to True
+    :type report_metrics: bool
+
+    Additionally all kafka.SimpleProducer params are usable here. See `_SimpleProducer`_.
+
+    .. _SimpleProducer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.producer.html
+    """
+
+    def __init__(self, cluster_config=None, report_metrics=True, *args, **kwargs):
+        super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
+        log = logging.getLogger(self.__class__.__name__)
+        self.metrics = YelpKafkaProducerMetrics(cluster_config, report_metrics, self.client, log)
+
     def send_messages(self, topic, *msg):
         try:
             super(YelpKafkaSimpleProducer, self).send_messages(topic, *msg)
         except (YelpKafkaError, KafkaError):
-            if self.report_metrics:
-                self.kafka_enqueue_exception_count.count(1)
+            if self.metrics.report_metrics:
+                self.metrics.kafka_enqueue_exception_count.count(1)
+            raise
+
+
+class YelpKafkaKeyedProducer(KeyedProducer):
+    """ YelpKafkaKeyedProducer is an extension of the kafka KeyedProducer that
+    reports metrics about the producer to yelp_meteorite.
+
+    Usage is the same as YelpKafkaSimpleProducer
+
+    :param cluster_config: producer cluster configuration
+    :type cluster_config: config.ClusterConfig
+    :param report_metrics: whether or not to report kafka production metrics. Defaults to True
+    :type report_metrics: bool
+
+    Additionally all kafka.KeyedProducer params are usable here. See `_KeyedProducer`_.
+
+    .. _KeyedProducer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.producer.html
+    """
+
+    def __init__(self, cluster_config=None, report_metrics=True, *args, **kwargs):
+        super(YelpKafkaKeyedProducer, self).__init__(*args, **kwargs)
+        log = logging.getLogger(self.__class__.__name__)
+        self.metrics = YelpKafkaProducerMetrics(cluster_config, report_metrics, self.client, log)
+
+    def send_messages(self, topic, *msg):
+        try:
+            super(YelpKafkaKeyedProducer, self).send_messages(topic, *msg)
+        except (YelpKafkaError, KafkaError):
+            if self.metrics.report_metrics:
+                self.metrics.kafka_enqueue_exception_count.count(1)
             raise
