@@ -457,10 +457,6 @@ class KafkaConsumerConfig(object):
     def post_rebalance_callback(self):
         return self._config.get('post_rebalance_callback', None)
 
-    @property
-    def offset_storage(self):
-        return self._config.get('offset_storage', False)
-
     def __repr__(self):
         return (
             "KafkaConsumerConfig(group_id={group_id!r}, cluster={cluster!r}, "
