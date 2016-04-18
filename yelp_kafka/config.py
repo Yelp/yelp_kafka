@@ -231,6 +231,10 @@ class KafkaConsumerConfig(object):
           are guaranteed that no messages will be consumed between the
           pre_rebalance_callback and this callback. Currently this only
           applies to consumer groups.
+        * **offset_storage**: Specifies the storage that will be used for the
+          consumer offset. Valid values are 'zookeeper', 'kafka', and 'dual'.
+          Kafka based storage (enabled with 'kafka' and 'dual') is only
+          available from Kafka 0.9.
 
     Yelp_kafka overrides some kafka-python default settings:
 
@@ -452,6 +456,10 @@ class KafkaConsumerConfig(object):
     @property
     def post_rebalance_callback(self):
         return self._config.get('post_rebalance_callback', None)
+
+    @property
+    def offset_storage(self):
+        return self._config.get('offset_storage', False)
 
     def __repr__(self):
         return (
