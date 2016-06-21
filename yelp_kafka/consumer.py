@@ -2,14 +2,14 @@ import logging
 from collections import namedtuple
 from multiprocessing import Event
 
+from setproctitle import getproctitle
+from setproctitle import setproctitle
+
 from kafka import KafkaClient
 from kafka import SimpleConsumer
 from kafka.common import KafkaError
 from kafka.common import OffsetCommitRequest
 from kafka.util import kafka_bytestring
-from setproctitle import getproctitle
-from setproctitle import setproctitle
-
 from yelp_kafka.error import ProcessMessageError
 
 
@@ -170,7 +170,10 @@ class KafkaSimpleConsumer(object):
         ]
 
         try:
-            self.client.send_offset_commit_request(self.config.group_id, reqs)
+            if self.config.offset_storage in ['zookeeper', 'dual']:
+                self.client.send_offset_commit_request(self.config.group_id, reqs)
+            if self.config.offset_storage in ['kafka', 'dual']:
+                self.client.send_offset_commit_request_kafka(self.config.group_id, reqs)
         except KafkaError as e:
             self.log.error("%s saving offsets: %s", e.__class__.__name__, e)
             return False

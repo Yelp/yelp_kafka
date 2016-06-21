@@ -2,10 +2,10 @@ import contextlib
 
 import mock
 import pytest
-from kafka.common import KafkaError
-from kafka.common import OffsetCommitRequest
 from setproctitle import getproctitle
 
+from kafka.common import KafkaError
+from kafka.common import OffsetCommitRequest
 from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.consumer import KafkaConsumerBase
 from yelp_kafka.consumer import KafkaSimpleConsumer
@@ -131,7 +131,7 @@ class TestKafkaSimpleConsumer(object):
                 topic_partitions,
             )
 
-    def test_commit_message(self, config):
+    def test_commit_message_zk(self, config):
         with mock_kafka() as (mock_client, mock_consumer):
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
@@ -142,6 +142,46 @@ class TestKafkaSimpleConsumer(object):
 
             assert actual is True
             mock_client.return_value.send_offset_commit_request \
+                .assert_called_once_with(
+                    'test_group',
+                    [OffsetCommitRequest('test_topic', 0, 100, None)],
+                )
+
+    def test_commit_message_kafka(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            config._config['offset_storage'] = 'kafka'
+            consumer = KafkaSimpleConsumer('test_topic', config)
+            consumer.connect()
+
+            actual = consumer.commit_message(
+                Message(0, 100, 'mykey', 'myvalue'),
+            )
+
+            assert actual is True
+            assert not mock_client.return_value.send_offset_commit_request.called
+            mock_client.return_value.send_offset_commit_request_kafka \
+                .assert_called_once_with(
+                    'test_group',
+                    [OffsetCommitRequest('test_topic', 0, 100, None)],
+                )
+
+    def test_commit_message_dual(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            config._config['offset_storage'] = 'dual'
+            consumer = KafkaSimpleConsumer('test_topic', config)
+            consumer.connect()
+
+            actual = consumer.commit_message(
+                Message(0, 100, 'mykey', 'myvalue'),
+            )
+
+            assert actual is True
+            mock_client.return_value.send_offset_commit_request \
+                .assert_called_once_with(
+                    'test_group',
+                    [OffsetCommitRequest('test_topic', 0, 100, None)],
+                )
+            mock_client.return_value.send_offset_commit_request_kafka \
                 .assert_called_once_with(
                     'test_group',
                     [OffsetCommitRequest('test_topic', 0, 100, None)],
