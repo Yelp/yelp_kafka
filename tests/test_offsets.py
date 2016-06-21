@@ -2,13 +2,13 @@ import copy
 
 import mock
 import pytest
+
 from kafka.common import NotLeaderForPartitionError
 from kafka.common import OffsetCommitResponse
 from kafka.common import OffsetFetchResponse
 from kafka.common import OffsetResponse
 from kafka.common import RequestTimedOutError
 from kafka.common import UnknownTopicOrPartitionError
-
 from yelp_kafka.error import InvalidOffsetStorageError
 from yelp_kafka.offsets import _verify_commit_offsets_requests
 from yelp_kafka.offsets import advance_consumer_offsets
@@ -113,6 +113,20 @@ class MyKafkaClient(object):
                 )
 
         return [resp if not callback else callback(resp) for resp in resps]
+
+    def send_offset_commit_request_kafka(
+        self,
+        group,
+        payloads=None,
+        fail_on_error=True,
+        callback=None
+    ):
+        return self.send_offset_commit_request(
+            group,
+            payloads,
+            fail_on_error,
+            callback,
+        )
 
     def has_metadata_for_topic(self, t):
         return t in self.topics
@@ -575,18 +589,36 @@ class TestOffsets(TestOffsetsBase):
             assert any(actual == expected for actual in status)
         assert kafka_client_mock.group_offsets == self.group_offsets
 
-    def test_rewind_consumer_offsets(self, kafka_client_mock):
+    def test_rewind_consumer_offsets_zk(self, kafka_client_mock):
         topics = {
             'topic1': [0, 1, 2],
             'topic2': [0, 1],
         }
+        kafka_client_spy = mock.Mock(wraps=kafka_client_mock)
         status = rewind_consumer_offsets(
-            kafka_client_mock,
+            kafka_client_spy,
             "group",
             topics
         )
-        status == []
+        assert status == []
         assert kafka_client_mock.group_offsets == self.low_offsets
+        assert kafka_client_spy.send_offset_commit_request.called
+        assert not kafka_client_spy.send_offset_commit_request_kafka.called
+
+    def test_rewind_consumer_offsets_kafka(self, kafka_client_mock):
+        topics = {
+            'topic1': [0, 1, 2],
+            'topic2': [0, 1],
+        }
+        client_spy = mock.Mock(wraps=kafka_client_mock)
+        rewind_consumer_offsets(
+            client_spy,
+            "group",
+            topics,
+            offset_storage='kafka',
+        )
+        assert not client_spy.send_offset_commit_request.called
+        assert client_spy.send_offset_commit_request_kafka.called
 
     def test_rewind_consumer_offsets_fail(self, kafka_client_mock):
         kafka_client_mock.set_commit_error()
@@ -612,7 +644,7 @@ class TestOffsets(TestOffsetsBase):
             assert any(actual == expected for actual in status)
         assert kafka_client_mock.group_offsets == self.group_offsets
 
-    def test_set_consumer_offsets(self, kafka_client_mock):
+    def test_set_consumer_offsets_zk(self, kafka_client_mock):
         new_offsets = {
             'topic1': {
                 0: 100,
@@ -624,8 +656,9 @@ class TestOffsets(TestOffsetsBase):
             },
         }
 
+        kafka_client_spy = mock.Mock(wraps=kafka_client_mock)
         status = set_consumer_offsets(
-            kafka_client_mock,
+            kafka_client_spy,
             "group",
             new_offsets
         )
@@ -643,6 +676,31 @@ class TestOffsets(TestOffsetsBase):
         }
         assert status == []
         assert kafka_client_mock.group_offsets == expected_offsets
+        assert kafka_client_spy.send_offset_commit_request.called
+        assert not kafka_client_spy.send_offset_commit_request_kafka.called
+
+    def test_set_consumer_offsets_kafka(self, kafka_client_mock):
+        new_offsets = {
+            'topic1': {
+                0: 100,
+                1: 200,
+            },
+            'topic2': {
+                0: 150,
+                1: 300,
+            },
+        }
+
+        kafka_client_spy = mock.Mock(wraps=kafka_client_mock)
+        set_consumer_offsets(
+            kafka_client_spy,
+            "group",
+            new_offsets,
+            offset_storage='kafka',
+        )
+
+        assert not kafka_client_spy.send_offset_commit_request.called
+        assert kafka_client_spy.send_offset_commit_request_kafka.called
 
     def test_set_consumer_offsets_fail(self, kafka_client_mock):
         kafka_client_mock.set_commit_error()
