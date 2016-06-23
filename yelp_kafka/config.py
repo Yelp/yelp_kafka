@@ -3,10 +3,10 @@ import os
 from collections import namedtuple
 
 import yaml
+
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
-
 from yelp_kafka.error import ConfigurationError
 
 
@@ -21,6 +21,7 @@ PARTITIONER_COOLDOWN = 30
 MAX_TERMINATION_TIMEOUT_SECS = 10
 MAX_ITERATOR_TIMEOUT_SECS = 0.1
 DEFAULT_OFFSET_RESET = 'largest'
+DEFAULT_OFFSET_STORAGE = 'zookeeper'
 DEFAULT_CLIENT_ID = 'yelp-kafka'
 
 AUTO_COMMIT_MSG_COUNT = 100
@@ -257,6 +258,7 @@ class KafkaConsumerConfig(object):
         'max_buffer_size': ('fetch_message_max_bytes', identity),
         'iter_timeout': ('consumer_timeout_ms', ms_to_seconds),
         'auto_offset_reset': ('auto_offset_reset', identity),
+        'offset_storage': ('offset_storage', identity),
     }
 
     KAFKA_FROM_SIMPLE = {
@@ -272,6 +274,7 @@ class KafkaConsumerConfig(object):
         'auto_commit_interval_ms': ('auto_commit_every_t', identity),
         'auto_commit_interval_messages': ('auto_commit_every_n', identity),
         'consumer_timeout_ms': ('iter_timeout', seconds_to_ms),
+        'offset_storage': ('offset_storage', identity),
     }
 
     # Do not modify SIMPLE_CONSUMER_DEFAULT_CONFIG without also changing
@@ -285,6 +288,7 @@ class KafkaConsumerConfig(object):
         'max_buffer_size': None,
         'iter_timeout': MAX_ITERATOR_TIMEOUT_SECS,
         'auto_offset_reset': DEFAULT_OFFSET_RESET,
+        'offset_storage': DEFAULT_OFFSET_STORAGE,
     }
     """Default SimpleConsumer configuration"""
 
@@ -296,6 +300,7 @@ class KafkaConsumerConfig(object):
         'consumer_timeout_ms': seconds_to_ms(MAX_ITERATOR_TIMEOUT_SECS),
         'auto_offset_reset': DEFAULT_OFFSET_RESET,
         'fetch_message_max_bytes': MAX_MESSAGE_SIZE_BYTES,
+        'offset_storage': DEFAULT_OFFSET_STORAGE,
     }
     """SIMPLE_CONSUMER_DEFAULT_CONFIG converted into a KafkaConsumer config"""
 
@@ -446,6 +451,10 @@ class KafkaConsumerConfig(object):
     @property
     def post_rebalance_callback(self):
         return self._config.get('post_rebalance_callback', None)
+
+    @property
+    def offset_storage(self):
+        return self._config.get('offset_storage', DEFAULT_OFFSET_STORAGE)
 
     def __repr__(self):
         return (

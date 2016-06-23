@@ -40,7 +40,7 @@ setup(
     description='A library to interact with Apache Kafka at Yelp',
     packages=find_packages(exclude=["tests*"]),
     install_requires=[
-        'kafka-python==0.9.5.post2',
+        'kafka-python==0.9.5.post3',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
         'requests',
