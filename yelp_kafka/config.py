@@ -24,8 +24,8 @@ DEFAULT_OFFSET_RESET = 'largest'
 DEFAULT_OFFSET_STORAGE = 'zookeeper'
 DEFAULT_CLIENT_ID = 'yelp-kafka'
 
-AUTO_COMMIT_MSG_COUNT = 100
-AUTO_COMMIT_INTERVAL_SECS = 60
+AUTO_COMMIT_MSG_COUNT = None #The default has been changed from 100 to None. https://github.com/Yelp/kafka-python/blob/master/kafka/consumer/base.py#L181
+AUTO_COMMIT_INTERVAL_SECS = 1
 
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
 
@@ -232,10 +232,9 @@ class KafkaConsumerConfig(object):
     * **consumer_timeout_ms** is 0.1 seconds by default in yelp_kafka, while it
       is -1 (infinite) in kafka-python.
     * **fetch_message_max_bytes** is 2MB by default in yelp_kafka.
-    * **auto_commit_interval_messages** is 100 for both
       :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` and
       :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.
-    * **auto_commit_interval_ms** is 60 seconds by default.
+    * **auto_commit_interval_ms** is 1 seconds by default.
     """
 
     NOT_CONVERTIBLE = object()
