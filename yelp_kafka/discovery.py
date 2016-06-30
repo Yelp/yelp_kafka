@@ -11,7 +11,6 @@ from yelp_kafka.utils import get_kafka_topics
 from yelp_kafka.utils import make_scribe_topic
 
 
-ECOSYSTEM_PATH = '/nail/etc/ecosystem'
 DEFAULT_KAFKA_SCRIBE = 'scribe'
 
 
