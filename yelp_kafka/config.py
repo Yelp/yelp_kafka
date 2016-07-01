@@ -3,10 +3,10 @@ import os
 from collections import namedtuple
 
 import yaml
-
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
+
 from yelp_kafka.error import ConfigurationError
 
 
@@ -24,8 +24,10 @@ DEFAULT_OFFSET_RESET = 'largest'
 DEFAULT_OFFSET_STORAGE = 'zookeeper'
 DEFAULT_CLIENT_ID = 'yelp-kafka'
 
-AUTO_COMMIT_MSG_COUNT = 100
-AUTO_COMMIT_INTERVAL_SECS = 60
+# The default has been changed from 100 to None.
+# https://github.com/Yelp/kafka-python/blob/master/kafka/consumer/base.py#L181
+AUTO_COMMIT_MSG_COUNT = None
+AUTO_COMMIT_INTERVAL_SECS = 1
 
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
 
@@ -234,8 +236,9 @@ class KafkaConsumerConfig(object):
     * **fetch_message_max_bytes** is 2MB by default in yelp_kafka.
     * **auto_commit_interval_messages** is 100 for both
       :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` and
-      :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.
-    * **auto_commit_interval_ms** is 60 seconds by default.
+      :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.This means commit will
+      happen only once every minute irrespective of number of messages in that second.
+    * **auto_commit_interval_ms** is 1 seconds by default.
     """
 
     NOT_CONVERTIBLE = object()
