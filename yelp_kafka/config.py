@@ -24,7 +24,9 @@ DEFAULT_OFFSET_RESET = 'largest'
 DEFAULT_OFFSET_STORAGE = 'zookeeper'
 DEFAULT_CLIENT_ID = 'yelp-kafka'
 
-AUTO_COMMIT_MSG_COUNT = None  # The default has been changed from 100 to None. https://github.com/Yelp/kafka-python/blob/master/kafka/consumer/base.py#L181
+# The default has been changed from 100 to None.
+# https://github.com/Yelp/kafka-python/blob/master/kafka/consumer/base.py#L181
+AUTO_COMMIT_MSG_COUNT = None
 AUTO_COMMIT_INTERVAL_SECS = 1
 
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
