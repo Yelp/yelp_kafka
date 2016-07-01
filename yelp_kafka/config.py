@@ -234,6 +234,10 @@ class KafkaConsumerConfig(object):
     * **consumer_timeout_ms** is 0.1 seconds by default in yelp_kafka, while it
       is -1 (infinite) in kafka-python.
     * **fetch_message_max_bytes** is 2MB by default in yelp_kafka.
+    * **auto_commit_interval_messages** is 100 for both.
+        The current value has been marked as None, which implies commit will
+        happen only once every minute irrespective of number of messages in that
+        second.
       :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` and
       :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.
     * **auto_commit_interval_ms** is 1 seconds by default.
