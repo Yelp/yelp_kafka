@@ -1,11 +1,15 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import contextlib
 
 import mock
 import pytest
-from setproctitle import getproctitle
-
 from kafka.common import KafkaError
 from kafka.common import OffsetCommitRequest
+from setproctitle import getproctitle
+
 from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.consumer import KafkaConsumerBase
 from yelp_kafka.consumer import KafkaSimpleConsumer
@@ -15,26 +19,18 @@ from yelp_kafka.error import ProcessMessageError
 
 @contextlib.contextmanager
 def mock_kafka():
-    with contextlib.nested(
-        mock.patch('yelp_kafka.consumer.KafkaClient', autospec=True),
-        mock.patch('yelp_kafka.consumer.SimpleConsumer', autospec=True)
-    ) as (mock_client, mock_consumer):
-        mock_consumer.return_value.auto_commit = True
-        yield mock_client, mock_consumer
+    with mock.patch('yelp_kafka.consumer.KafkaClient', autospec=True) as mock_client:
+        with mock.patch('yelp_kafka.consumer.SimpleConsumer', autospec=True) as mock_consumer:
+            mock_consumer.return_value.auto_commit = True
+            yield mock_client, mock_consumer
 
 
 class TestKafkaSimpleConsumer(object):
 
     @contextlib.contextmanager
     def mock_yelpkafka_consumer(self):
-        with contextlib.nested(
-            mock.patch.object(
-                KafkaSimpleConsumer,
-                "commit",
-                autospec=True
-            )
-        ) as (mock_get_watermarks, mock_commit):
-            yield mock_get_watermarks, mock_commit
+        with mock.patch.object(KafkaSimpleConsumer, "commit", autospec=True) as mock_commit:
+            yield mock_commit
 
     def test_topic_error(self, config):
         with pytest.raises(TypeError):
@@ -209,32 +205,26 @@ class TestKafkaConsumer(object):
             Message(1, 12347, 'key1', 'value3'),
         ])
         with mock_kafka() as (mock_client, mock_consumer):
-            with contextlib.nested(
-                mock.patch.object(
-                    KafkaSimpleConsumer,
-                    '__iter__',
-                    return_value=message_iterator
-                ),
-                mock.patch.object(KafkaSimpleConsumer, 'commit'),
-            ) as (_, mock_commit):
-                consumer = KafkaConsumerBase('test_topic', config)
-                consumer.process = mock.Mock()
-                consumer.initialize = mock.Mock()
-                consumer.dispose = mock.Mock()
-                consumer.terminate()
-                consumer.run()
-                assert consumer.initialize.call_count == 1
-                # process should have been called 3 times
-                assert consumer.process.call_count == 3
-                # check just last call arguments
-                consumer.process.calls_args_list([
-                    Message(1, 12347, 'key1', 'value3'),
-                    Message(1, 12345, 'key1', 'value1'),
-                    Message(1, 12346, 'key2', 'value2'),
-                ])
-                consumer.dispose.assert_called_once_with()
-                mock_commit.assert_called_once_with()
-                mock_client.return_value.close.assert_called_once_with()
+            with mock.patch.object(KafkaSimpleConsumer, '__iter__', return_value=message_iterator):
+                with mock.patch.object(KafkaSimpleConsumer, 'commit') as mock_commit:
+                    consumer = KafkaConsumerBase('test_topic', config)
+                    consumer.process = mock.Mock()
+                    consumer.initialize = mock.Mock()
+                    consumer.dispose = mock.Mock()
+                    consumer.terminate()
+                    consumer.run()
+                    assert consumer.initialize.call_count == 1
+                    # process should have been called 3 times
+                    assert consumer.process.call_count == 3
+                    # check just last call arguments
+                    consumer.process.calls_args_list([
+                        Message(1, 12347, 'key1', 'value3'),
+                        Message(1, 12345, 'key1', 'value1'),
+                        Message(1, 12346, 'key2', 'value2'),
+                    ])
+                    consumer.dispose.assert_called_once_with()
+                    mock_commit.assert_called_once_with()
+                    mock_client.return_value.close.assert_called_once_with()
 
     def test_process_error(self, config):
         message_iterator = iter([
@@ -265,7 +255,8 @@ class TestKafkaConsumer(object):
             consumer.set_process_name()
             expected_name = \
                 '{procname}-my_very_extraordinarily_elongated_topic_name' \
-                '-[\'1\', \'2\', \'3\', \'4\', \'5\']'.format(
-                    procname=getproctitle()
+                '-{messages}'.format(
+                    procname=getproctitle(),
+                    messages=['1', '2', '3', '4', '5'],
                 )
             mock_setproctitle.assert_called_with(expected_name)

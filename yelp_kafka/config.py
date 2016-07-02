@@ -1,12 +1,17 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 import os
 from collections import namedtuple
 
+import six
 import yaml
-
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
+
 from yelp_kafka.error import ConfigurationError
 
 
@@ -136,7 +141,7 @@ class TopologyConfiguration(object):
                 broker_list=cluster['broker_list'],
                 zookeeper=cluster['zookeeper'],
             )
-            for name, cluster in self.clusters.iteritems()
+            for name, cluster in six.iteritems(self.clusters)
         ]
 
     def get_cluster_by_name(self, name):
@@ -331,7 +336,7 @@ class KafkaConsumerConfig(object):
             3. Default value specified in yelp-kafka
         """
         args = {}
-        for key, default in self.SIMPLE_CONSUMER_DEFAULT_CONFIG.iteritems():
+        for key, default in six.iteritems(self.SIMPLE_CONSUMER_DEFAULT_CONFIG):
             if key in self._config:
                 args[key] = self._config[key]
             else:
@@ -362,7 +367,7 @@ class KafkaConsumerConfig(object):
                   options can be converted in KafkaConsumer.
         """
         config = {}
-        for key, default in DEFAULT_CONSUMER_CONFIG.iteritems():
+        for key, default in six.iteritems(DEFAULT_CONSUMER_CONFIG):
             if key in self._config:
                 config[key] = self._config[key]
             else:
@@ -465,7 +470,7 @@ class KafkaConsumerConfig(object):
                 config=", ".join(
                     [
                         "{key}={value!r}".format(key=key, value=value)
-                        for key, value in self._config.iteritems()
+                        for key, value in six.iteritems(self._config)
                     ],
                 ),
             )

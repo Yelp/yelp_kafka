@@ -1,10 +1,14 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import mock
 import pytest
 from kafka.common import KafkaUnavailableError
 from kafka.common import OffsetFetchResponse
-from test_offsets import MyKafkaClient
-from test_offsets import TestOffsetsBase
 
+from tests.test_offsets import MyKafkaClient
+from tests.test_offsets import TestOffsetsBase
 from yelp_kafka.error import UnknownPartitions
 from yelp_kafka.error import UnknownTopic
 from yelp_kafka.monitoring import ConsumerPartitionOffsets

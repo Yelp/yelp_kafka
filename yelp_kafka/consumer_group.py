@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 import os
 import signal
@@ -6,9 +10,10 @@ import traceback
 from multiprocessing import Event
 from multiprocessing import Lock
 from multiprocessing import Process
-from Queue import Queue
+from multiprocessing import Queue
 from threading import Thread
 
+import six
 import yelp_meteorite
 from kafka import KafkaConsumer
 from kafka.common import ConsumerTimeout
@@ -491,9 +496,9 @@ class MultiprocessingConsumerGroup(object):
         """
         self.log.debug("Acquired partitions: %s", partitions)
         with self.consumers_lock:
-            self.consumers = self.start(
+            self.consumers = list(self.start(
                 partitions
-            )
+            ))
             self.log.debug("Allocated consumers %s", self.consumers)
         if self.post_rebalance_callback:
             self.post_rebalance_callback(partitions)
@@ -511,7 +516,7 @@ class MultiprocessingConsumerGroup(object):
         # partitions and just a worker instance.
         # We should make this smarter and allow the user to decide
         # how many processes/partitions allocate.
-        for topic, partitions in acquired_partitions.iteritems():
+        for topic, partitions in six.iteritems(acquired_partitions):
             for p in partitions:
                 self.log.info(
                     "Creating consumer topic = %s, config = %s,"
@@ -554,18 +559,18 @@ class MultiprocessingConsumerGroup(object):
         if self.pre_rebalance_callback:
             self.pre_rebalance_callback(partitions)
         self.log.info("Terminating consumer group")
-        for consumer in self.consumer_procs.itervalues():
+        for consumer in six.itervalues(self.consumer_procs):
             consumer.terminate()
 
         timeout = time.time() + self.config.max_termination_timeout_secs
         while (
             time.time() <= timeout and any(
-                [proc.is_alive() for proc in self.consumer_procs.iterkeys()]
+                [proc.is_alive() for proc in six.iterkeys(self.consumer_procs)]
             )
         ):
             continue
 
-        for proc, consumer in self.consumer_procs.iteritems():
+        for proc, consumer in six.iteritems(self.consumer_procs):
             if proc.is_alive():
                 os.kill(proc.pid, signal.SIGKILL)
                 self.log.error(

@@ -1,15 +1,20 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 from collections import namedtuple
 from multiprocessing import Event
 
-from setproctitle import getproctitle
-from setproctitle import setproctitle
-
+import six
 from kafka import KafkaClient
 from kafka import SimpleConsumer
 from kafka.common import KafkaError
 from kafka.common import OffsetCommitRequest
 from kafka.util import kafka_bytestring
+from setproctitle import getproctitle
+from setproctitle import setproctitle
+
 from yelp_kafka.error import ProcessMessageError
 
 
@@ -46,7 +51,7 @@ class KafkaSimpleConsumer(object):
 
     def __init__(self, topic, config, partitions=None):
         self.log = logging.getLogger(self.__class__.__name__)
-        if not isinstance(topic, str):
+        if not isinstance(topic, six.string_types):
             raise TypeError("Topic must be a string")
         self.topic = kafka_bytestring(topic)
         if partitions and not isinstance(partitions, list):
@@ -76,7 +81,7 @@ class KafkaSimpleConsumer(object):
             self.topic,
             self.partitions,
             ','.join(['{0} {1}'.format(k, v) for k, v in
-                      self.config.get_simple_consumer_args().iteritems()])
+                      six.iteritems(self.config.get_simple_consumer_args())])
         )
         self.kafka_consumer.provide_partition_info()
 

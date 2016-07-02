@@ -31,4 +31,8 @@
     hooks:
     -   id: reorder-python-imports
         files: .*\.py$
-        language_version: python2.7
+        args:
+        - --add-import
+        - from __future__ import absolute_import
+        - --add-import
+        - from __future__ import unicode_literals

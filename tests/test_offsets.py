@@ -1,14 +1,18 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import copy
 
 import mock
 import pytest
-
 from kafka.common import NotLeaderForPartitionError
 from kafka.common import OffsetCommitResponse
 from kafka.common import OffsetFetchResponse
 from kafka.common import OffsetResponse
 from kafka.common import RequestTimedOutError
 from kafka.common import UnknownTopicOrPartitionError
+
 from yelp_kafka.error import InvalidOffsetStorageError
 from yelp_kafka.offsets import _verify_commit_offsets_requests
 from yelp_kafka.offsets import advance_consumer_offsets
@@ -562,6 +566,7 @@ class TestOffsets(TestOffsetsBase):
             "group",
             topics
         )
+        status = [item for item in status]
         assert status == []
         assert kafka_client_mock.group_offsets == self.high_offsets
 
@@ -584,6 +589,7 @@ class TestOffsets(TestOffsetsBase):
             "group",
             topics
         )
+        status = [item for item in status]
         assert len(status) == len(expected_status)
         for expected in expected_status:
             assert any(actual == expected for actual in status)
@@ -600,6 +606,7 @@ class TestOffsets(TestOffsetsBase):
             "group",
             topics
         )
+        status = [item for item in status]
         assert status == []
         assert kafka_client_mock.group_offsets == self.low_offsets
         assert kafka_client_spy.send_offset_commit_request.called
@@ -639,6 +646,7 @@ class TestOffsets(TestOffsetsBase):
             "group",
             topics
         )
+        status = [item for item in status]
         assert len(status) == len(expected_status)
         for expected in expected_status:
             assert any(actual == expected for actual in status)
@@ -674,6 +682,7 @@ class TestOffsets(TestOffsetsBase):
                 1: 300,
             }
         }
+        status = [item for item in status]
         assert status == []
         assert kafka_client_mock.group_offsets == expected_offsets
         assert kafka_client_spy.send_offset_commit_request.called
@@ -728,6 +737,7 @@ class TestOffsets(TestOffsetsBase):
             raise_on_error=True
         )
 
+        status = [item for item in status]
         assert len(status) == len(expected_status)
         for expected in expected_status:
             assert any(actual == expected for actual in status)

@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 import math
 import time
@@ -5,6 +9,7 @@ from multiprocessing import Event
 
 import requests
 import simplejson as json
+import six
 from requests.exceptions import RequestException
 
 
@@ -78,13 +83,13 @@ class MetricsReporter(object):
 
         gauges = []
 
-        for metric, times in time_metrics.iteritems():
+        for metric, times in six.iteritems(time_metrics):
             metric_gauges = self._make_time_metric_data(metric, sorted(times))
             gauges.extend(metric_gauges)
 
         counters = []
 
-        for metric, count in failure_count_metrics.iteritems():
+        for metric, count in six.iteritems(failure_count_metrics):
             metric_counters = self._make_failure_count_data(metric, count)
             counters.extend(metric_counters)
 

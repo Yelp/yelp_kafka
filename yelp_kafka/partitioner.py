@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import copy
 import hashlib
 import logging
@@ -35,7 +39,7 @@ KAZOO_RETRY_DEFAULTS = {
 def build_zk_group_path(group_path, topics):
     return "{group_path}/{sha}".format(
         group_path=group_path,
-        sha=hashlib.sha1(repr(sorted(topics))).hexdigest(),
+        sha=hashlib.sha1(repr(sorted(topics)).encode()).hexdigest(),
     )
 
 
