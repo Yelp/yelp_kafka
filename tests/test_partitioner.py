@@ -157,16 +157,16 @@ class TestPartitioner(object):
                 assert partitioner.partitions_set == expected_partitions
                 assert not partitioner.need_partitions_refresh()
 
-            # Call the partitioner again with the same partitions set and be sure
-            # it does not create a new one
-            partitioner.force_partitions_refresh = True
+                # Call the partitioner again with the same partitions set and be sure
+                # it does not create a new one
+                partitioner.force_partitions_refresh = True
 
-            actual = partitioner._get_partitioner()
+                actual = partitioner._get_partitioner()
 
-            assert partitioner.partitions_set is expected_partitions
-            assert actual == mock.sentinel.partitioner1
-            assert mock_create.call_count == 1
-            assert not partitioner.need_partitions_refresh()
+                assert partitioner.partitions_set is expected_partitions
+                assert actual == mock.sentinel.partitioner1
+                assert mock_create.call_count == 1
+                assert not partitioner.need_partitions_refresh()
 
     def test__get_partitioner_partitions_change(self, partitioner):
         # We create a new partitioner, then we change the partitions
