@@ -14,7 +14,7 @@ from yelp_kafka.utils import make_scribe_topic
 
 DEFAULT_KAFKA_SCRIBE = 'scribe'
 REGION_FILE_PATH = '/nail/etc/region'
-# MOVE to config?
+SUPERREGION_FILE_PATH = '/nail/etc/superregion'
 BASE_QUERY = 'http://yocalhost:20495/v1'
 
 
@@ -27,7 +27,22 @@ def get_local_region():
         with open(REGION_FILE_PATH, 'r') as region_file:
             return region_file.read().rstrip()
     except IOError:
-        err_msg = "Could not region information at {file}".format(file=REGION_FILE_PATH)
+        err_msg = "Could not retrieve region information at {file}".format(
+            file=REGION_FILE_PATH,
+        )
+        log.exception(err_msg)
+        raise IOError(err_msg)
+
+
+def get_local_superregion():
+    """Get local-superregion name."""
+    try:
+        with open(SUPERREGION_FILE_PATH, 'r') as superregion_file:
+            return superregion_file.read().rstrip()
+    except IOError:
+        err_msg = "Could not retieve superregion information at {file}".format(
+            file=SUPERREGION_FILE_PATH,
+        )
         log.exception(err_msg)
         raise IOError(err_msg)
 
@@ -53,28 +68,7 @@ def json_as_cluster_config(config_json):
         raise ConfigurationError(err_msg)
 
 
-def get_default_cluster(cluster_type):
-    """Get the local kafka cluster.
-
-    :param cluster_type: kafka cluster type
-        (ex.'scribe' or 'standard').
-    :type cluster_type: string
-    :returns: py:class:`yelp_kafka.config.ClusterConfig`
-    """
-    region = get_local_region()
-    # For local dev machines region is stored as sf-devc but for kafka-cluster
-    # configurations is for region uswest1-devc only
-    # Current, solution is to hard-code to uswest1-devc region
-    region = 'uswest1-devc' if region == 'sf-devc' else region
-    query = '{base_query}/clusters/{c_type}/region/{region}'.format(
-        base_query=BASE_QUERY,
-        c_type=cluster_type,
-        region=region,
-    )
-    return json_as_cluster_config(execute_query(query, err_msg="Cluster config fetch failed."))
-
-
-def execute_query(query, raise_exception=DiscoveryError, err_msg=None):
+def execute_query(query):
     response = requests.get(query)
     status_code = response.status_code
     json_resp = response.json()
@@ -82,19 +76,57 @@ def execute_query(query, raise_exception=DiscoveryError, err_msg=None):
         return json_resp
     elif status_code == 404:
         error = json_resp['description']
-        log.exception("{error}.{err_msg}".format(error=error, err_msg=err_msg))
-        raise raise_exception(err_msg)
+        log.exception("{error}".format(error=error))
+        raise DiscoveryError(error)
+
+
+def get_region_cluster(cluster_type, region=None):
+    """Get the kafka cluster for given region. If no region is given, we default
+    to local region.
+
+    :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
+    :type cluster_type: string
+    :param region: region name for which kafka-cluster is desired.
+    :type region: string
+    :returns: py:class:`yelp_kafka.config.ClusterConfig`
+    """
+    if not region:
+        region = get_local_region()
+    query = '{base_query}/clusters/{c_type}/region/{region}'.format(
+        base_query=BASE_QUERY,
+        c_type=cluster_type,
+        region=region,
+    )
+    return json_as_cluster_config(execute_query(query))
+
+
+def get_superregion_cluster(cluster_type, superregion=None):
+    """Get the kafka cluster for given superregion. If no region is specified,
+    we default to local superregion.
+
+    :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
+    :type cluster_type: string
+    :param superregion: region name for which kafka-cluster is desired.
+    :type superregion: string
+    :returns: py:class:`yelp_kafka.config.ClusterConfig`
+    """
+    if not superregion:
+        superregion = get_local_superregion()
+    query = '{base_query}/clusters/{c_type}/superregion/{superregion}'.format(
+        base_query=BASE_QUERY,
+        c_type=cluster_type,
+        superregion=superregion,
+    )
+    return json_as_cluster_config(execute_query(query))
 
 
 def get_kafka_cluster(cluster_type, cluster_name):
     """Get a :py:class:`yelp_kafka.config.ClusterConfig` from an ecosystem with
     a particular name.
 
-    :param cluster_type: kafka cluster type
-        (ex.'scribe' or 'standard').
+    :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
-    :param cluster_name: name of the cluster
-        (ex.'uswest1-devc').
+    :param cluster_name: name of the cluster (ex.'uswest1-devc').
     :type cluster_type: string
     :returns: :py:class:`yelp_kafka.config.ClusterConfig`
     """
@@ -103,9 +135,7 @@ def get_kafka_cluster(cluster_type, cluster_name):
         c_type=cluster_type,
         named=cluster_name,
     )
-    return json_as_cluster_config(
-        execute_query(query, err_msg="Cluster-config fetch failed."),
-    )
+    return json_as_cluster_config(execute_query(query))
 
 
 def make_scribe_regex(stream):
