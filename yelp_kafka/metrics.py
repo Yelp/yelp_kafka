@@ -57,7 +57,7 @@ class MetricsReporter(object):
             messages = []
             num_messages = self.queue.qsize()
 
-            for _ in xrange(num_messages):
+            for _ in range(num_messages):
                 messages.append(self.queue.get())
 
             self._process_metrics(messages)

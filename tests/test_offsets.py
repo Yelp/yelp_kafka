@@ -62,17 +62,17 @@ class MyKafkaClient(object):
         resps = []
         for req in payloads:
             if req.time == -1:
-                offset = self.high_offsets[req.topic].get(req.partition, -1)
+                offset = self.high_offsets[req.topic.decode()].get(req.partition, -1)
             else:
-                offset = self.low_offsets[req.topic].get(req.partition, -1)
+                offset = self.low_offsets[req.topic.decode()].get(req.partition, -1)
             if self.offset_request_error:
                 error_code = NotLeaderForPartitionError.errno
-            elif req.partition not in self.topics[req.topic]:
+            elif req.partition not in self.topics[req.topic.decode()]:
                 error_code = UnknownTopicOrPartitionError.errno
             else:
                 error_code = 0
             resps.append(OffsetResponse(
-                req.topic,
+                req.topic.decode(),
                 req.partition,
                 error_code,
                 (offset,)
@@ -99,10 +99,10 @@ class MyKafkaClient(object):
         resps = []
         for req in payloads:
             if not self.commit_error:
-                self.group_offsets[req.topic][req.partition] = req.offset
+                self.group_offsets[req.topic.decode()][req.partition] = req.offset
                 resps.append(
                     OffsetCommitResponse(
-                        req.topic,
+                        req.topic.decode(),
                         req.partition,
                         0
                     )
@@ -110,7 +110,7 @@ class MyKafkaClient(object):
             else:
                 resps.append(
                     OffsetCommitResponse(
-                        req.topic,
+                        req.topic.decode(),
                         req.partition,
                         RequestTimedOutError.errno
                     )
@@ -176,11 +176,11 @@ class MyKafkaClient(object):
         return [
             callback(
                 OffsetFetchResponse(
-                    req.topic,
+                    req.topic.decode(),
                     req.partition,
-                    self.group_offsets[req.topic].get(req.partition, -1),
+                    self.group_offsets[req.topic.decode()].get(req.partition, -1),
                     None,
-                    0 if req.partition in self.group_offsets[req.topic] else 3
+                    0 if req.partition in self.group_offsets[req.topic.decode()] else 3
                 ),
             )
             for req in payloads

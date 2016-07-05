@@ -1,3 +1,6 @@
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import subprocess
 import time
 import uuid
@@ -54,7 +57,7 @@ def test_simple_consumer():
     consumer = KafkaSimpleConsumer(topic, config)
 
     with consumer:
-        for expected_offset in xrange(100):
+        for expected_offset in range(100):
             message = consumer.get_message()
             assert message.offset == expected_offset
             assert message.partition == 0
@@ -106,14 +109,14 @@ def run_kafka_consumer_group_test(num_consumers, num_partitions):
         p.daemon = True
         return p
 
-    consumer_processes = [create_consumer() for _ in xrange(num_consumers)]
+    consumer_processes = [create_consumer() for _ in range(num_consumers)]
 
     for consumer_process in consumer_processes:
         consumer_process.start()
 
     producer = kafka.producer.base.Producer(kafka.KafkaClient(KAFKA_URL))
 
-    for i in xrange(100):
+    for i in range(100):
         producer.send_messages(topic, i % num_partitions, str(i))
 
     # wait until all 100 messages have been consumed

@@ -51,8 +51,8 @@ class TestKafkaSimpleConsumer(object):
             )
             assert not mock_consumer.call_args[0]
             kwargs = mock_consumer.call_args[1]
-            assert kwargs['topic'] == 'test_topic'
-            assert kwargs['group'] == 'test_group'
+            assert kwargs['topic'] == 'test_topic'.encode()
+            assert kwargs['group'] == 'test_group'.encode()
 
     def test_get_message(self, config):
         with mock_kafka() as (_, mock_consumer):
@@ -139,8 +139,8 @@ class TestKafkaSimpleConsumer(object):
             assert actual is True
             mock_client.return_value.send_offset_commit_request \
                 .assert_called_once_with(
-                    'test_group',
-                    [OffsetCommitRequest('test_topic', 0, 100, None)],
+                    'test_group'.encode(),
+                    [OffsetCommitRequest('test_topic'.encode(), 0, 100, None)],
                 )
 
     def test_commit_message_kafka(self, config):
@@ -157,8 +157,8 @@ class TestKafkaSimpleConsumer(object):
             assert not mock_client.return_value.send_offset_commit_request.called
             mock_client.return_value.send_offset_commit_request_kafka \
                 .assert_called_once_with(
-                    'test_group',
-                    [OffsetCommitRequest('test_topic', 0, 100, None)],
+                    'test_group'.encode(),
+                    [OffsetCommitRequest('test_topic'.encode(), 0, 100, None)],
                 )
 
     def test_commit_message_dual(self, config):
@@ -174,13 +174,13 @@ class TestKafkaSimpleConsumer(object):
             assert actual is True
             mock_client.return_value.send_offset_commit_request \
                 .assert_called_once_with(
-                    'test_group',
-                    [OffsetCommitRequest('test_topic', 0, 100, None)],
+                    'test_group'.encode(),
+                    [OffsetCommitRequest('test_topic'.encode(), 0, 100, None)],
                 )
             mock_client.return_value.send_offset_commit_request_kafka \
                 .assert_called_once_with(
-                    'test_group',
-                    [OffsetCommitRequest('test_topic', 0, 100, None)],
+                    'test_group'.encode(),
+                    [OffsetCommitRequest('test_topic'.encode(), 0, 100, None)],
                 )
 
     def test_commit_message_error(self, config):

@@ -142,7 +142,7 @@ class TestMonitoring(TestOffsetsBase):
             'send_offset_fetch_request',
             side_effect=lambda group, payloads, fail_on_error, callback: [
                 callback(
-                    OffsetFetchResponse(req.topic, req.partition, -1, None, 3)
+                    OffsetFetchResponse(req.topic.decode(), req.partition, -1, None, 3)
                 )
                 for req in payloads
             ]

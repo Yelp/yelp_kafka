@@ -406,7 +406,7 @@ class KafkaConsumerConfig(object):
     def group_path(self):
         return '{zk_base}/{group_id}'.format(
             zk_base=ZOOKEEPER_BASE_PATH,
-            group_id=self.group_id
+            group_id=self.group_id.decode(),
         )
 
     @property
