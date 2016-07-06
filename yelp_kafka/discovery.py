@@ -1,7 +1,10 @@
 import logging
 import re
 
-import requests
+from bravado.client import SwaggerClient
+from bravado.fido_client import FidoClient
+from bravado_decorators.retry import SmartStackClient
+from bravado_decorators.retry import UserFacingRetryConfig
 from kafka import KafkaClient
 
 from yelp_kafka.config import ClusterConfig
@@ -17,6 +20,8 @@ REGION_FILE_PATH = '/nail/etc/region'
 SUPERREGION_FILE_PATH = '/nail/etc/superregion'
 BASE_QUERY = 'http://yocalhost:20495/v1'
 
+RESPONSE_TIMEOUT = 2.0  # Response timeout (2) for kafka cluster-endpoints
+SWAGGER_URL = 'http://yocalhost:20495/swagger.json'
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +36,7 @@ def get_local_region():
             file=REGION_FILE_PATH,
         )
         log.exception(err_msg)
-        raise IOError(err_msg)
+        raise
 
 
 def get_local_superregion():
@@ -44,43 +49,34 @@ def get_local_superregion():
             file=SUPERREGION_FILE_PATH,
         )
         log.exception(err_msg)
-        raise IOError(err_msg)
+        raise
 
 
-def json_as_cluster_config(config_json):
-    """Get cluster-configuration as ClusterConfig object from given json
-    configuration.
-
-    :param config_json: Kafka-cluster configuration in json form
-    :type config_json: json
-    :returns: py:class:`yelp_kafka.config.ClusterConfig`.
-    """
-    try:
-        return ClusterConfig(
-            name=config_json['name'],
-            type=config_json['type'],
-            broker_list=config_json['broker_list'],
-            zookeeper=config_json['zookeeper'],
-        )
-    except KeyError:
-        err_msg = "Invalid json cluster-configuration"
-        log.exception(err_msg)
-        raise ConfigurationError(err_msg)
+def parse_as_cluster_config(config_obj):
+    """Parse response config to Cluster-config type."""
+    return ClusterConfig(
+        name=config_obj.name,
+        type=config_obj.type,
+        broker_list=config_obj.broker_list,
+        zookeeper=config_obj.zookeeper,
+    )
 
 
-def execute_query(query):
-    response = requests.get(query)
-    status_code = response.status_code
-    json_resp = response.json()
-    if status_code == 200:
-        return json_resp
-    elif status_code == 404:
-        error = json_resp['description']
-        log.exception("{error}".format(error=error))
-        raise DiscoveryError(error)
+def get_kafka_discovery_client(client_name):
+    retry_config = UserFacingRetryConfig(timeout=RESPONSE_TIMEOUT)
+    swagger_client = SwaggerClient.from_url(
+        SWAGGER_URL,
+        FidoClient(),
+    )
+    return SmartStackClient(
+        swagger_client,
+        retry_config,
+        client_name=client_name,
+        service_name='kafka_discovery',
+    )
 
 
-def get_region_cluster(cluster_type, region=None):
+def get_region_cluster(cluster_type, client_name, region=None):
     """Get the kafka cluster for given region. If no region is given, we default
     to local region.
 
@@ -92,15 +88,16 @@ def get_region_cluster(cluster_type, region=None):
     """
     if not region:
         region = get_local_region()
-    query = '{base_query}/clusters/{c_type}/region/{region}'.format(
-        base_query=BASE_QUERY,
-        c_type=cluster_type,
+
+    client = get_kafka_discovery_client(client_name)
+    result = client.v1.get_v1_clusters_type_region_region(
+        type='scribe',
         region=region,
-    )
-    return json_as_cluster_config(execute_query(query))
+    ).result()
+    return parse_as_cluster_config(result)
 
 
-def get_superregion_cluster(cluster_type, superregion=None):
+def get_superregion_cluster(cluster_type, client_name, superregion=None):
     """Get the kafka cluster for given superregion. If no region is specified,
     we default to local superregion.
 
@@ -112,17 +109,17 @@ def get_superregion_cluster(cluster_type, superregion=None):
     """
     if not superregion:
         superregion = get_local_superregion()
-    query = '{base_query}/clusters/{c_type}/superregion/{superregion}'.format(
-        base_query=BASE_QUERY,
-        c_type=cluster_type,
+    client = get_kafka_discovery_client(client_name)
+    result = client.v1.get_v1_clusters_type_superregion_superregion(
+        type=cluster_type,
         superregion=superregion,
-    )
-    return json_as_cluster_config(execute_query(query))
+    ).result()
+    return parse_as_cluster_config(result)
 
 
-def get_kafka_cluster(cluster_type, cluster_name):
-    """Get a :py:class:`yelp_kafka.config.ClusterConfig` from an ecosystem with
-    a particular name.
+def get_kafka_cluster(cluster_type, client_name, cluster_name):
+    """Get a :py:class:`yelp_kafka.config.ClusterConfig` for a given
+    cluster-type and name.
 
     :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
@@ -130,12 +127,12 @@ def get_kafka_cluster(cluster_type, cluster_name):
     :type cluster_type: string
     :returns: :py:class:`yelp_kafka.config.ClusterConfig`
     """
-    query = '{base_query}/clusters/{c_type}/named/{named}'.format(
-        base_query=BASE_QUERY,
-        c_type=cluster_type,
-        named=cluster_name,
-    )
-    return json_as_cluster_config(execute_query(query))
+    client = get_kafka_discovery_client(client_name)
+    result = client.v1.get_v1_clusters_type_named_kafka_cluster_name(
+        type=cluster_type,
+        kafka_cluster_name=cluster_name,
+    ).result()
+    return parse_as_cluster_config(result)
 
 
 def make_scribe_regex(stream):
@@ -168,8 +165,8 @@ def get_all_clusters(cluster_type):
 
 
 def get_cluster_by_name(cluster_type, cluster_name):
-    """Get a :py:class:`yelp_kafka.config.ClusterConfig` from an ecosystem with
-    a particular name.
+    """Get a :py:class:`yelp_kafka.config.ClusterConfig` kafka-cluster
+    configuration for given type and name.
 
     :param cluster_type: kafka cluster type
         (ex.'scribe' or 'standard').
