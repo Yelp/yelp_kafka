@@ -10,7 +10,6 @@ import traceback
 from multiprocessing import Event
 from multiprocessing import Lock
 from multiprocessing import Process
-from multiprocessing import Queue
 from threading import Thread
 
 import six
@@ -18,6 +17,7 @@ import yelp_meteorite
 from kafka import KafkaConsumer
 from kafka.common import ConsumerTimeout
 from kafka.common import KafkaUnavailableError
+from six.moves.queue import Queue
 from yelp_lib.decorators import retry
 
 from yelp_kafka import metrics

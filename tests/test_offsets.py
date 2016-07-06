@@ -561,12 +561,11 @@ class TestOffsets(TestOffsetsBase):
             'topic1': [0, 1, 2],
             'topic2': [0, 1],
         }
-        status = advance_consumer_offsets(
+        status = list(advance_consumer_offsets(
             kafka_client_mock,
             "group",
             topics
-        )
-        status = [item for item in status]
+        ))
         assert status == []
         assert kafka_client_mock.group_offsets == self.high_offsets
 
@@ -584,12 +583,12 @@ class TestOffsets(TestOffsetsBase):
             OffsetCommitError("topic2", 1, RequestTimedOutError.message),
         ]
 
-        status = advance_consumer_offsets(
+        status = list(advance_consumer_offsets(
             kafka_client_mock,
             "group",
             topics
-        )
-        status = [item for item in status]
+        ))
+
         assert len(status) == len(expected_status)
         for expected in expected_status:
             assert any(actual == expected for actual in status)
@@ -601,12 +600,11 @@ class TestOffsets(TestOffsetsBase):
             'topic2': [0, 1],
         }
         kafka_client_spy = mock.Mock(wraps=kafka_client_mock)
-        status = rewind_consumer_offsets(
+        status = list(rewind_consumer_offsets(
             kafka_client_spy,
             "group",
             topics
-        )
-        status = [item for item in status]
+        ))
         assert status == []
         assert kafka_client_mock.group_offsets == self.low_offsets
         assert kafka_client_spy.send_offset_commit_request.called
@@ -641,12 +639,12 @@ class TestOffsets(TestOffsetsBase):
             OffsetCommitError("topic2", 1, RequestTimedOutError.message),
         ]
 
-        status = rewind_consumer_offsets(
+        status = list(rewind_consumer_offsets(
             kafka_client_mock,
             "group",
             topics
-        )
-        status = [item for item in status]
+        ))
+
         assert len(status) == len(expected_status)
         for expected in expected_status:
             assert any(actual == expected for actual in status)
@@ -665,11 +663,11 @@ class TestOffsets(TestOffsetsBase):
         }
 
         kafka_client_spy = mock.Mock(wraps=kafka_client_mock)
-        status = set_consumer_offsets(
+        status = list(set_consumer_offsets(
             kafka_client_spy,
             "group",
             new_offsets
-        )
+        ))
 
         expected_offsets = {
             'topic1': {
@@ -682,7 +680,6 @@ class TestOffsets(TestOffsetsBase):
                 1: 300,
             }
         }
-        status = [item for item in status]
         assert status == []
         assert kafka_client_mock.group_offsets == expected_offsets
         assert kafka_client_spy.send_offset_commit_request.called
@@ -730,14 +727,13 @@ class TestOffsets(TestOffsetsBase):
             OffsetCommitError("topic2", 1, RequestTimedOutError.message),
         ]
 
-        status = set_consumer_offsets(
+        status = list(set_consumer_offsets(
             kafka_client_mock,
             "group",
             new_offsets,
             raise_on_error=True
-        )
+        ))
 
-        status = [item for item in status]
         assert len(status) == len(expected_status)
         for expected in expected_status:
             assert any(actual == expected for actual in status)
