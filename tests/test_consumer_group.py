@@ -352,14 +352,16 @@ class TestMultiprocessingConsumerGroup(object):
         args2 = {'is_alive.return_value': True}
         group.consumer_procs = {
             mock.Mock(spec=Process, **args1): consumer1,
-            mock.Mock(spec=Process, **args2): consumer2
+            mock.Mock(spec=Process, **args2): consumer2,
         }
+        mock_new_proc = mock.Mock()
+        mock_new_proc.is_alive.return_value = True
         with mock.patch.object(
             MultiprocessingConsumerGroup, 'start_consumer', autospec=True
         ) as mock_start:
-            mock_start.return_value = mock.sentinel.proc
+            mock_start.return_value = mock_new_proc
             group.monitor()
-        assert mock.sentinel.proc in group.consumer_procs
+        assert mock_new_proc in group.consumer_procs
         mock_start.assert_called_once_with(group, consumer1)
 
     def test_get_consumers(self, group):
