@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import sys
 
 from setuptools import find_packages
@@ -45,8 +48,9 @@ setup(
         'PyYAML>=3.10',
         'requests',
         'setproctitle>=1.1.8',
-        'yelp-lib',
         'simplejson',
+        'six',
+        'yelp-lib',
         'yelp_meteorite',
     ],
     cmdclass={

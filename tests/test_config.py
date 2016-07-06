@@ -1,10 +1,15 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import contextlib
-from StringIO import StringIO
+from io import StringIO
 
 import mock
 import pytest
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 
+import yelp_kafka.config
 from yelp_kafka.config import AUTO_COMMIT_INTERVAL_SECS
 from yelp_kafka.config import ClusterConfig
 from yelp_kafka.config import KafkaConsumerConfig
@@ -156,23 +161,22 @@ class TestClusterConfig():
 
 @pytest.yield_fixture
 def mock_yaml():
-    with contextlib.nested(
-        mock.patch(
-            'yelp_kafka.config.load_yaml_config',
-            return_value=MOCK_SCRIBE_YAML,
-            create=True
-        ),
-        mock.patch('os.path.isfile', return_value=True)
-    ) as (m, mock_isfile):
-        yield m
+    with mock.patch(
+        'yelp_kafka.config.load_yaml_config',
+        return_value=MOCK_SCRIBE_YAML,
+        create=True
+    ) as m:
+        with mock.patch('os.path.isfile', return_value=True):
+            yield m
 
 
 def test_load_yaml():
     stio = StringIO()
     stio.write(MOCK_TOPOLOGY_CONFIG)
     stio.seek(0)
-    with mock.patch(
-        '__builtin__.open',
+    with mock.patch.object(
+        yelp_kafka.config,
+        'open',
         return_value=contextlib.closing(stio)
     ) as mock_open:
         actual = load_yaml_config('test')

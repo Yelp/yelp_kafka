@@ -1,14 +1,18 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import copy
 
 import mock
 import pytest
-
 from kafka.common import NotLeaderForPartitionError
 from kafka.common import OffsetCommitResponse
 from kafka.common import OffsetFetchResponse
 from kafka.common import OffsetResponse
 from kafka.common import RequestTimedOutError
 from kafka.common import UnknownTopicOrPartitionError
+
 from yelp_kafka.error import InvalidOffsetStorageError
 from yelp_kafka.offsets import _verify_commit_offsets_requests
 from yelp_kafka.offsets import advance_consumer_offsets
@@ -58,17 +62,17 @@ class MyKafkaClient(object):
         resps = []
         for req in payloads:
             if req.time == -1:
-                offset = self.high_offsets[req.topic].get(req.partition, -1)
+                offset = self.high_offsets[req.topic.decode()].get(req.partition, -1)
             else:
-                offset = self.low_offsets[req.topic].get(req.partition, -1)
+                offset = self.low_offsets[req.topic.decode()].get(req.partition, -1)
             if self.offset_request_error:
                 error_code = NotLeaderForPartitionError.errno
-            elif req.partition not in self.topics[req.topic]:
+            elif req.partition not in self.topics[req.topic.decode()]:
                 error_code = UnknownTopicOrPartitionError.errno
             else:
                 error_code = 0
             resps.append(OffsetResponse(
-                req.topic,
+                req.topic.decode(),
                 req.partition,
                 error_code,
                 (offset,)
@@ -95,10 +99,10 @@ class MyKafkaClient(object):
         resps = []
         for req in payloads:
             if not self.commit_error:
-                self.group_offsets[req.topic][req.partition] = req.offset
+                self.group_offsets[req.topic.decode()][req.partition] = req.offset
                 resps.append(
                     OffsetCommitResponse(
-                        req.topic,
+                        req.topic.decode(),
                         req.partition,
                         0
                     )
@@ -106,7 +110,7 @@ class MyKafkaClient(object):
             else:
                 resps.append(
                     OffsetCommitResponse(
-                        req.topic,
+                        req.topic.decode(),
                         req.partition,
                         RequestTimedOutError.errno
                     )
@@ -172,11 +176,11 @@ class MyKafkaClient(object):
         return [
             callback(
                 OffsetFetchResponse(
-                    req.topic,
+                    req.topic.decode(),
                     req.partition,
-                    self.group_offsets[req.topic].get(req.partition, -1),
+                    self.group_offsets[req.topic.decode()].get(req.partition, -1),
                     None,
-                    0 if req.partition in self.group_offsets[req.topic] else 3
+                    0 if req.partition in self.group_offsets[req.topic.decode()] else 3
                 ),
             )
             for req in payloads
@@ -557,11 +561,11 @@ class TestOffsets(TestOffsetsBase):
             'topic1': [0, 1, 2],
             'topic2': [0, 1],
         }
-        status = advance_consumer_offsets(
+        status = list(advance_consumer_offsets(
             kafka_client_mock,
             "group",
             topics
-        )
+        ))
         assert status == []
         assert kafka_client_mock.group_offsets == self.high_offsets
 
@@ -579,11 +583,12 @@ class TestOffsets(TestOffsetsBase):
             OffsetCommitError("topic2", 1, RequestTimedOutError.message),
         ]
 
-        status = advance_consumer_offsets(
+        status = list(advance_consumer_offsets(
             kafka_client_mock,
             "group",
             topics
-        )
+        ))
+
         assert len(status) == len(expected_status)
         for expected in expected_status:
             assert any(actual == expected for actual in status)
@@ -595,11 +600,11 @@ class TestOffsets(TestOffsetsBase):
             'topic2': [0, 1],
         }
         kafka_client_spy = mock.Mock(wraps=kafka_client_mock)
-        status = rewind_consumer_offsets(
+        status = list(rewind_consumer_offsets(
             kafka_client_spy,
             "group",
             topics
-        )
+        ))
         assert status == []
         assert kafka_client_mock.group_offsets == self.low_offsets
         assert kafka_client_spy.send_offset_commit_request.called
@@ -634,11 +639,12 @@ class TestOffsets(TestOffsetsBase):
             OffsetCommitError("topic2", 1, RequestTimedOutError.message),
         ]
 
-        status = rewind_consumer_offsets(
+        status = list(rewind_consumer_offsets(
             kafka_client_mock,
             "group",
             topics
-        )
+        ))
+
         assert len(status) == len(expected_status)
         for expected in expected_status:
             assert any(actual == expected for actual in status)
@@ -657,11 +663,11 @@ class TestOffsets(TestOffsetsBase):
         }
 
         kafka_client_spy = mock.Mock(wraps=kafka_client_mock)
-        status = set_consumer_offsets(
+        status = list(set_consumer_offsets(
             kafka_client_spy,
             "group",
             new_offsets
-        )
+        ))
 
         expected_offsets = {
             'topic1': {
@@ -721,12 +727,12 @@ class TestOffsets(TestOffsetsBase):
             OffsetCommitError("topic2", 1, RequestTimedOutError.message),
         ]
 
-        status = set_consumer_offsets(
+        status = list(set_consumer_offsets(
             kafka_client_mock,
             "group",
             new_offsets,
             raise_on_error=True
-        )
+        ))
 
         assert len(status) == len(expected_status)
         for expected in expected_status:
