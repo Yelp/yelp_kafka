@@ -1,8 +1,10 @@
 import logging
 import re
 
+import staticconf
 from bravado.client import SwaggerClient
-from bravado.fido_client import FidoClient
+from bravado.exception import HTTPError
+from bravado.requests_client import RequestsClient
 from bravado_decorators.retry import SmartStackClient
 from bravado_decorators.retry import UserFacingRetryConfig
 from kafka import KafkaClient
@@ -18,12 +20,18 @@ from yelp_kafka.utils import make_scribe_topic
 DEFAULT_KAFKA_SCRIBE = 'scribe'
 REGION_FILE_PATH = '/nail/etc/region'
 SUPERREGION_FILE_PATH = '/nail/etc/superregion'
-BASE_QUERY = 'http://yocalhost:20495/v1'
 
-RESPONSE_TIMEOUT = 2.0  # Response timeout (2) for kafka cluster-endpoints
-SWAGGER_URL = 'http://yocalhost:20495/swagger.json'
+RESPONSE_TIMEOUT = 2.0  # Response timeout (2 sec) for kafka cluster-endpoints
 
 log = logging.getLogger(__name__)
+
+service_conf = staticconf.YamlConfiguration(
+    '/nail/etc/services/services.yaml',
+    namespace='smartstack_services',
+)
+host = service_conf['kafka_discovery.main.host']
+port = service_conf['kafka_discovery.main.port']
+SWAGGER_URL = 'http://{0}:{1}/swagger.json'.format(host, port)
 
 
 def get_local_region():
@@ -63,10 +71,11 @@ def parse_as_cluster_config(config_obj):
 
 
 def get_kafka_discovery_client(client_name):
+    # Default retry is 1 on response timeout
     retry_config = UserFacingRetryConfig(timeout=RESPONSE_TIMEOUT)
     swagger_client = SwaggerClient.from_url(
         SWAGGER_URL,
-        FidoClient(),
+        RequestsClient(),
     )
     return SmartStackClient(
         swagger_client,
@@ -90,11 +99,18 @@ def get_region_cluster(cluster_type, client_name, region=None):
         region = get_local_region()
 
     client = get_kafka_discovery_client(client_name)
-    result = client.v1.get_v1_clusters_type_region_region(
-        type='scribe',
-        region=region,
-    ).result()
-    return parse_as_cluster_config(result)
+    try:
+        result = client.v1.getKafkaClusterRegion(
+            type=cluster_type,
+            region=region,
+        ).result()
+        return parse_as_cluster_config(result)
+    except HTTPError:
+        log.exception(
+            "Failure while fetching kafka-cluster for cluster-type:{type}, region"
+            ":{region}.".format(type=cluster_type, region=region),
+        )
+        raise
 
 
 def get_superregion_cluster(cluster_type, client_name, superregion=None):
@@ -110,11 +126,19 @@ def get_superregion_cluster(cluster_type, client_name, superregion=None):
     if not superregion:
         superregion = get_local_superregion()
     client = get_kafka_discovery_client(client_name)
-    result = client.v1.get_v1_clusters_type_superregion_superregion(
-        type=cluster_type,
-        superregion=superregion,
-    ).result()
-    return parse_as_cluster_config(result)
+
+    try:
+        result = client.v1.getKafkaClusterSuperregion(
+            type=cluster_type,
+            superregion=superregion,
+        ).result(timeout=RESPONSE_TIMEOUT)
+        return parse_as_cluster_config(result)
+    except HTTPError:
+        log.exception(
+            "Failure while fetching kafka-cluster for cluster-type:{type}, "
+            "superregion :{superregion}.".format(type=cluster_type, superregion=superregion),
+        )
+        raise
 
 
 def get_kafka_cluster(cluster_type, client_name, cluster_name):
@@ -128,11 +152,18 @@ def get_kafka_cluster(cluster_type, client_name, cluster_name):
     :returns: :py:class:`yelp_kafka.config.ClusterConfig`
     """
     client = get_kafka_discovery_client(client_name)
-    result = client.v1.get_v1_clusters_type_named_kafka_cluster_name(
-        type=cluster_type,
-        kafka_cluster_name=cluster_name,
-    ).result()
-    return parse_as_cluster_config(result)
+    try:
+        result = client.v1.getKafkaClusterConfig(
+            type=cluster_type,
+            kafka_cluster_name=cluster_name,
+        ).result(timeout=RESPONSE_TIMEOUT)
+        return parse_as_cluster_config(result)
+    except HTTPError:
+        log.exception(
+            "Failure while fetching kafka-cluster for cluster-type:{type}, cluster-name"
+            ":{cluster_name}.".format(type=cluster_type, cluster_name=cluster_name),
+        )
+        raise
 
 
 def make_scribe_regex(stream):
