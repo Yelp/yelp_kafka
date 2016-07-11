@@ -2,11 +2,17 @@ import logging
 import os
 from collections import namedtuple
 
+import staticconf
 import yaml
-
+from bravado.client import SwaggerClient
+from bravado.requests_client import RequestsClient
+from bravado_decorators.retry import SmartStackClient
+from bravado_decorators.retry import UserFacingRetryConfig
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
+from yelp_lib.decorators import memoized
+
 from yelp_kafka.error import ConfigurationError
 
 
@@ -28,6 +34,33 @@ AUTO_COMMIT_MSG_COUNT = 100
 AUTO_COMMIT_INTERVAL_SECS = 60
 
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
+
+service_conf = staticconf.YamlConfiguration(
+    '/nail/etc/services/services.yaml',
+    namespace='smartstack_services',
+)
+host = service_conf['kafka_discovery.main.host']
+port = service_conf['kafka_discovery.main.port']
+SWAGGER_URL = 'http://{0}:{1}/swagger.json'.format(host, port)
+RESPONSE_TIMEOUT = 2.0  # Response timeout (2 sec) for kafka cluster-endpoints
+DEFAULT_CLIENT_NAME = 'service-yelp-kafka'
+
+
+@memoized
+def get_kafka_discovery_client(client_name):
+    """Create smartstack-client for kafka_discovery service."""
+    # Default retry is 1 on response timeout
+    retry_config = UserFacingRetryConfig(timeout=RESPONSE_TIMEOUT)
+    swagger_client = SwaggerClient.from_url(
+        SWAGGER_URL,
+        RequestsClient(),
+    )
+    return SmartStackClient(
+        swagger_client,
+        retry_config,
+        client_name=client_name,
+        service_name='kafka_discovery',
+    )
 
 
 class ClusterConfig(

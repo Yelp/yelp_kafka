@@ -1,15 +1,11 @@
 import logging
 import re
 
-import staticconf
-from bravado.client import SwaggerClient
 from bravado.exception import HTTPError
-from bravado.requests_client import RequestsClient
-from bravado_decorators.retry import SmartStackClient
-from bravado_decorators.retry import UserFacingRetryConfig
 from kafka import KafkaClient
 
 from yelp_kafka.config import ClusterConfig
+from yelp_kafka.config import get_kafka_discovery_client
 from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.config import TopologyConfiguration
 from yelp_kafka.error import ConfigurationError
@@ -21,17 +17,8 @@ DEFAULT_KAFKA_SCRIBE = 'scribe'
 REGION_FILE_PATH = '/nail/etc/region'
 SUPERREGION_FILE_PATH = '/nail/etc/superregion'
 
-RESPONSE_TIMEOUT = 2.0  # Response timeout (2 sec) for kafka cluster-endpoints
 
 log = logging.getLogger(__name__)
-
-service_conf = staticconf.YamlConfiguration(
-    '/nail/etc/services/services.yaml',
-    namespace='smartstack_services',
-)
-host = service_conf['kafka_discovery.main.host']
-port = service_conf['kafka_discovery.main.port']
-SWAGGER_URL = 'http://{0}:{1}/swagger.json'.format(host, port)
 
 
 def get_local_region():
@@ -67,22 +54,6 @@ def parse_as_cluster_config(config_obj):
         type=config_obj.type,
         broker_list=config_obj.broker_list,
         zookeeper=config_obj.zookeeper,
-    )
-
-
-def get_kafka_discovery_client(client_name):
-    """Create smartstack-client for kafka_discovery service."""
-    # Default retry is 1 on response timeout
-    retry_config = UserFacingRetryConfig(timeout=RESPONSE_TIMEOUT)
-    swagger_client = SwaggerClient.from_url(
-        SWAGGER_URL,
-        RequestsClient(),
-    )
-    return SmartStackClient(
-        swagger_client,
-        retry_config,
-        client_name=client_name,
-        service_name='kafka_discovery',
     )
 
 
