@@ -71,6 +71,7 @@ def parse_as_cluster_config(config_obj):
 
 
 def get_kafka_discovery_client(client_name):
+    """Create smartstack-client for kafka_discovery service."""
     # Default retry is 1 on response timeout
     retry_config = UserFacingRetryConfig(timeout=RESPONSE_TIMEOUT)
     swagger_client = SwaggerClient.from_url(
@@ -131,7 +132,7 @@ def get_superregion_cluster(cluster_type, client_name, superregion=None):
         result = client.v1.getKafkaClusterSuperregion(
             type=cluster_type,
             superregion=superregion,
-        ).result(timeout=RESPONSE_TIMEOUT)
+        ).result()
         return parse_as_cluster_config(result)
     except HTTPError:
         log.exception(
@@ -156,7 +157,7 @@ def get_kafka_cluster(cluster_type, client_name, cluster_name):
         result = client.v1.getKafkaClusterConfig(
             type=cluster_type,
             kafka_cluster_name=cluster_name,
-        ).result(timeout=RESPONSE_TIMEOUT)
+        ).result()
         return parse_as_cluster_config(result)
     except HTTPError:
         log.exception(
