@@ -7,13 +7,14 @@ import uuid
 from multiprocessing import Process
 from multiprocessing import Queue
 
-import kafka
+from kafka import KafkaClient
 from kafka.common import ConsumerTimeout
 
 from yelp_kafka.config import ClusterConfig
 from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.consumer import KafkaSimpleConsumer
 from yelp_kafka.consumer_group import KafkaConsumerGroup
+from yelp_kafka.producer import YelpKafkaSimpleProducer
 
 
 ZOOKEEPER_URL = 'zookeeper:2181'
@@ -29,7 +30,7 @@ def create_topic(topic_name, replication_factor, partitions):
     subprocess.check_call(cmd)
 
     # It may take a little moment for the topic to be ready for writing.
-    time.sleep(1)
+    time.sleep(5)
 
 
 def create_random_topic(replication_factor, partitions):
@@ -41,12 +42,16 @@ def create_random_topic(replication_factor, partitions):
 def test_simple_consumer():
     topic = create_random_topic(1, 1)
 
-    messages = [str(i) for i in range(100)]
-
-    producer = kafka.SimpleProducer(kafka.KafkaClient(KAFKA_URL))
-    producer.send_messages(topic, *messages)
+    messages = [str(i).encode("UTF-8") for i in range(100)]
 
     cluster_config = ClusterConfig(None, None, [KAFKA_URL], ZOOKEEPER_URL)
+    producer = YelpKafkaSimpleProducer(
+        cluster_config=cluster_config,
+        report_metrics=False,
+        client=KafkaClient(KAFKA_URL),
+    )
+    producer.send_messages(topic, *messages)
+
     config = KafkaConsumerConfig(
         'test',
         cluster_config,
@@ -61,7 +66,7 @@ def test_simple_consumer():
             message = consumer.get_message()
             assert message.offset == expected_offset
             assert message.partition == 0
-            assert message.value == str(expected_offset)
+            assert message.value == str(expected_offset).encode("UTF-8")
 
 
 def test_kafka_consumer_group_one_consumer_one_partition():
@@ -114,10 +119,13 @@ def run_kafka_consumer_group_test(num_consumers, num_partitions):
     for consumer_process in consumer_processes:
         consumer_process.start()
 
-    producer = kafka.producer.base.Producer(kafka.KafkaClient(KAFKA_URL))
-
+    producer = YelpKafkaSimpleProducer(
+        cluster_config=cluster_config,
+        report_metrics=False,
+        client=KafkaClient(KAFKA_URL),
+    )
     for i in range(100):
-        producer.send_messages(topic, i % num_partitions, str(i))
+        producer.send_messages(topic, str(i).encode("UTF-8"))
 
     # wait until all 100 messages have been consumed
     while queue.qsize() < 100:
@@ -128,4 +136,4 @@ def run_kafka_consumer_group_test(num_consumers, num_partitions):
         message = queue.get()
         received_messages.append(int(message.value))
 
-    assert range(100) == sorted(received_messages)
+    assert [i for i in range(100)] == sorted(received_messages)
