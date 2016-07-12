@@ -57,4 +57,10 @@ setup(
         'test': Tox,
         'coverage': Coverage
     },
+    classifiers=[
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 2.7",
+        "Programming Language :: Python :: 3.5",
+        "Intended Audience :: Developers",
+    ],
 )
