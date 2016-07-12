@@ -6,6 +6,7 @@ import hashlib
 
 import mock
 import pytest
+from kafka.util import kafka_bytestring
 from kazoo.protocol.states import KazooState
 from kazoo.recipe.partitioner import PartitionState
 from kazoo.recipe.partitioner import SetPartitioner
@@ -37,9 +38,9 @@ class TestPartitioner(object):
             autospec=True
         ) as mock_topics:
             mock_topics.return_value = {
-                'topic1': [0, 1, 2, 3],
-                'topic2': [0, 1, 2],
-                'topic3': [0, 1, 2, 3],
+                kafka_bytestring('topic1'): [0, 1, 2, 3],
+                kafka_bytestring('topic2'): [0, 1, 2],
+                kafka_bytestring('topic3'): [0, 1, 2, 3],
             }
             actual = partitioner.get_partitions_set()
             assert actual == set([
