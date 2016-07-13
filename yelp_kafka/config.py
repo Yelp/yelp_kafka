@@ -43,7 +43,6 @@ host = service_conf['kafka_discovery.main.host']
 port = service_conf['kafka_discovery.main.port']
 SWAGGER_URL = 'http://{0}:{1}/swagger.json'.format(host, port)
 RESPONSE_TIMEOUT = 2.0  # Response timeout (2 sec) for kafka cluster-endpoints
-DEFAULT_CLIENT_NAME = 'service-yelp-kafka'
 
 
 @memoized

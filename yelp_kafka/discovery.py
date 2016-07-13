@@ -71,9 +71,6 @@ def get_region_cluster(cluster_type, client_name, region=None):
         region = get_local_region()
 
     client = get_kafka_discovery_client(client_name)
-    # TODO: remove
-    if region == 'sf-devc':
-        region = 'uswest1-devc'
     try:
         result = client.v1.getClustersWithRegion(
             type=cluster_type,

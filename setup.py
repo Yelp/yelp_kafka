@@ -41,7 +41,7 @@ setup(
     packages=find_packages(exclude=["tests*"]),
     install_requires=[
         'bravado==8.2.0',
-        'bravado-decorators==0.5.4',
+        'bravado_decorators',
         'kafka-python==0.9.5.post3',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
