@@ -71,8 +71,11 @@ def get_region_cluster(cluster_type, client_name, region=None):
         region = get_local_region()
 
     client = get_kafka_discovery_client(client_name)
+    # TODO: remove
+    if region == 'sf-devc':
+        region = 'uswest1-devc'
     try:
-        result = client.v1.getKafkaClusterRegion(
+        result = client.v1.getClustersWithRegion(
             type=cluster_type,
             region=region,
         ).result()
@@ -100,7 +103,7 @@ def get_superregion_cluster(cluster_type, client_name, superregion=None):
     client = get_kafka_discovery_client(client_name)
 
     try:
-        result = client.v1.getKafkaClusterSuperregion(
+        result = client.v1.getClustersWithSuperregion(
             type=cluster_type,
             superregion=superregion,
         ).result()
@@ -125,7 +128,7 @@ def get_kafka_cluster(cluster_type, client_name, cluster_name):
     """
     client = get_kafka_discovery_client(client_name)
     try:
-        result = client.v1.getKafkaClusterConfig(
+        result = client.v1.getClustersWithName(
             type=cluster_type,
             kafka_cluster_name=cluster_name,
         ).result()

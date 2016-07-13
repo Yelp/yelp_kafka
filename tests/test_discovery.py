@@ -42,7 +42,7 @@ def test_get_region_cluster_default(mock_cluster_obj, mock_clusters):
             'yelp_kafka.discovery.get_local_region',
             return_value='cluster1',
         ):
-            mock_kafka_discovery_client.return_value.v1.getKafkaClusterRegion.\
+            mock_kafka_discovery_client.return_value.v1.getClustersWithRegion.\
                 return_value.result.return_value = mock_cluster_obj
             cluster_config = discovery.get_region_cluster('type1', 'client-1')
 
@@ -53,7 +53,7 @@ def test_get_region_cluster(mock_cluster_obj, mock_clusters):
     with mock.patch(
         'yelp_kafka.discovery.get_kafka_discovery_client',
     ) as mock_kafka_discovery_client:
-        mock_kafka_discovery_client.return_value.v1.getKafkaClusterRegion.\
+        mock_kafka_discovery_client.return_value.v1.getClustersWithRegion.\
             return_value.result.return_value = mock_cluster_obj
         cluster_config = discovery.get_region_cluster('type1', 'client-1', 'cluster1')
 
@@ -64,7 +64,7 @@ def test_get_region_cluster_invalid_type(mock_cluster_obj, mock_clusters):
     with mock.patch(
         'yelp_kafka.discovery.get_kafka_discovery_client',
     ) as mock_kafka_discovery_client:
-        mock_kafka_discovery_client.return_value.v1.getKafkaClusterRegion.\
+        mock_kafka_discovery_client.return_value.v1.getClustersWithRegion.\
             return_value.result.side_effect = HTTPError('invalid type')
         with pytest.raises(HTTPError):
             discovery.get_region_cluster('type2', 'client-1', 'cluster1')
@@ -78,7 +78,7 @@ def test_get_superregion_cluster_default(mock_cluster_obj, mock_clusters):
             'yelp_kafka.discovery.get_local_superregion',
             return_value='superregion1',
         ):
-            mock_kafka_discovery_client.return_value.v1.getKafkaClusterSuperregion.\
+            mock_kafka_discovery_client.return_value.v1.getClustersWithSuperregion.\
                 return_value.result.return_value = mock_cluster_obj
             cluster_config = discovery.get_superregion_cluster('type1', 'client-1')
 
@@ -89,7 +89,7 @@ def test_get_superregion_cluster(mock_cluster_obj, mock_clusters):
     with mock.patch(
         'yelp_kafka.discovery.get_kafka_discovery_client',
     ) as mock_kafka_discovery_client:
-        mock_kafka_discovery_client.return_value.v1.getKafkaClusterSuperregion.\
+        mock_kafka_discovery_client.return_value.v1.getClustersWithSuperregion.\
             return_value.result.return_value = mock_cluster_obj
         cluster_config = discovery.get_superregion_cluster('invalid-type', 'client-1', 'superregion1')
 
@@ -100,7 +100,7 @@ def test_get_superregion_cluster_invalid_type(mock_cluster_obj, mock_clusters):
     with mock.patch(
         'yelp_kafka.discovery.get_kafka_discovery_client',
     ) as mock_kafka_discovery_client:
-        mock_kafka_discovery_client.return_value.v1.getKafkaClusterSuperregion.\
+        mock_kafka_discovery_client.return_value.v1.getClustersWithSuperregion.\
             return_value.result.side_effect = HTTPError('invalid type')
         with pytest.raises(HTTPError):
             discovery.get_superregion_cluster(
@@ -114,7 +114,7 @@ def test_get_kafka_cluster(mock_cluster_obj, mock_clusters):
     with mock.patch(
         'yelp_kafka.discovery.get_kafka_discovery_client',
     ) as mock_kafka_discovery_client:
-        mock_kafka_discovery_client.return_value.v1.getKafkaClusterConfig.\
+        mock_kafka_discovery_client.return_value.v1.getClustersWithName.\
             return_value.result.return_value = mock_cluster_obj
         cluster_config = discovery.get_kafka_cluster('type1', 'client-1', 'cluster1')
 
