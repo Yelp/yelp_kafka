@@ -1,7 +1,12 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 import os
 from collections import namedtuple
 
+import six
 import staticconf
 import yaml
 from bravado.client import SwaggerClient
@@ -30,8 +35,10 @@ DEFAULT_OFFSET_RESET = 'largest'
 DEFAULT_OFFSET_STORAGE = 'zookeeper'
 DEFAULT_CLIENT_ID = 'yelp-kafka'
 
-AUTO_COMMIT_MSG_COUNT = 100
-AUTO_COMMIT_INTERVAL_SECS = 60
+# The default has been changed from 100 to None.
+# https://github.com/Yelp/kafka-python/blob/master/kafka/consumer/base.py#L181
+AUTO_COMMIT_MSG_COUNT = None
+AUTO_COMMIT_INTERVAL_SECS = 1
 
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
 
@@ -168,7 +175,7 @@ class TopologyConfiguration(object):
                 broker_list=cluster['broker_list'],
                 zookeeper=cluster['zookeeper'],
             )
-            for name, cluster in self.clusters.iteritems()
+            for name, cluster in six.iteritems(self.clusters)
         ]
 
     def get_cluster_by_name(self, name):
@@ -266,8 +273,9 @@ class KafkaConsumerConfig(object):
     * **fetch_message_max_bytes** is 2MB by default in yelp_kafka.
     * **auto_commit_interval_messages** is 100 for both
       :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` and
-      :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.
-    * **auto_commit_interval_ms** is 60 seconds by default.
+      :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.This means commit will
+      happen only once every minute irrespective of number of messages in that second.
+    * **auto_commit_interval_ms** is 1 seconds by default.
     """
 
     NOT_CONVERTIBLE = object()
@@ -363,7 +371,7 @@ class KafkaConsumerConfig(object):
             3. Default value specified in yelp-kafka
         """
         args = {}
-        for key, default in self.SIMPLE_CONSUMER_DEFAULT_CONFIG.iteritems():
+        for key, default in six.iteritems(self.SIMPLE_CONSUMER_DEFAULT_CONFIG):
             if key in self._config:
                 args[key] = self._config[key]
             else:
@@ -394,7 +402,7 @@ class KafkaConsumerConfig(object):
                   options can be converted in KafkaConsumer.
         """
         config = {}
-        for key, default in DEFAULT_CONSUMER_CONFIG.iteritems():
+        for key, default in six.iteritems(DEFAULT_CONSUMER_CONFIG):
             if key in self._config:
                 config[key] = self._config[key]
             else:
@@ -433,7 +441,7 @@ class KafkaConsumerConfig(object):
     def group_path(self):
         return '{zk_base}/{group_id}'.format(
             zk_base=ZOOKEEPER_BASE_PATH,
-            group_id=self.group_id
+            group_id=self.group_id.decode(),
         )
 
     @property
@@ -497,7 +505,7 @@ class KafkaConsumerConfig(object):
                 config=", ".join(
                     [
                         "{key}={value!r}".format(key=key, value=value)
-                        for key, value in self._config.iteritems()
+                        for key, value in six.iteritems(self._config)
                     ],
                 ),
             )

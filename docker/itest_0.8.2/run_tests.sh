@@ -14,4 +14,4 @@ function do_at_exit {
 # Clean up artifacts from tests
 trap do_at_exit EXIT INT TERM
 
-tox -e integration
+tox2 -e integration-py27 -e integration-py35

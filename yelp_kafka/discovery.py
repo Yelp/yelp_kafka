@@ -1,6 +1,11 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 import re
 
+import six
 from bravado.exception import HTTPError
 from kafka import KafkaClient
 
@@ -353,7 +358,7 @@ def search_topics_by_regex(pattern, clusters=None):
     matches = []
     for cluster in clusters:
         topics = discover_topics(cluster)
-        valid_topics = [topic for topic in topics.iterkeys()
+        valid_topics = [topic for topic in six.iterkeys(topics)
                         if re.match(pattern, topic)]
         if valid_topics:
             matches.append((valid_topics, cluster))

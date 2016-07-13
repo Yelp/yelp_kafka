@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import contextlib
 from collections import namedtuple
 
@@ -250,17 +253,31 @@ class Registrar(object):
 @contextlib.contextmanager
 def mock_kafka_python():
     registrar = Registrar()
-    with contextlib.nested(
-        mock.patch.object(kafka, 'KafkaClient', spec=kafka.KafkaClient),
-        mock.patch.object(kafka, 'SimpleProducer', registrar.mock_producer_with_registry()),
-        mock.patch.object(kafka, 'KeyedProducer', registrar.mock_keyed_producer_with_registry()),
-        mock.patch.object(kafka, 'SimpleConsumer', registrar.mock_simple_consumer_with_registrar()),
-        mock.patch.object(yelp_kafka.consumer, 'KafkaSimpleConsumer', registrar.mock_yelp_consumer_with_registrar()),
-    ) as (Client, Producer, KeyedProducer, Consumer, YelpConsumer):
-        yield KafkaMocks(
-            KafkaClient=Client,
-            SimpleProducer=Producer,
-            KeyedProducer=KeyedProducer,
-            SimpleConsumer=Consumer,
-            KafkaSimpleConsumer=YelpConsumer,
-        )
+    with mock.patch.object(kafka, 'KafkaClient', spec=kafka.KafkaClient) as Client:
+        with mock.patch.object(
+            kafka,
+            'SimpleProducer',
+            registrar.mock_producer_with_registry(),
+        ) as Producer:
+            with mock.patch.object(
+                kafka,
+                'KeyedProducer',
+                registrar.mock_keyed_producer_with_registry(),
+            ) as KeyedProducer:
+                with mock.patch.object(
+                    kafka,
+                    'SimpleConsumer',
+                    registrar.mock_simple_consumer_with_registrar(),
+                ) as Consumer:
+                    with mock.patch.object(
+                        yelp_kafka.consumer,
+                        'KafkaSimpleConsumer',
+                        registrar.mock_yelp_consumer_with_registrar(),
+                    ) as YelpConsumer:
+                        yield KafkaMocks(
+                            KafkaClient=Client,
+                            SimpleProducer=Producer,
+                            KeyedProducer=KeyedProducer,
+                            SimpleConsumer=Consumer,
+                            KafkaSimpleConsumer=YelpConsumer,
+                        )

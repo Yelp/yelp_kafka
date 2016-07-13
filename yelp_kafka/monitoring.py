@@ -1,6 +1,11 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 from collections import namedtuple
 
+import six
 from kafka.common import KafkaUnavailableError
 
 from yelp_kafka.offsets import get_current_consumer_offsets
@@ -61,7 +66,7 @@ def get_consumer_offsets_metadata(
     )
 
     result = {}
-    for topic, partitions in group_offsets.iteritems():
+    for topic, partitions in six.iteritems(group_offsets):
         result[topic] = [
             ConsumerPartitionOffsets(
                 topic=topic,
@@ -98,12 +103,12 @@ def topics_offset_distance(
     """
 
     distance = {}
-    for topic, offsets in get_consumer_offsets_metadata(
+    for topic, offsets in six.iteritems(get_consumer_offsets_metadata(
         kafka_client,
         group,
         topics,
         offset_storage,
-    ).iteritems():
+    )):
         distance[topic] = dict([
             (offset.partition, offset.highmark - offset.current)
             for offset in offsets

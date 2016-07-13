@@ -3,10 +3,10 @@
 all: test itest
 
 test:
-	tox tests
+	tox2 tests
 
 itest:
-	tox -e docker_itest
+	tox2 -e docker_itest
 
 sdist:
 	python setup.py sdist
@@ -15,7 +15,7 @@ bdist_wheel:
 	python setup.py bdist_wheel
 
 docs:
-	tox -e docs
+	tox2 -e docs
 
 clean:
 	make -C docs clean

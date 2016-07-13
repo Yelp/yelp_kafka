@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import copy
 import hashlib
 import logging
@@ -6,6 +10,7 @@ import traceback
 from collections import defaultdict
 
 from kafka.client import KafkaClient
+from kafka.util import kafka_bytestring
 from kazoo.client import KazooClient
 from kazoo.protocol.states import KazooState
 from kazoo.recipe.partitioner import PartitionState
@@ -35,7 +40,7 @@ KAZOO_RETRY_DEFAULTS = {
 def build_zk_group_path(group_path, topics):
     return "{group_path}/{sha}".format(
         group_path=group_path,
-        sha=hashlib.sha1(repr(sorted(topics))).hexdigest(),
+        sha=hashlib.sha1(repr(sorted(topics)).encode()).hexdigest(),
     )
 
 
@@ -334,11 +339,12 @@ class Partitioner(object):
         partitions = []
         missing_topics = set()
         for topic in self.topics:
-            if topic not in topic_partitions:
+            kafka_topic = kafka_bytestring(topic)
+            if kafka_topic not in topic_partitions:
                 missing_topics.add(topic)
             else:
                 partitions += ["{0}-{1}".format(topic, p)
-                               for p in topic_partitions[topic]]
+                               for p in topic_partitions[kafka_topic]]
         if missing_topics:
             self.log.info("Missing topics: %s", missing_topics)
         if not partitions:
