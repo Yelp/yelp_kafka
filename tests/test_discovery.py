@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 import mock
 import pytest
+import six
 
 from yelp_kafka import discovery
 from yelp_kafka.config import ClusterConfig
@@ -196,11 +197,12 @@ def test_get_all_kafka_connections_error(mock_get_clusters, mock_clusters):
 @mock.patch("yelp_kafka.discovery.get_kafka_topics", autospec=True)
 @mock.patch("yelp_kafka.discovery.KafkaClient", autospec=True)
 def test_discover_topics(mock_kafka, mock_topics):
-    expected = {
-        'topic1': [0, 1, 2, 3],
-        'topic2': [0]
+    topics = {
+        'topic1'.encode(): [0, 1, 2, 3],
+        'topic2'.encode(): [0]
     }
-    mock_topics.return_value = expected
+    mock_topics.return_value = topics
+    expected = dict([(topic.decode(), partitions) for topic, partitions in six.iteritems(topics)])
     actual = discovery.discover_topics(ClusterConfig(
         'type1',
         'mycluster',
