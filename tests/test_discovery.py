@@ -40,6 +40,22 @@ def mock_kafka_discovery_client():
         yield mock_kafka_discovery_client
 
 
+def test_get_local_region():
+    m = mock.mock_open()
+    with mock.patch('__builtin__.open'.format(), m, create=True):
+        discovery.get_local_region()
+
+    m.assert_called_once_with(discovery.REGION_FILE_PATH, 'r')
+
+
+def test_get_local_superregion():
+    m = mock.mock_open()
+    with mock.patch('__builtin__.open'.format(), m, create=True):
+        discovery.get_local_superregion()
+
+    m.assert_called_once_with(discovery.SUPERREGION_FILE_PATH, 'r')
+
+
 def test_parse_as_cluster_config(mock_response_obj, mock_clusters):
     cluster_config = discovery.parse_as_cluster_config(mock_response_obj)
 
@@ -49,7 +65,7 @@ def test_parse_as_cluster_config(mock_response_obj, mock_clusters):
 def test_get_region_cluster_default(mock_kafka_discovery_client, mock_response_obj, mock_clusters):
     with mock.patch(
         'yelp_kafka.discovery.get_local_region',
-        return_value='cluster1',
+        return_value='region1',
     ) as mock_get_local_region:
         mock_kafka_discovery_client.return_value.v1.getClustersWithRegion.\
             return_value.result.return_value = mock_response_obj
@@ -60,16 +76,15 @@ def test_get_region_cluster_default(mock_kafka_discovery_client, mock_response_o
 
 
 def test_get_region_cluster(mock_kafka_discovery_client, mock_response_obj, mock_clusters):
-    with mock.patch(
-        'yelp_kafka.discovery.get_local_region',
-        return_value='cluster1',
-    ) as mock_get_local_region:
-        mock_kafka_discovery_client.return_value.v1.getClustersWithRegion.\
-            return_value.result.return_value = mock_response_obj
-        cluster_config = discovery.get_region_cluster('type1', 'client-1', 'cluster1')
+    mock_kafka_discovery_client.return_value.v1.getClustersWithRegion.\
+        return_value.result.return_value = mock_response_obj
+    cluster_config = discovery.get_region_cluster('type1', 'client-1', 'region1')
 
-        assert cluster_config == mock_clusters[0]
-        assert not mock_get_local_region.called
+    assert cluster_config == mock_clusters[0]
+    mock_kafka_discovery_client.return_value.v1.getClustersWithRegion.assert_called_with(
+        type='type1',
+        region='region1',
+    )
 
 
 def test_get_region_cluster_invalid_type(
@@ -101,20 +116,20 @@ def test_get_superregion_cluster_default(
 
 
 def test_get_superregion_cluster(mock_kafka_discovery_client, mock_response_obj, mock_clusters):
-    with mock.patch(
-        'yelp_kafka.discovery.get_local_superregion',
-        return_value='superregion1',
-    ) as mock_get_local_superregion:
-        mock_kafka_discovery_client.return_value.v1.getClustersWithSuperregion.\
-            return_value.result.return_value = mock_response_obj
-        cluster_config = discovery.get_superregion_cluster(
-            'invalid-type',
-            'client-1',
-            'superregion1',
-        )
+    mock_kafka_discovery_client.return_value.v1.getClustersWithSuperregion.\
+        return_value.result.return_value = mock_response_obj
+    cluster_config = discovery.get_superregion_cluster(
+        'type1',
+        'client-1',
+        'superregion1',
+    )
 
-        assert cluster_config == mock_clusters[0]
-        assert not mock_get_local_superregion.called
+    assert cluster_config == mock_clusters[0]
+    mock_kafka_discovery_client.return_value.v1.getClustersWithSuperregion\
+        .assert_called_with(
+            type='type1',
+            superregion='superregion1',
+        )
 
 
 def test_get_superregion_cluster_invalid_type(
@@ -138,6 +153,11 @@ def test_get_kafka_cluster(mock_kafka_discovery_client, mock_response_obj, mock_
     cluster_config = discovery.get_kafka_cluster('type1', 'client-1', 'cluster1')
 
     assert cluster_config == mock_clusters[0]
+    mock_kafka_discovery_client.return_value.v1.getClustersWithName\
+        .assert_called_with(
+            type='type1',
+            kafka_cluster_name='cluster1',
+        )
 
 
 @mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)

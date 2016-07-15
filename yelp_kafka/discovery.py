@@ -45,7 +45,7 @@ def get_local_superregion():
         with open(SUPERREGION_FILE_PATH, 'r') as superregion_file:
             return superregion_file.read().rstrip()
     except IOError:
-        err_msg = "Could not retieve superregion information at {file}".format(
+        err_msg = "Could not retrieve superregion information at {file}".format(
             file=SUPERREGION_FILE_PATH,
         )
         log.exception(err_msg)

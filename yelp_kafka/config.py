@@ -10,7 +10,7 @@ import six
 import staticconf
 import yaml
 from bravado.client import SwaggerClient
-from bravado.requests_client import RequestsClient
+from bravado.fido_client import FidoClient
 from bravado_decorators.retry import SmartStackClient
 from bravado_decorators.retry import UserFacingRetryConfig
 from kafka.consumer.base import FETCH_MIN_BYTES
@@ -59,7 +59,7 @@ def get_kafka_discovery_client(client_name):
     retry_config = UserFacingRetryConfig(timeout=RESPONSE_TIMEOUT)
     swagger_client = SwaggerClient.from_url(
         SWAGGER_URL,
-        RequestsClient(),
+        FidoClient(),
     )
     return SmartStackClient(
         swagger_client,
