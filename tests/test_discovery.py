@@ -11,6 +11,9 @@ from bravado.exception import HTTPError
 from yelp_kafka import discovery
 from yelp_kafka.config import ClusterConfig
 from yelp_kafka.error import DiscoveryError
+from yelp_kafka.error import InvalidClusterTypeOrNameError
+from yelp_kafka.error import InvalidClusterTypeOrRegionError
+from yelp_kafka.error import InvalidClusterTypeOrSuperregionError
 
 
 @pytest.fixture
@@ -29,6 +32,16 @@ def mock_response_obj():
         name='cluster1',
         broker_list=['mybroker'],
         zookeeper='zk_hosts/kafka',
+    )
+
+
+@pytest.fixture
+def mock_err_obj():
+    # This is done for HTTPError response object (e) to be access e.response.text
+    ResponseError = collections.namedtuple('ResponseError', 'text response')
+    return ResponseError(
+        response=ResponseError(text='invalid', response='random'),
+        text='random'
     )
 
 
@@ -91,10 +104,11 @@ def test_get_region_cluster_invalid_type(
     mock_kafka_discovery_client,
     mock_response_obj,
     mock_clusters,
+    mock_err_obj,
 ):
     mock_kafka_discovery_client.return_value.v1.getClustersWithRegion.\
-        return_value.result.side_effect = HTTPError('invalid type')
-    with pytest.raises(HTTPError):
+        return_value.result.side_effect = HTTPError(mock_err_obj)
+    with pytest.raises(InvalidClusterTypeOrRegionError):
         discovery.get_region_cluster('type2', 'client-1', 'cluster1')
 
 
@@ -136,10 +150,11 @@ def test_get_superregion_cluster_invalid_type(
     mock_kafka_discovery_client,
     mock_response_obj,
     mock_clusters,
+    mock_err_obj,
 ):
     mock_kafka_discovery_client.return_value.v1.getClustersWithSuperregion.\
-        return_value.result.side_effect = HTTPError('invalid type')
-    with pytest.raises(HTTPError):
+        return_value.result.side_effect = HTTPError(mock_err_obj)
+    with pytest.raises(InvalidClusterTypeOrSuperregionError):
         discovery.get_superregion_cluster(
             'invalid-type',
             'client-1',
@@ -158,6 +173,18 @@ def test_get_kafka_cluster(mock_kafka_discovery_client, mock_response_obj, mock_
             type='type1',
             kafka_cluster_name='cluster1',
         )
+
+
+def test_get_kafka_cluster_invalid(
+    mock_kafka_discovery_client,
+    mock_response_obj,
+    mock_clusters,
+    mock_err_obj,
+):
+    mock_kafka_discovery_client.return_value.v1.getClustersWithName.\
+        return_value.result.side_effect = HTTPError(mock_err_obj)
+    with pytest.raises(InvalidClusterTypeOrNameError):
+        discovery.get_kafka_cluster('invalid-type', 'client-1', 'cluster1')
 
 
 @mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)

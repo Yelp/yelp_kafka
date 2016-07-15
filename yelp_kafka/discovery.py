@@ -15,6 +15,9 @@ from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.config import TopologyConfiguration
 from yelp_kafka.error import ConfigurationError
 from yelp_kafka.error import DiscoveryError
+from yelp_kafka.error import InvalidClusterTypeOrNameError
+from yelp_kafka.error import InvalidClusterTypeOrRegionError
+from yelp_kafka.error import InvalidClusterTypeOrSuperregionError
 from yelp_kafka.utils import get_kafka_topics
 from yelp_kafka.utils import make_scribe_topic
 
@@ -82,12 +85,12 @@ def get_region_cluster(cluster_type, client_name, region=None):
             region=region,
         ).result()
         return parse_as_cluster_config(result)
-    except HTTPError:
+    except HTTPError as e:
         log.exception(
             "Failure while fetching kafka-cluster for cluster-type:{type}, region"
             ":{region}.".format(type=cluster_type, region=region),
         )
-        raise
+        raise InvalidClusterTypeOrRegionError(e.response.text)
 
 
 def get_superregion_cluster(cluster_type, client_name, superregion=None):
@@ -110,12 +113,12 @@ def get_superregion_cluster(cluster_type, client_name, superregion=None):
             superregion=superregion,
         ).result()
         return parse_as_cluster_config(result)
-    except HTTPError:
+    except HTTPError as e:
         log.exception(
             "Failure while fetching kafka-cluster for cluster-type:{type}, "
             "superregion :{superregion}.".format(type=cluster_type, superregion=superregion),
         )
-        raise
+        raise InvalidClusterTypeOrSuperregionError(e.response.text)
 
 
 def get_kafka_cluster(cluster_type, client_name, cluster_name):
@@ -135,12 +138,12 @@ def get_kafka_cluster(cluster_type, client_name, cluster_name):
             kafka_cluster_name=cluster_name,
         ).result()
         return parse_as_cluster_config(result)
-    except HTTPError:
+    except HTTPError as e:
         log.exception(
             "Failure while fetching kafka-cluster for cluster-type:{type}, cluster-name"
             ":{cluster_name}.".format(type=cluster_type, cluster_name=cluster_name),
         )
-        raise
+        raise InvalidClusterTypeOrNameError(e.response.text)
 
 
 def make_scribe_regex(stream):

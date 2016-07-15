@@ -43,7 +43,7 @@ setup(
     description='A library to interact with Apache Kafka at Yelp',
     packages=find_packages(exclude=["tests*"]),
     install_requires=[
-        'bravado==8.2.0',
+        'bravado',
         'bravado_decorators',
         'kafka-python==0.9.5.post3',
         'kazoo>=2.0.post2',
