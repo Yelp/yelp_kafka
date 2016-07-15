@@ -208,25 +208,6 @@ class KafkaConsumerGroup(object):
         "value". This message format is different from those yielded by
         :py:class:`yelp_kafka.consumer_group.ConsumerGroup`.
 
-    Example:
-
-    .. code-block:: python
-
-        from yelp_kafka import discovery
-        from yelp_kafka.consumer_group import KafkaConsumerGroup
-        from yelp_kafka.config import KafkaConsumerConfig
-
-        cluster = discovery.get_local_cluster('standard')
-        config = KafkaConsumerConfig('my_group', cluster)
-
-        # A "tail" consumer that reads, prints, and eventually commits every
-        # message from a list of topics.
-        consumer = KafkaConsumerGroup(['my-topic1', 'my-topic2'], config)
-        with consumer:
-            for message in consumer:
-                print message.value
-                consumer.task_done(message)
-
     :param topics: a list of topics to consume from.
     :type topics: list
     :param config: yelp_kakfa consumer config.
