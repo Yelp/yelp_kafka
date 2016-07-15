@@ -3,6 +3,8 @@ from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import collections
+import contextlib
+from io import StringIO
 
 import mock
 import pytest
@@ -54,19 +56,31 @@ def mock_kafka_discovery_client():
 
 
 def test_get_local_region():
-    m = mock.mock_open()
-    with mock.patch('__builtin__.open'.format(), m, create=True):
-        discovery.get_local_region()
-
-    m.assert_called_once_with(discovery.REGION_FILE_PATH, 'r')
+    stio = StringIO()
+    stio.write('region1')
+    stio.seek(0)
+    with mock.patch.object(
+        discovery,
+        'open',
+        return_value=contextlib.closing(stio)
+    ) as mock_open:
+        actual = discovery.get_local_region()
+        mock_open.assert_called_once_with(discovery.REGION_FILE_PATH, 'r')
+        assert actual == 'region1'
 
 
 def test_get_local_superregion():
-    m = mock.mock_open()
-    with mock.patch('__builtin__.open'.format(), m, create=True):
-        discovery.get_local_superregion()
-
-    m.assert_called_once_with(discovery.SUPERREGION_FILE_PATH, 'r')
+    stio = StringIO()
+    stio.write('superregion1')
+    stio.seek(0)
+    with mock.patch.object(
+        discovery,
+        'open',
+        return_value=contextlib.closing(stio)
+    ) as mock_open:
+        actual = discovery.get_local_superregion()
+        mock_open.assert_called_once_with(discovery.SUPERREGION_FILE_PATH, 'r')
+        assert actual == 'superregion1'
 
 
 def test_parse_as_cluster_config(mock_response_obj, mock_clusters):

@@ -7,7 +7,6 @@ import os
 from collections import namedtuple
 
 import six
-import staticconf
 import yaml
 from bravado.client import SwaggerClient
 from bravado.fido_client import FidoClient
@@ -41,14 +40,8 @@ AUTO_COMMIT_MSG_COUNT = None
 AUTO_COMMIT_INTERVAL_SECS = 1
 
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
+DEFAULT_KAFKA_DISCOVERY_SERVICE_PATH = '/nail/etc/services/services.yaml'
 
-service_conf = staticconf.YamlConfiguration(
-    '/nail/etc/services/services.yaml',
-    namespace='smartstack_services',
-)
-host = service_conf['kafka_discovery.main.host']
-port = service_conf['kafka_discovery.main.port']
-SWAGGER_URL = 'http://{0}:{1}/swagger.json'.format(host, port)
 RESPONSE_TIMEOUT = 2.0  # Response timeout (2 sec) for kafka cluster-endpoints
 
 
@@ -104,6 +97,15 @@ class ClusterConfig(
 def load_yaml_config(config_path):
     with open(config_path, 'r') as config_file:
         return yaml.safe_load(config_file)
+
+
+def get_swagger_url(service_path=DEFAULT_KAFKA_DISCOVERY_SERVICE_PATH):
+    service_conf = load_yaml_config(service_path)
+    host = service_conf['kafka_discovery.main']['host']
+    port = service_conf['kafka_discovery.main']['port']
+    return 'http://{0}:{1}/swagger.json'.format(host, port)
+
+SWAGGER_URL = get_swagger_url()
 
 
 class TopologyConfiguration(object):
