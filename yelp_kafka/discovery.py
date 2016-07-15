@@ -291,7 +291,8 @@ def discover_topics(cluster):
     """
     client = KafkaClient(cluster.broker_list)
     try:
-        return get_kafka_topics(client)
+        topics = get_kafka_topics(client)
+        return dict([(topic.decode(), partitions) for topic, partitions in six.iteritems(topics)])
     except:
         log.exception(
             "Topics discovery failed for %s",
