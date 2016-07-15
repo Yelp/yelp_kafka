@@ -10,12 +10,30 @@ import mock
 import pytest
 from bravado.exception import HTTPError
 
+from yelp_kafka import config
 from yelp_kafka import discovery
 from yelp_kafka.config import ClusterConfig
 from yelp_kafka.error import DiscoveryError
 from yelp_kafka.error import InvalidClusterTypeOrNameError
 from yelp_kafka.error import InvalidClusterTypeOrRegionError
 from yelp_kafka.error import InvalidClusterTypeOrSuperregionError
+
+
+MOCK_SERVICES_YAML = {
+    'service1.main': {'host': 'host1', 'port': 1111},
+    'kafka_discovery.main': {'host': 'host2', 'port': 2222}
+}
+
+
+@pytest.yield_fixture
+def mock_swagger_yaml():
+    with mock.patch(
+        'yelp_kafka.config.load_yaml_config',
+        return_value=MOCK_SERVICES_YAML,
+        create=True,
+    ) as m:
+        with mock.patch('os.path.isfile', return_value=True):
+            yield m
 
 
 @pytest.fixture
@@ -53,6 +71,12 @@ def mock_kafka_discovery_client():
         'yelp_kafka.discovery.get_kafka_discovery_client',
     ) as mock_kafka_discovery_client:
         yield mock_kafka_discovery_client
+
+
+def test_get_swagger_url(mock_swagger_yaml):
+    swagger_url = config.get_swagger_url('test_path')
+
+    assert swagger_url == 'http://host2:2222/swagger.json'
 
 
 def test_get_local_region():
