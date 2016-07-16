@@ -72,15 +72,3 @@ class OffsetCommitError(YelpKafkaError):
         ]):
             return True
         return False
-
-
-class InvalidClusterTypeOrRegionError(YelpKafkaError):
-    pass
-
-
-class InvalidClusterTypeOrNameError(YelpKafkaError):
-    pass
-
-
-class InvalidClusterTypeOrSuperregionError(YelpKafkaError):
-    pass

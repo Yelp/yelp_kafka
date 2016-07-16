@@ -8,14 +8,9 @@ from collections import namedtuple
 
 import six
 import yaml
-from bravado.client import SwaggerClient
-from bravado.fido_client import FidoClient
-from bravado_decorators.retry import SmartStackClient
-from bravado_decorators.retry import UserFacingRetryConfig
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
-from yelp_lib.decorators import memoized
 
 from yelp_kafka.error import ConfigurationError
 
@@ -40,26 +35,6 @@ AUTO_COMMIT_MSG_COUNT = None
 AUTO_COMMIT_INTERVAL_SECS = 1
 
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
-DEFAULT_KAFKA_DISCOVERY_SERVICE_PATH = '/nail/etc/services/services.yaml'
-
-RESPONSE_TIMEOUT = 2.0  # Response timeout (2 sec) for kafka cluster-endpoints
-
-
-@memoized
-def get_kafka_discovery_client(client_name):
-    """Create smartstack-client for kafka_discovery service."""
-    # Default retry is 1 on response timeout
-    retry_config = UserFacingRetryConfig(timeout=RESPONSE_TIMEOUT)
-    swagger_client = SwaggerClient.from_url(
-        SWAGGER_URL,
-        FidoClient(),
-    )
-    return SmartStackClient(
-        swagger_client,
-        retry_config,
-        client_name=client_name,
-        service_name='kafka_discovery',
-    )
 
 
 class ClusterConfig(
@@ -97,15 +72,6 @@ class ClusterConfig(
 def load_yaml_config(config_path):
     with open(config_path, 'r') as config_file:
         return yaml.safe_load(config_file)
-
-
-def get_swagger_url(service_path=DEFAULT_KAFKA_DISCOVERY_SERVICE_PATH):
-    service_conf = load_yaml_config(service_path)
-    host = service_conf['kafka_discovery.main']['host']
-    port = service_conf['kafka_discovery.main']['port']
-    return 'http://{0}:{1}/swagger.json'.format(host, port)
-
-SWAGGER_URL = get_swagger_url()
 
 
 class TopologyConfiguration(object):
