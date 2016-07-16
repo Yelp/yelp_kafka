@@ -6,21 +6,144 @@ import logging
 import re
 
 import six
+from bravado.exception import HTTPError
 from kafka import KafkaClient
 
+from yelp_kafka.config import ClusterConfig
+from yelp_kafka.config import get_kafka_discovery_client
 from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.config import TopologyConfiguration
 from yelp_kafka.error import ConfigurationError
 from yelp_kafka.error import DiscoveryError
+from yelp_kafka.error import InvalidClusterTypeOrNameError
+from yelp_kafka.error import InvalidClusterTypeOrRegionError
+from yelp_kafka.error import InvalidClusterTypeOrSuperregionError
 from yelp_kafka.utils import get_kafka_topics
 from yelp_kafka.utils import make_scribe_topic
 
-
-ECOSYSTEM_PATH = '/nail/etc/ecosystem'
 DEFAULT_KAFKA_SCRIBE = 'scribe'
+REGION_FILE_PATH = '/nail/etc/region'
+SUPERREGION_FILE_PATH = '/nail/etc/superregion'
 
 
 log = logging.getLogger(__name__)
+
+
+def get_local_region():
+    """Get local-region name."""
+    try:
+        with open(REGION_FILE_PATH, 'r') as region_file:
+            return region_file.read().rstrip()
+    except IOError:
+        err_msg = "Could not retrieve region information at {file}".format(
+            file=REGION_FILE_PATH,
+        )
+        log.exception(err_msg)
+        raise
+
+
+def get_local_superregion():
+    """Get local-superregion name."""
+    try:
+        with open(SUPERREGION_FILE_PATH, 'r') as superregion_file:
+            return superregion_file.read().rstrip()
+    except IOError:
+        err_msg = "Could not retrieve superregion information at {file}".format(
+            file=SUPERREGION_FILE_PATH,
+        )
+        log.exception(err_msg)
+        raise
+
+
+def parse_as_cluster_config(config_obj):
+    """Parse response config to Cluster-config type."""
+    return ClusterConfig(
+        name=config_obj.name,
+        type=config_obj.type,
+        broker_list=config_obj.broker_list,
+        zookeeper=config_obj.zookeeper,
+    )
+
+
+def get_region_cluster(cluster_type, client_name, region=None):
+    """Get the kafka cluster for given region. If no region is given, we default
+    to local region.
+
+    :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
+    :type cluster_type: string
+    :param region: region name for which kafka-cluster is desired.
+    :type region: string
+    :returns: py:class:`yelp_kafka.config.ClusterConfig`
+    """
+    if not region:
+        region = get_local_region()
+
+    client = get_kafka_discovery_client(client_name)
+    try:
+        result = client.v1.getClustersWithRegion(
+            type=cluster_type,
+            region=region,
+        ).result()
+        return parse_as_cluster_config(result)
+    except HTTPError as e:
+        log.exception(
+            "Failure while fetching kafka-cluster for cluster-type:{type}, region"
+            ":{region}.".format(type=cluster_type, region=region),
+        )
+        raise InvalidClusterTypeOrRegionError(e.response.text)
+
+
+def get_superregion_cluster(cluster_type, client_name, superregion=None):
+    """Get the kafka cluster for given superregion. If no region is specified,
+    we default to local superregion.
+
+    :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
+    :type cluster_type: string
+    :param superregion: region name for which kafka-cluster is desired.
+    :type superregion: string
+    :returns: py:class:`yelp_kafka.config.ClusterConfig`
+    """
+    if not superregion:
+        superregion = get_local_superregion()
+    client = get_kafka_discovery_client(client_name)
+
+    try:
+        result = client.v1.getClustersWithSuperregion(
+            type=cluster_type,
+            superregion=superregion,
+        ).result()
+        return parse_as_cluster_config(result)
+    except HTTPError as e:
+        log.exception(
+            "Failure while fetching kafka-cluster for cluster-type:{type}, "
+            "superregion :{superregion}.".format(type=cluster_type, superregion=superregion),
+        )
+        raise InvalidClusterTypeOrSuperregionError(e.response.text)
+
+
+def get_kafka_cluster(cluster_type, client_name, cluster_name):
+    """Get a :py:class:`yelp_kafka.config.ClusterConfig` for a given
+    cluster-type and name.
+
+    :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
+    :type cluster_type: string
+    :param cluster_name: name of the cluster (ex.'uswest1-devc').
+    :type cluster_type: string
+    :returns: :py:class:`yelp_kafka.config.ClusterConfig`
+    """
+    client = get_kafka_discovery_client(client_name)
+    try:
+        result = client.v1.getClustersWithName(
+            type=cluster_type,
+            kafka_cluster_name=cluster_name,
+        ).result()
+        return parse_as_cluster_config(result)
+    except HTTPError as e:
+        log.exception(
+            "Failure while fetching kafka-cluster for cluster-type:{type}, cluster-name"
+            ":{cluster_name}.".format(type=cluster_type, cluster_name=cluster_name),
+        )
+        raise InvalidClusterTypeOrNameError(e.response.text)
 
 
 def make_scribe_regex(stream):
@@ -53,8 +176,8 @@ def get_all_clusters(cluster_type):
 
 
 def get_cluster_by_name(cluster_type, cluster_name):
-    """Get a :py:class:`yelp_kafka.config.ClusterConfig` from an ecosystem with
-    a particular name.
+    """Get a :py:class:`yelp_kafka.config.ClusterConfig` kafka-cluster
+    configuration for given type and name.
 
     :param cluster_type: kafka cluster type
         (ex.'scribe' or 'standard').
