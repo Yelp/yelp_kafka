@@ -50,8 +50,9 @@ def get_kafka_discovery_client(client_name):
     """Create smartstack-client for kafka_discovery service."""
     # Default retry is 1 on response timeout
     retry_config = UserFacingRetryConfig(timeout=RESPONSE_TIMEOUT)
+    swagger_url = get_swagger_url()
     swagger_client = SwaggerClient.from_url(
-        SWAGGER_URL,
+        swagger_url,
         FidoClient(),
     )
     return SmartStackClient(
@@ -104,8 +105,6 @@ def get_swagger_url(service_path=DEFAULT_KAFKA_DISCOVERY_SERVICE_PATH):
     host = service_conf['kafka_discovery.main']['host']
     port = service_conf['kafka_discovery.main']['port']
     return 'http://{0}:{1}/swagger.json'.format(host, port)
-
-SWAGGER_URL = get_swagger_url()
 
 
 class TopologyConfiguration(object):
