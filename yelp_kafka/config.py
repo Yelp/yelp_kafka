@@ -236,6 +236,13 @@ class KafkaConsumerConfig(object):
         * **client_id**: client id to use on connection. Default: 'yelp-kafka'.
         * **partitioner_cooldown**: Waiting time for the consumer
           to acquire the partitions. Default: 30 seconds.
+        * **use_group_sha**: Used by partitioner to establish group membership.
+          When True the partitioner will use the topic list to represent group itself.
+          Basically groups with the same name but subscribed to different topic
+          lists will not coordinate with each other. If False, groups with the same
+          name but a different topic list will coordinate with each other for
+          consumption. NOTE: in this case some topics may not be assigned until all
+          consumers of the group converge to the same topics list. Default: True.
         * **max_termination_timeout_secs**: Used by MultiprocessinConsumerGroup
           time to wait for a consumer to terminate. Default 10 secs.
         * **metrics_reporter**: Used by
@@ -437,6 +444,10 @@ class KafkaConsumerConfig(object):
     @property
     def zookeeper(self):
         return self.cluster.zookeeper
+
+    @property
+    def use_group_sha(self):
+        return self._config.get('use_group_sha', True)
 
     @property
     def group_path(self):

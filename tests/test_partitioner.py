@@ -11,6 +11,7 @@ from kazoo.protocol.states import KazooState
 from kazoo.recipe.partitioner import PartitionState
 from kazoo.recipe.partitioner import SetPartitioner
 
+from yelp_kafka.config import KafkaConsumerConfig
 from yelp_kafka.error import PartitionerError
 from yelp_kafka.error import PartitionerZookeeperError
 from yelp_kafka.partitioner import Partitioner
@@ -31,6 +32,34 @@ class TestPartitioner(object):
     @mock.patch('yelp_kafka.partitioner.KafkaClient', autospec=True)
     def partitioner(self, kazoo, kafka, config):
         return Partitioner(config, self.topics, mock.Mock(), mock.Mock())
+
+    def test_partitioner_use_sha(self, cluster):
+        config = KafkaConsumerConfig(
+            cluster=cluster,
+            group_id='test_group',
+            client_id='test_client_id',
+            partitioner_cooldown=0.5,
+            use_group_sha=True,
+            pre_rebalance_callback=mock.Mock(),
+            post_rebalance_callback=mock.Mock(),
+        )
+        p = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
+
+        assert p.zk_group_path == '/yelp-kafka/test_group/{sha}'.format(sha=self.sha)
+
+    def test_partitioner_use_sha_false(self, cluster):
+        config = KafkaConsumerConfig(
+            cluster=cluster,
+            group_id='test_group',
+            client_id='test_client_id',
+            partitioner_cooldown=0.5,
+            use_group_sha=False,
+            pre_rebalance_callback=mock.Mock(),
+            post_rebalance_callback=mock.Mock(),
+        )
+        p = Partitioner(config, self.topics, mock.Mock(), mock.Mock())
+
+        assert p.zk_group_path == '/yelp-kafka/test_group'
 
     def test_get_partitions_set(self, partitioner):
         with mock.patch(
