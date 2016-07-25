@@ -91,7 +91,7 @@ class Partitioner(object):
         self.zk_group_path = build_zk_group_path(
             self.config.group_path,
             self.topics,
-        )
+        ) if self.config.use_group_sha else self.config.group_path
 
     def start(self):
         """Create a new group and wait until the partitions have been

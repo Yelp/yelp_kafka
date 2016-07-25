@@ -8,14 +8,9 @@ from collections import namedtuple
 
 import six
 import yaml
-from bravado.client import SwaggerClient
-from bravado.fido_client import FidoClient
-from bravado_decorators.retry import SmartStackClient
-from bravado_decorators.retry import UserFacingRetryConfig
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
-from yelp_lib.decorators import memoized
 
 from yelp_kafka.error import ConfigurationError
 
@@ -40,27 +35,6 @@ AUTO_COMMIT_MSG_COUNT = None
 AUTO_COMMIT_INTERVAL_SECS = 1
 
 DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
-DEFAULT_KAFKA_DISCOVERY_SERVICE_PATH = '/nail/etc/services/services.yaml'
-
-RESPONSE_TIMEOUT = 2.0  # Response timeout (2 sec) for kafka cluster-endpoints
-
-
-@memoized
-def get_kafka_discovery_client(client_name):
-    """Create smartstack-client for kafka_discovery service."""
-    # Default retry is 1 on response timeout
-    retry_config = UserFacingRetryConfig(timeout=RESPONSE_TIMEOUT)
-    swagger_url = get_swagger_url()
-    swagger_client = SwaggerClient.from_url(
-        swagger_url,
-        FidoClient(),
-    )
-    return SmartStackClient(
-        swagger_client,
-        retry_config,
-        client_name=client_name,
-        service_name='kafka_discovery',
-    )
 
 
 class ClusterConfig(
@@ -98,13 +72,6 @@ class ClusterConfig(
 def load_yaml_config(config_path):
     with open(config_path, 'r') as config_file:
         return yaml.safe_load(config_file)
-
-
-def get_swagger_url(service_path=DEFAULT_KAFKA_DISCOVERY_SERVICE_PATH):
-    service_conf = load_yaml_config(service_path)
-    host = service_conf['kafka_discovery.main']['host']
-    port = service_conf['kafka_discovery.main']['port']
-    return 'http://{0}:{1}/swagger.json'.format(host, port)
 
 
 class TopologyConfiguration(object):
@@ -236,6 +203,13 @@ class KafkaConsumerConfig(object):
         * **client_id**: client id to use on connection. Default: 'yelp-kafka'.
         * **partitioner_cooldown**: Waiting time for the consumer
           to acquire the partitions. Default: 30 seconds.
+        * **use_group_sha**: Used by partitioner to establish group membership.
+          When True the partitioner will use the topic list to represent group itself.
+          Basically groups with the same name but subscribed to different topic
+          lists will not coordinate with each other. If False, groups with the same
+          name but a different topic list will coordinate with each other for
+          consumption. NOTE: in this case some topics may not be assigned until all
+          consumers of the group converge to the same topics list. Default: True.
         * **max_termination_timeout_secs**: Used by MultiprocessinConsumerGroup
           time to wait for a consumer to terminate. Default 10 secs.
         * **metrics_reporter**: Used by
@@ -437,6 +411,10 @@ class KafkaConsumerConfig(object):
     @property
     def zookeeper(self):
         return self.cluster.zookeeper
+
+    @property
+    def use_group_sha(self):
+        return self._config.get('use_group_sha', True)
 
     @property
     def group_path(self):
