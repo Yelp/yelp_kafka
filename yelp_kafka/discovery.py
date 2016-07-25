@@ -30,7 +30,7 @@ log = logging.getLogger(__name__)
 
 
 def get_local_region():
-    """Get local-region name."""
+    """Get local-region name from region-file path."""
     try:
         with open(REGION_FILE_PATH, 'r') as region_file:
             return region_file.read().rstrip()
