@@ -65,15 +65,15 @@ def parse_as_cluster_config(config_obj):
     )
 
 
-def get_region_cluster(cluster_type, client_name, region=None):
+def get_region_cluster(cluster_type, client_id, region=None):
     """Get the kafka cluster for given region. If no region is given, we default
     to local region.
 
     :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
-    :param client_name: name of the client making the discovery request. Usually
+    :param client_id: name of the client making the discovery request. Usually
         the same client id used to create the Kafka connection.
-    :type client_name: string
+    :type client_id: string
     :param region: region name for which kafka cluster is desired.
     :type region: string
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
@@ -81,7 +81,7 @@ def get_region_cluster(cluster_type, client_name, region=None):
     if not region:
         region = get_local_region()
 
-    client = get_kafka_discovery_client(client_name)
+    client = get_kafka_discovery_client(client_id)
     try:
         result = client.v1.getClustersWithRegion(
             type=cluster_type,
@@ -96,22 +96,22 @@ def get_region_cluster(cluster_type, client_name, region=None):
         raise InvalidClusterTypeOrRegionError(e.response.text)
 
 
-def get_superregion_cluster(cluster_type, client_name, superregion=None):
+def get_superregion_cluster(cluster_type, client_id, superregion=None):
     """Get the kafka cluster for given superregion. If no region is specified,
     we default to local superregion.
 
     :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
-    :param client_name: name of the client making the discovery request. Usually
+    :param client_id: name of the client making the discovery request. Usually
         the same client id used to create the Kafka connection.
-    :type client_name: string
+    :type client_id: string
     :param superregion: region name for which kafka cluster is desired.
     :type superregion: string
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
     if not superregion:
         superregion = get_local_superregion()
-    client = get_kafka_discovery_client(client_name)
+    client = get_kafka_discovery_client(client_id)
 
     try:
         result = client.v1.getClustersWithSuperregion(
@@ -127,20 +127,20 @@ def get_superregion_cluster(cluster_type, client_name, superregion=None):
         raise InvalidClusterTypeOrSuperregionError(e.response.text)
 
 
-def get_kafka_cluster(cluster_type, client_name, cluster_name):
+def get_kafka_cluster(cluster_type, client_id, cluster_name):
     """Get a :py:class:`yelp_kafka.config.ClusterConfig` for a given
     cluster-type and name.
 
     :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
-    :param client_name: name of the client making the discovery request. Usually
+    :param client_id: name of the client making the discovery request. Usually
         the same client id used to create the Kafka connection.
-    :type client_name: string
+    :type client_id: string
     :param cluster_name: name of the cluster (ex.'uswest1-devc').
     :type cluster_name: string
     :returns: :py:class:`yelp_kafka.config.ClusterConfig`
     """
-    client = get_kafka_discovery_client(client_name)
+    client = get_kafka_discovery_client(client_id)
     try:
         result = client.v1.getClustersWithName(
             type=cluster_type,

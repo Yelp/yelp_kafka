@@ -46,7 +46,7 @@ RESPONSE_TIMEOUT = 2.0  # Response timeout (2 sec) for kafka cluster-endpoints
 
 
 @memoized
-def get_kafka_discovery_client(client_name):
+def get_kafka_discovery_client(client_id):
     """Create smartstack-client for kafka_discovery service."""
     # Default retry is 1 on response timeout
     retry_config = UserFacingRetryConfig(timeout=RESPONSE_TIMEOUT)
@@ -58,7 +58,7 @@ def get_kafka_discovery_client(client_name):
     return SmartStackClient(
         swagger_client,
         retry_config,
-        client_name=client_name,
+        client_id=client_id,
         service_name='kafka_discovery',
     )
 
