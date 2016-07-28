@@ -45,7 +45,7 @@ setup(
     install_requires=[
         'bravado',
         'bravado_decorators',
-        'kafka-python==0.9.5.post3',
+        'kafka-python==0.9.5.post4',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
         'requests',
