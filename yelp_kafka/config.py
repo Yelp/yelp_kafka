@@ -58,7 +58,7 @@ def get_kafka_discovery_client(client_id):
     return SmartStackClient(
         swagger_client,
         retry_config,
-        client_id=client_id,
+        client_name=client_id,
         service_name='kafka_discovery',
     )
 
