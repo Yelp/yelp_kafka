@@ -71,7 +71,10 @@ def get_region_cluster(cluster_type, client_name, region=None):
 
     :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
-    :param region: region name for which kafka-cluster is desired.
+    :param client_name: name of the client making the discovery request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_name: string
+    :param region: region name for which kafka cluster is desired.
     :type region: string
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
@@ -87,7 +90,7 @@ def get_region_cluster(cluster_type, client_name, region=None):
         return parse_as_cluster_config(result)
     except HTTPError as e:
         log.exception(
-            "Failure while fetching kafka-cluster for cluster-type:{type}, region"
+            "Failure while fetching kafka cluster for cluster-type:{type}, region"
             ":{region}.".format(type=cluster_type, region=region),
         )
         raise InvalidClusterTypeOrRegionError(e.response.text)
@@ -99,7 +102,10 @@ def get_superregion_cluster(cluster_type, client_name, superregion=None):
 
     :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
-    :param superregion: region name for which kafka-cluster is desired.
+    :param client_name: name of the client making the discovery request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_name: string
+    :param superregion: region name for which kafka cluster is desired.
     :type superregion: string
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
@@ -115,7 +121,7 @@ def get_superregion_cluster(cluster_type, client_name, superregion=None):
         return parse_as_cluster_config(result)
     except HTTPError as e:
         log.exception(
-            "Failure while fetching kafka-cluster for cluster-type:{type}, "
+            "Failure while fetching kafka cluster for cluster-type:{type}, "
             "superregion :{superregion}.".format(type=cluster_type, superregion=superregion),
         )
         raise InvalidClusterTypeOrSuperregionError(e.response.text)
@@ -127,8 +133,11 @@ def get_kafka_cluster(cluster_type, client_name, cluster_name):
 
     :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
+    :param client_name: name of the client making the discovery request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_name: string
     :param cluster_name: name of the cluster (ex.'uswest1-devc').
-    :type cluster_type: string
+    :type cluster_name: string
     :returns: :py:class:`yelp_kafka.config.ClusterConfig`
     """
     client = get_kafka_discovery_client(client_name)
@@ -140,7 +149,7 @@ def get_kafka_cluster(cluster_type, client_name, cluster_name):
         return parse_as_cluster_config(result)
     except HTTPError as e:
         log.exception(
-            "Failure while fetching kafka-cluster for cluster-type:{type}, cluster-name"
+            "Failure while fetching kafka cluster for cluster-type:{type}, cluster-name"
             ":{cluster_name}.".format(type=cluster_type, cluster_name=cluster_name),
         )
         raise InvalidClusterTypeOrNameError(e.response.text)
@@ -176,7 +185,7 @@ def get_all_clusters(cluster_type):
 
 
 def get_cluster_by_name(cluster_type, cluster_name):
-    """Get a :py:class:`yelp_kafka.config.ClusterConfig` kafka-cluster
+    """Get a :py:class:`yelp_kafka.config.ClusterConfig` kafka cluster
     configuration for given type and name.
 
     :param cluster_type: kafka cluster type
