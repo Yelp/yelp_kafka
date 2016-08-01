@@ -22,6 +22,7 @@ Create a producer for my_topic in the local standard Kafka cluster.
    from kafka.common import KafkaUnavailableError
    from kafka.common import LeaderNotAvailableError
    from kafka.common import NotLeaderForPartitionError
+   from kafka.common import UnknownTopicOrPartitionError
 
    # Get a connected KafkaClient from yelp_kafka
    client = discovery.get_kafka_connection('standard', client_id='my-client-id')
@@ -35,10 +36,16 @@ Create a producer for my_topic in the local standard Kafka cluster.
    )
    try:
        producer.send_messages("my_topic", "message1", "message2")
-   except (FailedPayloadsError, KafkaUnavailableError, LeaderNotAvailableError, NotLeaderForPartitionError):
+   except (
+       FailedPayloadsError,
+       KafkaUnavailableError,
+       LeaderNotAvailableError,
+       NotLeaderForPartitionError,
+       UnknownTopicOrPartitionError,
+   ):
        # Usually we want to retry a certain number of times when encountering these exceptions
        pass
-       
+
 
 
 This example makes use of the `YelpKafkaSimpleProducer`_ class from yelp_kafka.
