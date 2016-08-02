@@ -240,7 +240,7 @@ class KafkaConsumerGroup(object):
         if config.metrics_reporter == 'signalfx':
             self._setup_signalfx_reporter(config)
             consumer_config['metrics_responder'] = self._add_to_metrics_queue
-        else:
+        elif config.metrics_reporter == 'yelp_meteorite':
             self._setup_meteorite_reporter(config)
             consumer_config['metrics_responder'] = self._send_to_yelp_meteorite
 

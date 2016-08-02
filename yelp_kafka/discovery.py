@@ -193,12 +193,12 @@ def get_all_clusters(cluster_type):
 
 
 def get_cluster_by_name(cluster_type, cluster_name):
-    """Get a :py:class:`yelp_kafka.config.ClusterConfig` kafka cluster
+    """Get a :py:class:`yelp_kafka.config.ClusterConfig` kafka-cluster
     configuration for given type and name.
 
-   .. deprecated:: 4.15.0
-      Use :func:`get_region_cluster` or :func:`get_superregion_cluster`
-      or :func:`get_kafka_cluster` instead.
+    .. deprecated:: 4.15.0
+       Use :func:`get_region_cluster` or :func:`get_superregion_cluster`
+       or :func:`get_kafka_cluster` instead.
 
     :param cluster_type: kafka cluster type
         (ex.'scribe' or 'standard').

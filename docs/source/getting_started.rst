@@ -28,7 +28,7 @@ Create a producer for my_topic in the local standard Kafka cluster.
    # Get cluster configuration (We recommend using the region cluster which
    # defaults to the region of the caller (can be overridden) but superregion
    # or name cluster discovery is possible)
-   cluster_config = discovery.get_region_cluster('standard', 'my-service-name')
+   cluster_config = discovery.get_region_cluster('standard', 'my-client-id')
    # Create a kafka Client
    client = KafkaClient(cluster_config.broker_list, client_id='my-client-id')
    # Create the producer and send 2 messages
@@ -101,8 +101,6 @@ Consumer
    config = KafkaConsumerConfig(
        'my_group_id',
        cluster_config,
-       group_id='my_app',
-       cluster=cluster,
        auto_offset_reset='smallest',
        auto_commit_interval_ms=60000,  # By default 60 seconds
        auto_commit_interval_messages=100,  # By default 100 messages
@@ -340,7 +338,7 @@ Reporting metrics to SignalFx
 
 If you're using :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`, you
 can send metrics on request latency and error counts. This is on by default
-for yelp_kafka > 4.15.0. We suggest updating if missing metrics reporting
+for yelp_kafka and uses yelp_meteorite.
 
 Reporting metrics directly from the kafka client is an option that is only
 available in Yelp's fork of kafka-python (which yelp_kafka uses as
@@ -351,10 +349,10 @@ through the `report_metrics` parameter. This defaults to True but can be turned 
 
 .. code-block:: python
 
-   # Get a connected KafkaClient from yelp_kafka
-   client = discovery.get_kafka_connection('standard', client_id='my-client-id')
    # Get cluster configuration
-   cluster_config = discovery.get_local_cluster('standard')
+   cluster_config = discovery.get_region_cluster('standard', 'my-client-id')
+   # Create a kafka Client
+   client = KafkaClient(cluster_config.broker_list, client_id='my-client-id')
    # Create the producer and send 2 messages
    producer = YelpKafkaSimpleProducer(
        client=client,
