@@ -97,7 +97,7 @@ Consumer
    # Get cluster configuration (We recommend using the region cluster which
    # defaults to the region of the caller (can be overridden) but superregion
    # or name cluster discovery is possible)
-   cluster_config = discovery.get_region_cluster('standard', 'my-service-name')
+   cluster_config = discovery.get_region_cluster('standard', 'my-client-id')
    config = KafkaConsumerConfig(
        'my_group_id',
        cluster_config,
