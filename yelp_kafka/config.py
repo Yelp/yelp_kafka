@@ -12,6 +12,7 @@ from bravado.client import SwaggerClient
 from bravado.fido_client import FidoClient
 from bravado_decorators.retry import SmartStackClient
 from bravado_decorators.retry import UserFacingRetryConfig
+from bravado_decorators.zipkin_decorator import ZipkinClientDecorator
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
@@ -55,8 +56,9 @@ def get_kafka_discovery_client(client_id):
         swagger_url,
         FidoClient(),
     )
+    zipkin_wrapped_client = ZipkinClientDecorator(swagger_client)
     return SmartStackClient(
-        swagger_client,
+        zipkin_wrapped_client,
         retry_config,
         client_name=client_id,
         service_name='kafka_discovery',

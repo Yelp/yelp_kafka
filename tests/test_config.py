@@ -84,24 +84,28 @@ def test_get_kafka_discovery_client(mock_swagger_yaml):
                 'yelp_kafka.config.FidoClient',
                 autospec=True,
             ) as mock_fido:
-                mock_swagger.from_url.return_value = mock.sentinel.swagger_client
-                mock_client.return_value = mock.sentinel.client
-                mock_fido.return_value = mock.sentinel.fido
+                with mock.patch(
+                    'yelp_kafka.config.ZipkinClientDecorator',
+                    autospec=True,
+                ) as mock_zipkin_wrapper:
+                    mock_zipkin_wrapper.return_value = mock.sentinel.zipkin_client
+                    mock_client.return_value = mock.sentinel.client
+                    mock_fido.return_value = mock.sentinel.fido
 
-                actual_client = get_kafka_discovery_client('myclientid')
+                    actual_client = get_kafka_discovery_client('myclientid')
 
-                assert actual_client == mock.sentinel.client
-                mock_swagger.from_url.assert_called_once_with(
-                    u'http://host2:2222/swagger.json',  # See conftest.py
-                    mock.sentinel.fido,
-                )
-                assert mock_client.call_count == 1
-                actual_args, actual_kwargs = mock_client.call_args
-                assert actual_args[0] == mock.sentinel.swagger_client
-                assert actual_kwargs == {
-                    'client_name': 'myclientid',
-                    'service_name': 'kafka_discovery',
-                }
+                    assert actual_client == mock.sentinel.client
+                    mock_swagger.from_url.assert_called_once_with(
+                        u'http://host2:2222/swagger.json',  # See conftest.py
+                        mock.sentinel.fido,
+                    )
+                    assert mock_client.call_count == 1
+                    actual_args, actual_kwargs = mock_client.call_args
+                    assert actual_args[0] == mock.sentinel.zipkin_client
+                    assert actual_kwargs == {
+                        'client_name': 'myclientid',
+                        'service_name': 'kafka_discovery',
+                    }
 
 
 class TestClusterConfig():
