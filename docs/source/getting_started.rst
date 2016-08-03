@@ -17,6 +17,7 @@ Create a producer for my_topic in the local standard Kafka cluster.
 
    from yelp_kafka import discovery
    from yelp_kafka.producer import YelpKafkaSimpleProducer
+   from kafka import KafkaClient
    from kafka.common import ConsumerTimeout
    from kafka.common import FailedPayloadsError
    from kafka.common import KafkaUnavailableError
@@ -24,10 +25,12 @@ Create a producer for my_topic in the local standard Kafka cluster.
    from kafka.common import NotLeaderForPartitionError
    from kafka.common import UnknownTopicOrPartitionError
 
-   # Get a connected KafkaClient from yelp_kafka
-   client = discovery.get_kafka_connection('standard', client_id='my-client-id')
-   # Get cluster configuration
-   cluster_config = discovery.get_local_cluster('standard')
+   # Get cluster configuration (We recommend using the region cluster which
+   # defaults to the region of the caller (can be overridden) but superregion
+   # or name cluster discovery is possible)
+   cluster_config = discovery.get_region_cluster('standard', 'my-client-id')
+   # Create a kafka Client
+   client = KafkaClient(cluster_config.broker_list, client_id='my-client-id')
    # Create the producer and send 2 messages
    producer = YelpKafkaSimpleProducer(
        client=client,
@@ -91,12 +94,13 @@ Consumer
    from kafka.common import LeaderNotAvailableError
    from kafka.common import NotLeaderForPartitionError
 
-   cluster = discovery.get_local_cluster('standard')
+   # Get cluster configuration (We recommend using the region cluster which
+   # defaults to the region of the caller (can be overridden) but superregion
+   # or name cluster discovery is possible)
+   cluster_config = discovery.get_region_cluster('standard', 'my-client-id')
    config = KafkaConsumerConfig(
        'my_group_id',
-       cluster,
-       group_id='my_app',
-       cluster=cluster,
+       cluster_config,
        auto_offset_reset='smallest',
        auto_commit_interval_ms=60000,  # By default 60 seconds
        auto_commit_interval_messages=100,  # By default 100 messages
@@ -333,19 +337,8 @@ Reporting metrics to SignalFx
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you're using :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`, you
-can send metrics on request latency and error counts by setting the
-`metrics_reporter` config parameter to `"yelp_meteorite"`:
-
-.. code-block:: python
-
-  # If KafkaConsumerGroup has a metrics_reporter set to yelp_meteorite, then it
-  # will use meteorite to send data from kafka-python to SignalFx under the
-  # topic 'yelp_kafka.KafkaConsumerGroup.<name-of-metric>'
-  config = KafkaConsumerConfig('my-test-group',
-                               cluster,
-                               metrics_reporter='yelp_meteorite',
-                               ...)
-  consumer = KafkaConsumerGroup(my_topics, config)
+can send metrics on request latency and error counts. This is on by default
+for yelp_kafka and uses yelp_meteorite.
 
 Reporting metrics directly from the kafka client is an option that is only
 available in Yelp's fork of kafka-python (which yelp_kafka uses as
@@ -356,10 +349,10 @@ through the `report_metrics` parameter. This defaults to True but can be turned 
 
 .. code-block:: python
 
-   # Get a connected KafkaClient from yelp_kafka
-   client = discovery.get_kafka_connection('standard', client_id='my-client-id')
    # Get cluster configuration
-   cluster_config = discovery.get_local_cluster('standard')
+   cluster_config = discovery.get_region_cluster('standard', 'my-client-id')
+   # Create a kafka Client
+   client = KafkaClient(cluster_config.broker_list, client_id='my-client-id')
    # Create the producer and send 2 messages
    producer = YelpKafkaSimpleProducer(
        client=client,
