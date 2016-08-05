@@ -251,7 +251,7 @@ class KafkaConsumerConfig(object):
           :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` to send
           metrics data from kafka-python to SignalFx.
           Valid options are ``yelp_meteorite`` (which uses meteorite) and
-          ``signalfx`` (deprecated).
+          ``signalfx`` (deprecated). Defaults to yelp_meteorite
         * **signalfx_dimensions**: Additional dimensions to send to SignalFx.
           Both 'signalfx' and 'yelp_meteorite' use this.
         * **signalfx_send_metrics_interval**: How often to send metrics to
@@ -475,7 +475,7 @@ class KafkaConsumerConfig(object):
 
     @property
     def metrics_reporter(self):
-        return self._config.get('metrics_reporter', None)
+        return self._config.get('metrics_reporter', 'yelp_meteorite')
 
     @property
     def signalfx_dimensions(self):

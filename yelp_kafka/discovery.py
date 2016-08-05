@@ -24,6 +24,9 @@ from yelp_kafka.utils import make_scribe_topic
 DEFAULT_KAFKA_SCRIBE = 'scribe'
 REGION_FILE_PATH = '/nail/etc/region'
 SUPERREGION_FILE_PATH = '/nail/etc/superregion'
+DEPRECATED_MESSAGE = """This method is deprecated. Please switch to using
+get_region_cluster, get_superregion_cluster or get_kafka_cluster methods instead.
+"""
 
 
 log = logging.getLogger(__name__)
@@ -162,11 +165,16 @@ def make_scribe_regex(stream):
 def get_local_cluster(cluster_type):
     """Get the local kafka cluster.
 
+    .. deprecated:: 4.15.0
+       Use :func:`get_region_cluster` or :func:`get_superregion_cluster`
+       or :func:`get_kafka_cluster` instead.
+
     :param cluster_type: kafka cluster type
         (ex.'scribe' or 'standard').
     :type cluster_type: string
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
+    log.warning(DEPRECATED_MESSAGE)
     topology = TopologyConfiguration(cluster_type=cluster_type)
     return topology.get_local_cluster()
 
@@ -185,8 +193,12 @@ def get_all_clusters(cluster_type):
 
 
 def get_cluster_by_name(cluster_type, cluster_name):
-    """Get a :py:class:`yelp_kafka.config.ClusterConfig` kafka cluster
+    """Get a :py:class:`yelp_kafka.config.ClusterConfig` kafka-cluster
     configuration for given type and name.
+
+    .. deprecated:: 4.15.0
+       Use :func:`get_region_cluster` or :func:`get_superregion_cluster`
+       or :func:`get_kafka_cluster` instead.
 
     :param cluster_type: kafka cluster type
         (ex.'scribe' or 'standard').
@@ -196,6 +208,7 @@ def get_cluster_by_name(cluster_type, cluster_name):
     :type cluster_type: string
     :returns: :py:class:`yelp_kafka.config.ClusterConfig`
     """
+    log.warning(DEPRECATED_MESSAGE)
     topology = TopologyConfiguration(cluster_type=cluster_type)
     return topology.get_cluster_by_name(cluster_name)
 
