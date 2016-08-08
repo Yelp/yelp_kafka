@@ -9,7 +9,7 @@ from collections import namedtuple
 import six
 import yaml
 from bravado.client import SwaggerClient
-from bravado.fido_client import FidoClient
+from bravado.requests_client import RequestsClient
 from bravado_decorators.retry import SmartStackClient
 from bravado_decorators.retry import UserFacingRetryConfig
 from bravado_decorators.zipkin_decorator import ZipkinClientDecorator
@@ -54,7 +54,7 @@ def get_kafka_discovery_client(client_id):
     swagger_url = get_swagger_url()
     swagger_client = SwaggerClient.from_url(
         swagger_url,
-        FidoClient(),
+        RequestsClient(),
     )
     zipkin_wrapped_client = ZipkinClientDecorator(swagger_client)
     return SmartStackClient(

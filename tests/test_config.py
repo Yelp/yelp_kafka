@@ -81,9 +81,9 @@ def test_get_kafka_discovery_client(mock_swagger_yaml):
             autospec=True,
         ) as mock_swagger:
             with mock.patch(
-                'yelp_kafka.config.FidoClient',
+                'yelp_kafka.config.RequestsClient',
                 autospec=True,
-            ) as mock_fido:
+            ) as mock_request:
                 with mock.patch(
                     'yelp_kafka.config.ZipkinClientDecorator',
                     autospec=True,
@@ -91,7 +91,7 @@ def test_get_kafka_discovery_client(mock_swagger_yaml):
                     mock_swagger.from_url.return_value = mock.sentinel.swagger_client
                     mock_zipkin_wrapper.return_value = mock.sentinel.zipkin_client
                     mock_client.return_value = mock.sentinel.client
-                    mock_fido.return_value = mock.sentinel.fido
+                    mock_request.return_value = mock.sentinel.request
 
                     actual_client = get_kafka_discovery_client('myclientid')
 
@@ -100,7 +100,7 @@ def test_get_kafka_discovery_client(mock_swagger_yaml):
                     assert actual_args[0] == mock.sentinel.swagger_client
                     mock_swagger.from_url.assert_called_once_with(
                         u'http://host2:2222/swagger.json',  # See conftest.py
-                        mock.sentinel.fido,
+                        mock.sentinel.request,
                     )
                     assert mock_client.call_count == 1
                     actual_args, actual_kwargs = mock_client.call_args
