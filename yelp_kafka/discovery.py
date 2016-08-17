@@ -58,6 +58,22 @@ def get_local_superregion():
         raise
 
 
+def parse_as_scribe_topics(logs_result):
+    """Parse response topic configuration from kafka-discovery to desired type.
+
+    :returns: [([topics], cluster)]
+    """
+    cluster_to_topics_info = {}
+    for log_result in logs_result:
+        for topic_info in log_result.topics:
+            cluster_config = parse_as_cluster_config(topic_info.cluster)
+            if cluster_config in cluster_to_topics_info.keys():
+                cluster_to_topics_info[cluster_config][0].append(topic_info.topic)
+            else:
+                cluster_to_topics_info[cluster_config] = ([topic_info.topic], cluster_config)
+    return cluster_to_topics_info.values()
+
+
 def parse_as_cluster_config(config_obj):
     """Parse response config to Cluster-config type."""
     return ClusterConfig(
@@ -156,6 +172,64 @@ def get_kafka_cluster(cluster_type, client_id, cluster_name):
             ":{cluster_name}.".format(type=cluster_type, cluster_name=cluster_name),
         )
         raise InvalidClusterTypeOrNameError(e.response.text)
+
+
+def get_region_logs(client_id, regex, region=None):
+    """Get the kafka cluster logs for given region and topic-regex.
+    If no region is given, we default to local region.
+
+    :param client_id: name of the client making the logs request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_id: string
+    :param region: region name default is local-region.
+    :type region: string
+    :param regex: Topic regex whose logs are desired.
+    :type regex: string
+    :returns: [([topics], cluster)]
+    """
+    if not region:
+        region = get_local_region()
+
+    client = get_kafka_discovery_client(client_id)
+    try:
+        result = client.v1.getLogsForRegionWithRegex(region=region, regex=regex).result()
+        return parse_as_scribe_topics(result)
+    except HTTPError as e:
+        log.exception(
+            "Failure while fetching logs for region:{region}".format(region=region),
+        )
+        raise InvalidClusterTypeOrRegionError(e.response.text)
+
+
+def get_superregion_logs(client_id, regex, superregion=None):
+    """Get the kafka cluster logs for given superregion and topic-regex.
+    If no superregion is given, we default to local superregion.
+
+    :param client_id: name of the client making the logs request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_id: string
+    :param superregion: superregion name default is local-superregion.
+    :type superregion: string
+    :param regex: Topic regex whose logs are desired.
+    :type regex: string
+    :returns: [([topics], cluster)]
+    """
+    if not superregion:
+        superregion = get_local_superregion()
+
+    client = get_kafka_discovery_client(client_id)
+    try:
+        result = client.v1.getLogsForSuperregionWithRegex(
+            superregion=superregion,
+            regex=regex,
+        ).result()
+        return parse_as_scribe_topics(result)
+    except HTTPError as e:
+        log.exception(
+            "Failure while fetching logs for superregion:{superregion}"
+            .format(superregion=superregion),
+        )
+        raise InvalidClusterTypeOrSuperregionError(e.response.text)
 
 
 def make_scribe_regex(stream):

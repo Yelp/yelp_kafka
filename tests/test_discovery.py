@@ -40,6 +40,43 @@ def mock_response_obj():
 
 
 @pytest.fixture
+def mock_response_logs_parsed():
+    return [
+        (
+            ['a.c.stream1'],
+            ClusterConfig(type='type1', name='cluster2', broker_list=['mybroker2'], zookeeper='zk_hosts/kafka2')
+        ),
+        (
+            ['a.b.stream1', 'a.b.stream2'],
+            ClusterConfig(type='type1', name='cluster1', broker_list=['mybroker'], zookeeper='zk_hosts/kafka')
+        )
+    ]
+
+
+@pytest.fixture
+def mock_response_logs_obj(mock_response_obj):
+    TopicInfo = collections.namedtuple('TopicInfo', 'cluster topic')
+    LogInfoObj = collections.namedtuple('LogInfoObj', 'name region superregion topics')
+    ClusterObj = collections.namedtuple('ClusterObj', 'name type broker_list zookeeper')
+    cluster_obj1 = mock_response_obj
+    cluster_obj2 = ClusterObj(
+        type='type1',
+        name='cluster2',
+        broker_list=['mybroker2'],
+        zookeeper='zk_hosts/kafka2',
+    )
+    return [
+        LogInfoObj(name=u'stream1', region=u'region1', superregion=u'superregion1', topics=[
+            TopicInfo(cluster=cluster_obj1, topic=u'a.b.stream1'),
+            TopicInfo(cluster=cluster_obj2, topic=u'a.c.stream1')
+        ]),
+        LogInfoObj(name=u'stream2', region=u'region1', superregion=u'superregion1', topics=[
+            TopicInfo(cluster=cluster_obj1, topic=u'a.b.stream2'),
+        ]),
+    ]
+
+
+@pytest.fixture
 def mock_err_obj():
     # This is done for HTTPError response object (e) to be access e.response.text
     ResponseError = collections.namedtuple('ResponseError', 'text response')
@@ -151,7 +188,11 @@ def test_get_superregion_cluster_default(
         assert mock_get_local_superregion.called
 
 
-def test_get_superregion_cluster(mock_kafka_discovery_client, mock_response_obj, mock_clusters):
+def test_get_superregion_cluster(
+    mock_kafka_discovery_client,
+    mock_response_obj,
+    mock_clusters,
+):
     mock_kafka_discovery_client.return_value.v1.getClustersWithSuperregion.\
         return_value.result.return_value = mock_response_obj
     cluster_config = discovery.get_superregion_cluster(
@@ -171,7 +212,6 @@ def test_get_superregion_cluster(mock_kafka_discovery_client, mock_response_obj,
 def test_get_superregion_cluster_invalid_type(
     mock_kafka_discovery_client,
     mock_response_obj,
-    mock_clusters,
     mock_err_obj,
 ):
     mock_kafka_discovery_client.return_value.v1.getClustersWithSuperregion.\
@@ -200,13 +240,106 @@ def test_get_kafka_cluster(mock_kafka_discovery_client, mock_response_obj, mock_
 def test_get_kafka_cluster_invalid(
     mock_kafka_discovery_client,
     mock_response_obj,
-    mock_clusters,
     mock_err_obj,
 ):
     mock_kafka_discovery_client.return_value.v1.getClustersWithName.\
         return_value.result.side_effect = HTTPError(mock_err_obj)
     with pytest.raises(InvalidClusterTypeOrNameError):
         discovery.get_kafka_cluster('invalid-type', 'client-1', 'cluster1')
+
+
+def test_get_region_logs_default(
+    mock_kafka_discovery_client,
+    mock_response_logs_obj,
+    mock_response_logs_parsed,
+):
+    with mock.patch(
+        'yelp_kafka.discovery.get_local_region',
+        return_value='region_default',
+    ) as mock_get_local_region:
+        mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
+            return_value.result.return_value = mock_response_logs_obj
+        region_logs = discovery.get_region_logs('client-1', regex='stream')
+
+        assert sorted(mock_response_logs_parsed) == sorted(region_logs)
+        assert mock_get_local_region.called
+        mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
+            assert_called_once_with(region='region_default', regex='stream')
+
+
+def test_get_region_logs(mock_kafka_discovery_client, mock_response_logs_obj, mock_response_logs_parsed):
+    mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
+        return_value.result.return_value = mock_response_logs_obj
+    region_logs = discovery.get_region_logs('client-1', regex='stream', region='region1')
+
+    assert sorted(mock_response_logs_parsed) == sorted(region_logs)
+    mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
+        assert_called_once_with(region='region1', regex='stream')
+
+
+def test_get_region_logs_invalid_region(
+    mock_kafka_discovery_client,
+    mock_response_logs_obj,
+    mock_response_logs_parsed,
+    mock_err_obj,
+):
+    mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
+        return_value.result.side_effect = HTTPError(mock_err_obj)
+    with pytest.raises(InvalidClusterTypeOrRegionError):
+        discovery.get_region_logs('client-1', regex='stream', region='region1')
+
+
+def test_get_superregion_logs_default(
+    mock_kafka_discovery_client,
+    mock_response_logs_obj,
+    mock_response_logs_parsed,
+):
+    with mock.patch(
+        'yelp_kafka.discovery.get_local_superregion',
+        return_value='superregion_default',
+    ) as mock_get_local_superregion:
+        mock_kafka_discovery_client.return_value.v1.getLogsForSuperregionWithRegex.\
+            return_value.result.return_value = mock_response_logs_obj
+        superregion_logs = discovery.get_superregion_logs('client-1', regex='stream')
+
+        assert sorted(mock_response_logs_parsed) == sorted(superregion_logs)
+        assert mock_get_local_superregion.called
+        mock_kafka_discovery_client.return_value.v1.getLogsForSuperregionWithRegex.\
+            assert_called_once_with(superregion='superregion_default', regex='stream')
+
+
+def test_get_superregion_logs(
+    mock_kafka_discovery_client,
+    mock_response_logs_obj,
+    mock_response_logs_parsed,
+):
+    mock_kafka_discovery_client.return_value.v1.getLogsForSuperregionWithRegex.\
+        return_value.result.return_value = mock_response_logs_obj
+    superregion_logs = discovery.get_superregion_logs(
+        'client-1',
+        regex='stream',
+        superregion='superregion1',
+    )
+
+    assert sorted(mock_response_logs_parsed) == sorted(superregion_logs)
+    mock_kafka_discovery_client.return_value.v1.getLogsForSuperregionWithRegex.\
+        assert_called_once_with(superregion='superregion1', regex='stream')
+
+
+def test_get_superregion_logs_invalid_superregion(
+    mock_kafka_discovery_client,
+    mock_response_logs_obj,
+    mock_response_logs_parsed,
+    mock_err_obj,
+):
+    mock_kafka_discovery_client.return_value.v1.getLogsForSuperregionWithRegex.\
+        return_value.result.side_effect = HTTPError(mock_err_obj)
+    with pytest.raises(InvalidClusterTypeOrSuperregionError):
+        discovery.get_superregion_logs(
+            'client-1',
+            regex='stream',
+            superregion='superregion1',
+        )
 
 
 @mock.patch("yelp_kafka.discovery.TopologyConfiguration", autospec=True)
