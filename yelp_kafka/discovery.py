@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 import logging
 import re
+from collections import defaultdict
 
 import six
 from bravado.exception import HTTPError
@@ -18,6 +19,8 @@ from yelp_kafka.error import DiscoveryError
 from yelp_kafka.error import InvalidClusterTypeOrNameError
 from yelp_kafka.error import InvalidClusterTypeOrRegionError
 from yelp_kafka.error import InvalidClusterTypeOrSuperregionError
+from yelp_kafka.error import InvalidLogOrRegionError
+from yelp_kafka.error import InvalidLogOrSuperregionError
 from yelp_kafka.utils import get_kafka_topics
 from yelp_kafka.utils import make_scribe_topic
 
@@ -32,8 +35,9 @@ get_region_cluster, get_superregion_cluster or get_kafka_cluster methods instead
 log = logging.getLogger(__name__)
 
 
-def get_local_region():
-    """Get local-region name from region-file path."""
+def _get_local_region():
+    """Get name of the region where yelp_kafka instance is running (caller)
+    from region-file path."""
     try:
         with open(REGION_FILE_PATH, 'r') as region_file:
             return region_file.read().rstrip()
@@ -45,8 +49,9 @@ def get_local_region():
         raise
 
 
-def get_local_superregion():
-    """Get local-superregion name."""
+def _get_local_superregion():
+    """Get name of the superregion where yelp_kafka instance is running (caller)
+    from superregion-file path."""
     try:
         with open(SUPERREGION_FILE_PATH, 'r') as superregion_file:
             return superregion_file.read().rstrip()
@@ -63,15 +68,12 @@ def parse_as_scribe_topics(logs_result):
 
     :returns: [([topics], cluster)]
     """
-    cluster_to_topics_info = {}
+    cluster_to_topics_info = defaultdict(list)
     for log_result in logs_result:
         for topic_info in log_result.topics:
             cluster_config = parse_as_cluster_config(topic_info.cluster)
-            if cluster_config in cluster_to_topics_info.keys():
-                cluster_to_topics_info[cluster_config][0].append(topic_info.topic)
-            else:
-                cluster_to_topics_info[cluster_config] = ([topic_info.topic], cluster_config)
-    return cluster_to_topics_info.values()
+            cluster_to_topics_info[cluster_config].append(topic_info.topic)
+    return [(topics, cluster) for cluster, topics in cluster_to_topics_info.items()]
 
 
 def parse_as_cluster_config(config_obj):
@@ -98,7 +100,7 @@ def get_region_cluster(cluster_type, client_id, region=None):
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
     if not region:
-        region = get_local_region()
+        region = _get_local_region()
 
     client = get_kafka_discovery_client(client_id)
     try:
@@ -129,7 +131,7 @@ def get_superregion_cluster(cluster_type, client_id, superregion=None):
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
     if not superregion:
-        superregion = get_local_superregion()
+        superregion = _get_local_superregion()
     client = get_kafka_discovery_client(client_id)
 
     try:
@@ -181,14 +183,14 @@ def get_region_logs(client_id, regex, region=None):
     :param client_id: name of the client making the logs request. Usually
         the same client id used to create the Kafka connection.
     :type client_id: string
-    :param region: region name default is local-region.
+    :param region: region name defaulting to local region.
     :type region: string
-    :param regex: Topic regex whose logs are desired.
+    :param regex: Log/stream name regex
     :type regex: string
     :returns: [([topics], cluster)]
     """
     if not region:
-        region = get_local_region()
+        region = _get_local_region()
 
     client = get_kafka_discovery_client(client_id)
     try:
@@ -198,7 +200,7 @@ def get_region_logs(client_id, regex, region=None):
         log.exception(
             "Failure while fetching logs for region:{region}".format(region=region),
         )
-        raise InvalidClusterTypeOrRegionError(e.response.text)
+        raise InvalidLogOrRegionError(e.response.text)
 
 
 def get_superregion_logs(client_id, regex, superregion=None):
@@ -208,14 +210,14 @@ def get_superregion_logs(client_id, regex, superregion=None):
     :param client_id: name of the client making the logs request. Usually
         the same client id used to create the Kafka connection.
     :type client_id: string
-    :param superregion: superregion name default is local-superregion.
+    :param superregion: superregion name defaulting to local superregion.
     :type superregion: string
-    :param regex: Topic regex whose logs are desired.
+    :param regex: Log/stream name regex
     :type regex: string
     :returns: [([topics], cluster)]
     """
     if not superregion:
-        superregion = get_local_superregion()
+        superregion = _get_local_superregion()
 
     client = get_kafka_discovery_client(client_id)
     try:
@@ -229,7 +231,7 @@ def get_superregion_logs(client_id, regex, superregion=None):
             "Failure while fetching logs for superregion:{superregion}"
             .format(superregion=superregion),
         )
-        raise InvalidClusterTypeOrSuperregionError(e.response.text)
+        raise InvalidLogOrSuperregionError(e.response.text)
 
 
 def make_scribe_regex(stream):

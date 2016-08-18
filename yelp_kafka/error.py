@@ -84,3 +84,11 @@ class InvalidClusterTypeOrNameError(YelpKafkaError):
 
 class InvalidClusterTypeOrSuperregionError(YelpKafkaError):
     pass
+
+
+class InvalidLogOrRegionError(YelpKafkaError):
+    pass
+
+
+class InvalidLogOrSuperregionError(YelpKafkaError):
+    pass
