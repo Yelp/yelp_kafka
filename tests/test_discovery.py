@@ -245,7 +245,25 @@ def test_get_kafka_cluster_invalid(
         discovery.get_kafka_cluster('invalid-type', 'client-1', 'cluster1')
 
 
-def test_get_region_logs_default(
+def test_stream_to_log_regex():
+    assert discovery.stream_to_log_regex('stream') == 'stream$'
+
+
+def test_get_region_logs_stream(
+    mock_kafka_discovery_client,
+    mock_response_logs_obj,
+    mock_response_logs_parsed,
+):
+    mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
+        return_value.result.return_value = mock_response_logs_obj
+    region_logs = discovery.get_region_logs_stream('client-1', stream='stream', region='region1')
+
+    assert sorted(mock_response_logs_parsed) == sorted(region_logs)
+    mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
+        assert_called_once_with(region='region1', regex='stream$')
+
+
+def test_get_region_logs_regex_default(
     mock_kafka_discovery_client,
     mock_response_logs_obj,
     mock_response_logs_parsed,
@@ -256,7 +274,7 @@ def test_get_region_logs_default(
     ) as mock_get_local_region:
         mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
             return_value.result.return_value = mock_response_logs_obj
-        region_logs = discovery.get_region_logs('client-1', regex='stream')
+        region_logs = discovery.get_region_logs_regex('client-1', regex='stream')
 
         assert sorted(mock_response_logs_parsed) == sorted(region_logs)
         assert mock_get_local_region.called
@@ -264,21 +282,21 @@ def test_get_region_logs_default(
             assert_called_once_with(region='region_default', regex='stream')
 
 
-def test_get_region_logs(
+def test_get_region_logs_regex(
     mock_kafka_discovery_client,
     mock_response_logs_obj,
     mock_response_logs_parsed,
 ):
     mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
         return_value.result.return_value = mock_response_logs_obj
-    region_logs = discovery.get_region_logs('client-1', regex='stream', region='region1')
+    region_logs = discovery.get_region_logs_regex('client-1', regex='stream', region='region1')
 
     assert sorted(mock_response_logs_parsed) == sorted(region_logs)
     mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
         assert_called_once_with(region='region1', regex='stream')
 
 
-def test_get_region_logs_invalid_region(
+def test_get_region_logs_regex_invalid(
     mock_kafka_discovery_client,
     mock_response_logs_obj,
     mock_response_logs_parsed,
@@ -287,10 +305,28 @@ def test_get_region_logs_invalid_region(
     mock_kafka_discovery_client.return_value.v1.getLogsForRegionWithRegex.\
         return_value.result.side_effect = HTTPError(mock_err_obj)
     with pytest.raises(InvalidLogOrRegionError):
-        discovery.get_region_logs('client-1', regex='stream', region='region1')
+        discovery.get_region_logs_regex('client-1', regex='stream', region='invalid_region')
 
 
-def test_get_superregion_logs_default(
+def test_get_superregion_logs_stream(
+    mock_kafka_discovery_client,
+    mock_response_logs_obj,
+    mock_response_logs_parsed,
+):
+    mock_kafka_discovery_client.return_value.v1.getLogsForSuperregionWithRegex.\
+        return_value.result.return_value = mock_response_logs_obj
+    superregion_logs = discovery.get_superregion_logs_stream(
+        'client-1',
+        stream='stream',
+        superregion='superregion1',
+    )
+
+    assert sorted(mock_response_logs_parsed) == sorted(superregion_logs)
+    mock_kafka_discovery_client.return_value.v1.getLogsForSuperregionWithRegex.\
+        assert_called_once_with(superregion='superregion1', regex='stream$')
+
+
+def test_get_superregion_logs_regex_default(
     mock_kafka_discovery_client,
     mock_response_logs_obj,
     mock_response_logs_parsed,
@@ -301,7 +337,7 @@ def test_get_superregion_logs_default(
     ) as mock_get_local_superregion:
         mock_kafka_discovery_client.return_value.v1.getLogsForSuperregionWithRegex.\
             return_value.result.return_value = mock_response_logs_obj
-        superregion_logs = discovery.get_superregion_logs('client-1', regex='stream')
+        superregion_logs = discovery.get_superregion_logs_regex('client-1', regex='stream')
 
         assert sorted(mock_response_logs_parsed) == sorted(superregion_logs)
         assert mock_get_local_superregion.called
@@ -309,14 +345,14 @@ def test_get_superregion_logs_default(
             assert_called_once_with(superregion='superregion_default', regex='stream')
 
 
-def test_get_superregion_logs(
+def test_get_superregion_logs_regex(
     mock_kafka_discovery_client,
     mock_response_logs_obj,
     mock_response_logs_parsed,
 ):
     mock_kafka_discovery_client.return_value.v1.getLogsForSuperregionWithRegex.\
         return_value.result.return_value = mock_response_logs_obj
-    superregion_logs = discovery.get_superregion_logs(
+    superregion_logs = discovery.get_superregion_logs_regex(
         'client-1',
         regex='stream',
         superregion='superregion1',
@@ -327,7 +363,7 @@ def test_get_superregion_logs(
         assert_called_once_with(superregion='superregion1', regex='stream')
 
 
-def test_get_superregion_logs_invalid_superregion(
+def test_get_superregion_logs_regex_invalid(
     mock_kafka_discovery_client,
     mock_response_logs_obj,
     mock_response_logs_parsed,
@@ -336,10 +372,10 @@ def test_get_superregion_logs_invalid_superregion(
     mock_kafka_discovery_client.return_value.v1.getLogsForSuperregionWithRegex.\
         return_value.result.side_effect = HTTPError(mock_err_obj)
     with pytest.raises(InvalidLogOrSuperregionError):
-        discovery.get_superregion_logs(
+        discovery.get_superregion_logs_regex(
             'client-1',
             regex='stream',
-            superregion='superregion1',
+            superregion='invalid_superregion',
         )
 
 
