@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 
 import logging
 import re
+from collections import defaultdict
 
 import six
 from bravado.exception import HTTPError
@@ -18,6 +19,8 @@ from yelp_kafka.error import DiscoveryError
 from yelp_kafka.error import InvalidClusterTypeOrNameError
 from yelp_kafka.error import InvalidClusterTypeOrRegionError
 from yelp_kafka.error import InvalidClusterTypeOrSuperregionError
+from yelp_kafka.error import InvalidLogOrRegionError
+from yelp_kafka.error import InvalidLogOrSuperregionError
 from yelp_kafka.utils import get_kafka_topics
 from yelp_kafka.utils import make_scribe_topic
 
@@ -32,8 +35,9 @@ get_region_cluster, get_superregion_cluster or get_kafka_cluster methods instead
 log = logging.getLogger(__name__)
 
 
-def get_local_region():
-    """Get local-region name from region-file path."""
+def _get_local_region():
+    """Get name of the region where yelp_kafka instance is running (caller)
+    from region-file path."""
     try:
         with open(REGION_FILE_PATH, 'r') as region_file:
             return region_file.read().rstrip()
@@ -45,8 +49,9 @@ def get_local_region():
         raise
 
 
-def get_local_superregion():
-    """Get local-superregion name."""
+def _get_local_superregion():
+    """Get name of the superregion where yelp_kafka instance is running (caller)
+    from superregion-file path."""
     try:
         with open(SUPERREGION_FILE_PATH, 'r') as superregion_file:
             return superregion_file.read().rstrip()
@@ -56,6 +61,19 @@ def get_local_superregion():
         )
         log.exception(err_msg)
         raise
+
+
+def parse_as_scribe_topics(logs_result):
+    """Parse response topic configuration from kafka-discovery to desired type.
+
+    :returns: [([topics], cluster)]
+    """
+    cluster_to_topics_info = defaultdict(list)
+    for log_result in logs_result:
+        for topic_info in log_result.topics:
+            cluster_config = parse_as_cluster_config(topic_info.cluster)
+            cluster_to_topics_info[cluster_config].append(topic_info.topic)
+    return [(topics, cluster) for cluster, topics in six.iteritems(cluster_to_topics_info)]
 
 
 def parse_as_cluster_config(config_obj):
@@ -82,7 +100,7 @@ def get_region_cluster(cluster_type, client_id, region=None):
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
     if not region:
-        region = get_local_region()
+        region = _get_local_region()
 
     client = get_kafka_discovery_client(client_id)
     try:
@@ -113,7 +131,7 @@ def get_superregion_cluster(cluster_type, client_id, superregion=None):
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
     if not superregion:
-        superregion = get_local_superregion()
+        superregion = _get_local_superregion()
     client = get_kafka_discovery_client(client_id)
 
     try:
@@ -156,6 +174,110 @@ def get_kafka_cluster(cluster_type, client_id, cluster_name):
             ":{cluster_name}.".format(type=cluster_type, cluster_name=cluster_name),
         )
         raise InvalidClusterTypeOrNameError(e.response.text)
+
+
+def stream_to_log_regex(stream):
+    return '{stream}$'.format(stream=re.escape(stream))
+
+
+def get_region_logs_stream(client_id, stream, region=None):
+    """Get the kafka cluster logs for given region and stream.
+    If no region is given, we default to local region.
+
+    :param client_id: name of the client making the logs request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_id: string
+    :param region: region name defaulting to caller's local region.
+    :type region: string
+    :param stream: Log/stream name regex
+    :type stream: string
+    :returns: [([topics], cluster)]
+    :raises InvalidLogOrRegionError: :py:class:`yelp_kafka.error.InvalidLogOrRegionError`
+    upon failure fetching logs from region.
+    """
+    regex = stream_to_log_regex(stream)
+    return get_region_logs_regex(client_id, regex, region)
+
+
+def get_region_logs_regex(client_id, regex, region=None):
+    """Get the kafka cluster logs for given region and log-regex.
+    If no region is given, we default to local region.
+
+    :param client_id: name of the client making the logs request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_id: string
+    :param region: region name defaulting to caller's local region.
+    :type region: string
+    :param regex: Log/stream name regex
+    :type regex: string
+    :returns: [([topics], cluster)]
+    :raises InvalidLogOrRegionError: :py:class:`yelp_kafka.error.InvalidLogOrRegionError`
+    upon failure fetching logs from region.
+    """
+    if not region:
+        region = _get_local_region()
+
+    client = get_kafka_discovery_client(client_id)
+    try:
+        result = client.v1.getLogsForRegionWithRegex(region=region, regex=regex).result()
+        return parse_as_scribe_topics(result)
+    except HTTPError as e:
+        log.exception(
+            "Failure while fetching logs for region:{region}".format(region=region),
+        )
+        raise InvalidLogOrRegionError(e.response.text)
+
+
+def get_superregion_logs_stream(client_id, stream, superregion=None):
+    """Get the kafka cluster logs for given superregion and stream.
+    If no superregion is given, we default to local superregion.
+
+    :param client_id: name of the client making the logs request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_id: string
+    :param superregion: superregion name defaulting to caller's local superregion.
+    :type superregion: string
+    :param stream: Log/stream name regex
+    :type stream: string
+    :returns: [([topics], cluster)]
+    :raises InvalidLogOrSuperegionError: :py:class:`yelp_kafka.error.InvalidLogOrRegionError`
+    upon failure fetching logs from superregion.
+    """
+    regex = stream_to_log_regex(stream)
+    return get_superregion_logs_regex(client_id, regex, superregion)
+
+
+def get_superregion_logs_regex(client_id, regex, superregion=None):
+    """Get the kafka cluster logs for given superregion and topic-regex.
+    If no superregion is given, we default to local superregion.
+
+    :param client_id: name of the client making the logs request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_id: string
+    :param superregion: superregion name defaulting to caller's local superregion.
+    :type superregion: string
+    :param regex: Log/stream name regex
+    :type regex: string
+    :returns: [([topics], cluster)]
+    :raises InvalidLogOrSuperegionError: :py:class:`yelp_kafka.error.InvalidLogOrRegionError`
+    upon failure fetching logs from superregion.
+    """
+    if not superregion:
+        superregion = _get_local_superregion()
+
+    client = get_kafka_discovery_client(client_id)
+    try:
+        result = client.v1.getLogsForSuperregionWithRegex(
+            superregion=superregion,
+            regex=regex,
+        ).result()
+        return parse_as_scribe_topics(result)
+    except HTTPError as e:
+        log.exception(
+            "Failure while fetching logs for superregion:{superregion}"
+            .format(superregion=superregion),
+        )
+        raise InvalidLogOrSuperregionError(e.response.text)
 
 
 def make_scribe_regex(stream):
