@@ -9,6 +9,7 @@ from multiprocessing import Queue
 
 from kafka import KafkaClient
 from kafka.common import ConsumerTimeout
+from six.moves.queue import Empty
 
 from yelp_kafka.config import ClusterConfig
 from yelp_kafka.config import KafkaConsumerConfig
@@ -132,8 +133,11 @@ def run_kafka_consumer_group_test(num_consumers, num_partitions):
         time.sleep(0.1)
 
     received_messages = []
-    while not queue.empty():
-        message = queue.get()
+    while True:
+        try:
+            message = queue.get(block=True, timeout=0.5)
+        except Empty:
+            break
         received_messages.append(int(message.value))
 
     assert [i for i in range(100)] == sorted(received_messages)
