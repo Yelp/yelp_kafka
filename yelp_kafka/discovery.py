@@ -13,26 +13,19 @@ from kafka import KafkaClient
 from yelp_kafka.config import ClusterConfig
 from yelp_kafka.config import get_kafka_discovery_client
 from yelp_kafka.config import KafkaConsumerConfig
-from yelp_kafka.config import TopologyConfiguration
-from yelp_kafka.error import ConfigurationError
 from yelp_kafka.error import DiscoveryError
+from yelp_kafka.error import InvalidClusterType
 from yelp_kafka.error import InvalidClusterTypeOrNameError
 from yelp_kafka.error import InvalidClusterTypeOrRegionError
 from yelp_kafka.error import InvalidClusterTypeOrSuperregionError
 from yelp_kafka.error import InvalidLogOrRegionError
 from yelp_kafka.error import InvalidLogOrSuperregionError
 from yelp_kafka.utils import get_kafka_topics
-from yelp_kafka.utils import make_scribe_topic
 
 DEFAULT_KAFKA_SCRIBE = 'scribe'
+DEFAULT_CLIENT_ID = 'yelp_kafka.default'
 REGION_FILE_PATH = '/nail/etc/region'
 SUPERREGION_FILE_PATH = '/nail/etc/superregion'
-CLUSTER_DEPRECATED_MESSAGE = """This method is deprecated. Please switch to using
-get_region_cluster, get_superregion_cluster or get_kafka_cluster methods instead.
-"""
-LOG_DEPRECATED_MESSAGE = """This method is deprecated. Please switch to using
-get_region_logs_stream, get_region_logs_regex, get_superregion_logs_stream or
-get_superregion_logs_regex instead"""
 
 
 log = logging.getLogger(__name__)
@@ -283,64 +276,36 @@ def get_superregion_logs_regex(client_id, regex, superregion=None):
         raise InvalidLogOrSuperregionError(e.response.text)
 
 
-def make_scribe_regex(stream):
-    return '^scribe\.[\w-]+\.{0}$'.format(re.escape(stream))
-
-
-def get_local_cluster(cluster_type):
-    """Get the local kafka cluster.
-
-    .. deprecated:: 4.15.0
-       Use :func:`get_region_cluster` or :func:`get_superregion_cluster`
-       or :func:`get_kafka_cluster` instead.
-
-    :param cluster_type: kafka cluster type
-        (ex.'scribe' or 'standard').
-    :type cluster_type: string
-    :returns: py:class:`yelp_kafka.config.ClusterConfig`
-    """
-    log.warning(CLUSTER_DEPRECATED_MESSAGE)
-    topology = TopologyConfiguration(cluster_type=cluster_type)
-    return topology.get_local_cluster()
-
-
-def get_all_clusters(cluster_type):
+def get_all_clusters(cluster_type, client_id):
     """Get a list of (cluster_name, cluster_config)
     for the available kafka clusters in the ecosystem.
 
     :param cluster_type: kafka cluster type
         (ex.'scribe' or 'standard').
     :type cluster_type: string
+    :param client_id: name of the client making the request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_id: string
     :returns: list of py:class:`yelp_kafka.config.ClusterConfig`
     """
-    topology = TopologyConfiguration(cluster_type=cluster_type)
-    return topology.get_all_clusters()
-
-
-def get_cluster_by_name(cluster_type, cluster_name):
-    """Get a :py:class:`yelp_kafka.config.ClusterConfig` kafka-cluster
-    configuration for given type and name.
-
-    .. deprecated:: 4.15.0
-       Use :func:`get_region_cluster` or :func:`get_superregion_cluster`
-       or :func:`get_kafka_cluster` instead.
-
-    :param cluster_type: kafka cluster type
-        (ex.'scribe' or 'standard').
-    :type cluster_type: string
-    :param cluster_name: name of the cluster
-        (ex.'uswest1-devc').
-    :type cluster_type: string
-    :returns: :py:class:`yelp_kafka.config.ClusterConfig`
-    """
-    log.warning(CLUSTER_DEPRECATED_MESSAGE)
-    topology = TopologyConfiguration(cluster_type=cluster_type)
-    return topology.get_cluster_by_name(cluster_name)
+    client = get_kafka_discovery_client(client_id)
+    try:
+        cluster_names = client.v1.getClustersAll(cluster_type).result()
+    except HTTPError as e:
+        log.exception(
+            "Failure while fetching clusters for cluster type:{clustertype}"
+            .format(clustertype=cluster_type),
+        )
+        raise InvalidClusterType(e.response.text)
+    return [
+        get_kafka_cluster(cluster_type, client_id, cluster_name)
+        for cluster_name in cluster_names
+    ]
 
 
 def get_consumer_config(cluster_type, group_id, **extra):
     """Get a :py:class:`yelp_kafka.config.KafkaConsumerConfig`
-    for the local kafka cluster.
+    for the local region kafka cluster.
 
     :param cluster_type: kafka cluster type
         (ex.'scribe' or 'standard').
@@ -350,31 +315,14 @@ def get_consumer_config(cluster_type, group_id, **extra):
     :param extra: extra arguments to use for creating the configuration
     :returns: :py:class:`yelp_kafka.config.KafkaConsumerConfig`
     """
-    cluster = get_local_cluster(cluster_type)
+    cluster = get_region_cluster(cluster_type, group_id)
     return KafkaConsumerConfig(group_id=group_id, cluster=cluster, **extra)
 
 
-def get_all_consumer_config(cluster_type, group_id, ecosystem=None, **extra):
-    """Get a list of :py:class:`yelp_kafka.config.KafkaConsumerConfig`
-    for the kafka clusters in ecosystem.
+def get_kafka_connection(cluster_type, client_id, **kwargs):
+    """Get a kafka connection for the local region kafka cluster.
 
-    :param cluster_type: kafka cluster type
-        (ex.'scribe' or 'standard').
-    :type cluster_type: string
-    :param group_id: consumer group id
-    :type group_id: string
-    :param extra: extra arguments to use for creating the configuration
-    :returns: list :py:class:`yelp_kafka.config.KafkaConsumerConfig`
-    """
-    clusters = get_all_clusters(cluster_type)
-    return [KafkaConsumerConfig(group_id=group_id, cluster=cluster, **extra)
-            for cluster in clusters]
-
-
-def get_kafka_connection(cluster_type, client_id='yelp-kafka', **kwargs):
-    """Get a kafka connection for the local kafka cluster.
-
-    :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
+        :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
     :param client_id: client_id to be used to connect to kafka.
     :type client_id: string
@@ -382,7 +330,7 @@ def get_kafka_connection(cluster_type, client_id='yelp-kafka', **kwargs):
     :returns: KafkaClient
     :raises DiscoveryError: :py:class:`yelp_kafka.error.DiscoveryError` upon failure connecting to a cluster.
     """
-    cluster = get_local_cluster(cluster_type)
+    cluster = get_region_cluster(cluster_type, client_id)
     try:
         return KafkaClient(cluster.broker_list, client_id=client_id, **kwargs)
     except:
@@ -395,10 +343,10 @@ def get_kafka_connection(cluster_type, client_id='yelp-kafka', **kwargs):
             cluster.name))
 
 
-def get_all_kafka_connections(cluster_type, client_id='yelp-kafka', **kwargs):
+def get_all_kafka_connections(cluster_type, client_id, **kwargs):
     """Get a kafka connection for each available kafka cluster.
 
-    :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
+        :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
     :param client_id: client_id to be used to connect to kafka.
     :type client_id: string
@@ -409,7 +357,7 @@ def get_all_kafka_connections(cluster_type, client_id='yelp-kafka', **kwargs):
     .. note:: This function creates a KafkaClient for each cluster in a region and tries to connect to it. If a cluster is not available it fails and closes all the previous connections.
     """
 
-    clusters = get_all_clusters(cluster_type)
+    clusters = get_all_clusters(cluster_type, client_id)
     connected_clusters = []
     for cluster in clusters:
         try:
@@ -450,7 +398,7 @@ def discover_topics(cluster):
 
 
 def search_topic(topic, clusters=None):
-    """Find the topic in the list of clusters or the local cluster
+    """Find the topic in the list of clusters or the local region cluster
 
     :param topic: topic name
     :param clusters: list of cluster config
@@ -465,7 +413,7 @@ def search_topic(topic, clusters=None):
 
 
 def local_topic_exists(cluster_type, topic):
-    """Search for a topic in the local kafka cluster.
+    """Search for a topic in the local region kafka cluster.
 
     :param cluster_type: kafka cluster type
         (ex.'scribe' or 'standard').
@@ -474,7 +422,7 @@ def local_topic_exists(cluster_type, topic):
     :type topic: string
     :returns: True is the topic exists or False
     """
-    cluster = get_local_cluster(cluster_type)
+    cluster = get_region_cluster(cluster_type, DEFAULT_CLIENT_ID)
     result = search_topic(topic, [cluster])
     return len(result) > 0
 
@@ -489,7 +437,7 @@ def search_topic_in_all_clusters(cluster_type, topic):
     :type topic: string
     :returns: list (topic, cluster_config).
     """
-    clusters = get_all_clusters(cluster_type)
+    clusters = get_all_clusters(cluster_type, DEFAULT_CLIENT_ID)
     results = search_topic(topic, clusters)
     if not results:
         raise DiscoveryError("Topic {topic} does not exist".format(
@@ -516,45 +464,6 @@ def search_topics_by_regex(pattern, clusters=None):
     return matches
 
 
-def search_local_topics_by_regex(cluster_type, pattern):
-    """Search for all the topics matching pattern in the local cluster.
-
-    :param cluster_type: kafka cluster type
-        (ex.'scribe' or 'standard').
-    :type cluster_type: string
-    :param pattern: regex to match topics
-    :returns: ([topics], cluster).
-    :raises DiscoveryError: if the topic does not exist
-    """
-    cluster = get_local_cluster(cluster_type)
-    result = search_topics_by_regex(pattern, [cluster])
-    if not result:
-        raise DiscoveryError(
-            "No Kafka topics for pattern {pattern}".format(
-                pattern=pattern
-            )
-        )
-    return result[0]
-
-
-def search_local_scribe_topics_by_regex(pattern):
-    """Search for all local scribe topics matching pattern.
-
-    .. deprecated:: 4.17.1
-       Use :func:`get_region_logs_regex` or :func:`get_superregion_logs_regex`
-       instead.
-
-
-    :param pattern: regex to match topics
-    :returns: ([topics], cluster)
-    :raises DiscoveryError: if no matching topics exist
-    """
-    log.warning(LOG_DEPRECATED_MESSAGE)
-    topology = TopologyConfiguration(cluster_type=DEFAULT_KAFKA_SCRIBE)
-    prefix = re.escape(topology.get_scribe_local_prefix())
-    return search_local_topics_by_regex('scribe', prefix + pattern)
-
-
 def search_topics_by_regex_in_all_clusters(cluster_type, pattern):
     """Search for all the topics matching pattern.
 
@@ -565,7 +474,7 @@ def search_topics_by_regex_in_all_clusters(cluster_type, pattern):
     :returns: a list of tuples ([topics], cluster).
     :raises DiscoveryError: if the topic does not exist
     """
-    clusters = get_all_clusters(cluster_type)
+    clusters = get_all_clusters(cluster_type, DEFAULT_CLIENT_ID)
     results = search_topics_by_regex(pattern, clusters)
     if not results:
         raise DiscoveryError(
@@ -574,167 +483,3 @@ def search_topics_by_regex_in_all_clusters(cluster_type, pattern):
             )
         )
     return results
-
-
-def local_scribe_topic_exists(stream):
-    """Check if a scribe topic exists in the local cluster.
-
-    .. deprecated:: 4.17.1
-       Use :func:`get_region_logs_stream` or :func:`get_superregion_logs_stream`
-       instead.
-
-    :param stream: scribe stream name
-    :type stream: string
-    :returns: True if the topic exists in the local cluster
-    :raises ConfigurationError: if the local prefix is not in the config file
-    """
-    log.warning(LOG_DEPRECATED_MESSAGE)
-    topology = TopologyConfiguration(cluster_type=DEFAULT_KAFKA_SCRIBE)
-    cluster = topology.get_local_cluster()
-    prefix = topology.get_scribe_local_prefix()
-    if not prefix:
-        raise ConfigurationError("Scribe cluster config must contain a valid "
-                                 "prefix. Invalid topology configuration "
-                                 "{topology}".format(topology=topology))
-    topic = '{prefix}{stream}'.format(
-        prefix=topology.get_scribe_local_prefix(),
-        stream=stream
-    )
-    result = search_topic(topic, [cluster])
-    return len(result) > 0
-
-
-def get_local_scribe_topic(stream):
-    """Search for the local topic matching the given scribe stream.
-
-    .. deprecated:: 4.17.1
-       Use :func:`get_region_logs_stream` or :func:`get_superregion_logs_stream`
-       instead.
-
-    :param stream: scribe stream name
-    :type stream: string
-    :returns: (topic, cluster)
-    :raises DiscoveryError: if the topic does not exist
-    """
-    log.warning(LOG_DEPRECATED_MESSAGE)
-    topology = TopologyConfiguration(cluster_type=DEFAULT_KAFKA_SCRIBE)
-    cluster = topology.get_local_cluster()
-    prefix = topology.get_scribe_local_prefix()
-    if not prefix:
-        raise DiscoveryError("Scribe cluster config must contain a valid "
-                             "prefix. Invalid topology configuration "
-                             "{topology}".format(topology=topology))
-    topic = '{prefix}{stream}'.format(
-        prefix=topology.get_scribe_local_prefix(),
-        stream=stream
-    )
-    result = search_topic(topic, [cluster])
-    if not result:
-        raise DiscoveryError(
-            "No Kafka topic {topic} for stream {stream}".format(
-                topic=topic,
-                stream=stream
-            )
-        )
-    # Return the topic name if it exists
-    return result[0]
-
-
-def get_all_local_scribe_topics(stream):
-    """Search for all the topics for a scribe stream in the local kafka cluster.
-
-    .. deprecated:: 4.17.1
-       Use :func:`get_region_logs_regex` or :func:`get_superregion_logs_regex`
-       instead.
-
-    :param stream: scribe stream name
-    :type stream: string
-    :returns: ([topics], cluster)
-    :raises DiscoveryError: if the topic does not exist
-    """
-    log.warning(LOG_DEPRECATED_MESSAGE)
-    pattern = make_scribe_regex(stream)
-    return search_local_topics_by_regex(DEFAULT_KAFKA_SCRIBE, pattern)
-
-
-def get_scribe_topics(stream, clusters=None):
-    """Search for all the topics for a scribe stream in
-    all available clusters, or in the given list of clusters.
-
-    .. deprecated:: 4.17.1
-       Use :func:`get_region_logs_stream` or :func:`get_superregion_logs_stream`
-       instead.
-
-
-    :param stream: scribe stream name
-    :type stream: string
-    :param clusters: list of cluster config
-    :type cluster: ClusterConfig
-    :returns: [([topics], cluster)]
-    :raises DiscoveryError: if the topic does not exist
-    """
-    log.warning(LOG_DEPRECATED_MESSAGE)
-    pattern = make_scribe_regex(stream)
-    if not clusters:
-        results = search_topics_by_regex_in_all_clusters(DEFAULT_KAFKA_SCRIBE, pattern)
-    else:
-        results = search_topics_by_regex(pattern, clusters)
-
-    if not results:
-        raise DiscoveryError(
-            "No Kafka topics for stream {stream}".format(
-                stream=stream
-            )
-        )
-    return results
-
-
-def scribe_topic_exists_in_datacenter(stream, datacenter):
-    """Check if a scribe topic exists in a certain datacenter.
-
-    .. deprecated:: 4.17.1
-       Use :func:`get_region_logs_stream` or :func:`get_superregion_logs_stream`
-       instead.
-
-    :param stream: scribe stream name
-    :type stream: string
-    :param datacenter: datacenter name
-    :type datacenter: string
-    :returns: True if the topic exists, False otherwise.
-    """
-    log.warning(LOG_DEPRECATED_MESSAGE)
-    result = search_topic_in_all_clusters(
-        DEFAULT_KAFKA_SCRIBE,
-        make_scribe_topic(stream, datacenter)
-    )
-    return len(result) > 0
-
-
-def get_scribe_topic_in_datacenter(stream, datacenter):
-    """Search for the scribe topic for a scribe stream in the specified
-    datacenter.
-
-    .. deprecated:: 4.17.1
-       Use :func:`get_region_logs_stream` or :func:`get_superregion_logs_stream`
-       instead.
-
-    :param stream: scribe stream name
-    :type stream: string
-    :param datacenter: datacenter name
-    :type datacenter: string
-    :returns: (topic, cluster)
-    :raises DiscoveryError: if the topic does not exist
-    """
-    log.warning(LOG_DEPRECATED_MESSAGE)
-    result = search_topic_in_all_clusters(
-        DEFAULT_KAFKA_SCRIBE,
-        make_scribe_topic(stream, datacenter)
-    )
-    if not result:
-        raise DiscoveryError(
-            "No Kafka topic for stream {stream} in {datacenter}".format(
-                stream=stream, datacenter=datacenter
-            )
-        )
-    # Return both topic and cluster
-    return result[0]
