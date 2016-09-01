@@ -27,9 +27,12 @@ from yelp_kafka.utils import make_scribe_topic
 DEFAULT_KAFKA_SCRIBE = 'scribe'
 REGION_FILE_PATH = '/nail/etc/region'
 SUPERREGION_FILE_PATH = '/nail/etc/superregion'
-DEPRECATED_MESSAGE = """This method is deprecated. Please switch to using
+CLUSTER_DEPRECATED_MESSAGE = """This method is deprecated. Please switch to using
 get_region_cluster, get_superregion_cluster or get_kafka_cluster methods instead.
 """
+LOG_DEPRECATED_MESSAGE = """This method is deprecated. Please switch to using
+get_region_logs_stream, get_region_logs_regex, get_superregion_logs_stream or
+get_superregion_logs_regex instead"""
 
 
 log = logging.getLogger(__name__)
@@ -296,7 +299,7 @@ def get_local_cluster(cluster_type):
     :type cluster_type: string
     :returns: py:class:`yelp_kafka.config.ClusterConfig`
     """
-    log.warning(DEPRECATED_MESSAGE)
+    log.warning(CLUSTER_DEPRECATED_MESSAGE)
     topology = TopologyConfiguration(cluster_type=cluster_type)
     return topology.get_local_cluster()
 
@@ -330,7 +333,7 @@ def get_cluster_by_name(cluster_type, cluster_name):
     :type cluster_type: string
     :returns: :py:class:`yelp_kafka.config.ClusterConfig`
     """
-    log.warning(DEPRECATED_MESSAGE)
+    log.warning(CLUSTER_DEPRECATED_MESSAGE)
     topology = TopologyConfiguration(cluster_type=cluster_type)
     return topology.get_cluster_by_name(cluster_name)
 
@@ -592,11 +595,16 @@ def local_scribe_topic_exists(stream):
 def get_local_scribe_topic(stream):
     """Search for the local topic matching the given scribe stream.
 
+    .. deprecated:: 4.17.1
+       Use :func:`get_region_logs_stream` or :func:`get_superregion_logs_stream`
+       instead.
+
     :param stream: scribe stream name
     :type stream: string
     :returns: (topic, cluster)
     :raises DiscoveryError: if the topic does not exist
     """
+    log.warning(LOG_DEPRECATED_MESSAGE)
     topology = TopologyConfiguration(cluster_type=DEFAULT_KAFKA_SCRIBE)
     cluster = topology.get_local_cluster()
     prefix = topology.get_scribe_local_prefix()
@@ -623,11 +631,16 @@ def get_local_scribe_topic(stream):
 def get_all_local_scribe_topics(stream):
     """Search for all the topics for a scribe stream in the local kafka cluster.
 
+   .. deprecated:: 4.17.1
+       Use :func:`get_region_logs_regex` or :func:`get_superregion_logs_regex`
+       instead.
+
     :param stream: scribe stream name
     :type stream: string
     :returns: ([topics], cluster)
     :raises DiscoveryError: if the topic does not exist
     """
+    log.warning(LOG_DEPRECATED_MESSAGE)
     pattern = make_scribe_regex(stream)
     return search_local_topics_by_regex(DEFAULT_KAFKA_SCRIBE, pattern)
 
