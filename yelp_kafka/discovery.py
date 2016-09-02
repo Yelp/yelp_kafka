@@ -540,10 +540,16 @@ def search_local_topics_by_regex(cluster_type, pattern):
 def search_local_scribe_topics_by_regex(pattern):
     """Search for all local scribe topics matching pattern.
 
+    .. deprecated:: 4.17.1
+       Use :func:`get_region_logs_regex` or :func:`get_superregion_logs_regex`
+       instead.
+
+
     :param pattern: regex to match topics
     :returns: ([topics], cluster)
     :raises DiscoveryError: if no matching topics exist
     """
+    log.warning(LOG_DEPRECATED_MESSAGE)
     topology = TopologyConfiguration(cluster_type=DEFAULT_KAFKA_SCRIBE)
     prefix = re.escape(topology.get_scribe_local_prefix())
     return search_local_topics_by_regex('scribe', prefix + pattern)
@@ -572,11 +578,17 @@ def search_topics_by_regex_in_all_clusters(cluster_type, pattern):
 
 def local_scribe_topic_exists(stream):
     """Check if a scribe topic exists in the local cluster.
+
+    .. deprecated:: 4.17.1
+       Use :func:`get_region_logs_stream` or :func:`get_superregion_logs_stream`
+       instead.
+
     :param stream: scribe stream name
     :type stream: string
     :returns: True if the topic exists in the local cluster
     :raises ConfigurationError: if the local prefix is not in the config file
     """
+    log.warning(LOG_DEPRECATED_MESSAGE)
     topology = TopologyConfiguration(cluster_type=DEFAULT_KAFKA_SCRIBE)
     cluster = topology.get_local_cluster()
     prefix = topology.get_scribe_local_prefix()
@@ -631,7 +643,7 @@ def get_local_scribe_topic(stream):
 def get_all_local_scribe_topics(stream):
     """Search for all the topics for a scribe stream in the local kafka cluster.
 
-   .. deprecated:: 4.17.1
+    .. deprecated:: 4.17.1
        Use :func:`get_region_logs_regex` or :func:`get_superregion_logs_regex`
        instead.
 
@@ -649,6 +661,11 @@ def get_scribe_topics(stream, clusters=None):
     """Search for all the topics for a scribe stream in
     all available clusters, or in the given list of clusters.
 
+    .. deprecated:: 4.17.1
+       Use :func:`get_region_logs_stream` or :func:`get_superregion_logs_stream`
+       instead.
+
+
     :param stream: scribe stream name
     :type stream: string
     :param clusters: list of cluster config
@@ -656,6 +673,7 @@ def get_scribe_topics(stream, clusters=None):
     :returns: [([topics], cluster)]
     :raises DiscoveryError: if the topic does not exist
     """
+    log.warning(LOG_DEPRECATED_MESSAGE)
     pattern = make_scribe_regex(stream)
     if not clusters:
         results = search_topics_by_regex_in_all_clusters(DEFAULT_KAFKA_SCRIBE, pattern)
@@ -673,12 +691,18 @@ def get_scribe_topics(stream, clusters=None):
 
 def scribe_topic_exists_in_datacenter(stream, datacenter):
     """Check if a scribe topic exists in a certain datacenter.
+
+    .. deprecated:: 4.17.1
+       Use :func:`get_region_logs_stream` or :func:`get_superregion_logs_stream`
+       instead.
+
     :param stream: scribe stream name
     :type stream: string
     :param datacenter: datacenter name
     :type datacenter: string
     :returns: True if the topic exists, False otherwise.
     """
+    log.warning(LOG_DEPRECATED_MESSAGE)
     result = search_topic_in_all_clusters(
         DEFAULT_KAFKA_SCRIBE,
         make_scribe_topic(stream, datacenter)
@@ -690,6 +714,10 @@ def get_scribe_topic_in_datacenter(stream, datacenter):
     """Search for the scribe topic for a scribe stream in the specified
     datacenter.
 
+    .. deprecated:: 4.17.1
+       Use :func:`get_region_logs_stream` or :func:`get_superregion_logs_stream`
+       instead.
+
     :param stream: scribe stream name
     :type stream: string
     :param datacenter: datacenter name
@@ -697,6 +725,7 @@ def get_scribe_topic_in_datacenter(stream, datacenter):
     :returns: (topic, cluster)
     :raises DiscoveryError: if the topic does not exist
     """
+    log.warning(LOG_DEPRECATED_MESSAGE)
     result = search_topic_in_all_clusters(
         DEFAULT_KAFKA_SCRIBE,
         make_scribe_topic(stream, datacenter)
