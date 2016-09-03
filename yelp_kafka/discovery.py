@@ -322,7 +322,7 @@ def get_consumer_config(cluster_type, group_id, **extra):
 def get_kafka_connection(cluster_type, client_id, **kwargs):
     """Get a kafka connection for the local region kafka cluster.
 
-        :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
+    :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
     :param client_id: client_id to be used to connect to kafka.
     :type client_id: string
@@ -346,7 +346,7 @@ def get_kafka_connection(cluster_type, client_id, **kwargs):
 def get_all_kafka_connections(cluster_type, client_id, **kwargs):
     """Get a kafka connection for each available kafka cluster.
 
-        :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
+    :param cluster_type: kafka cluster type (ex.'scribe' or 'standard').
     :type cluster_type: string
     :param client_id: client_id to be used to connect to kafka.
     :type client_id: string

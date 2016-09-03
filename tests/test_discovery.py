@@ -388,7 +388,7 @@ def test_get_all_clusters(
     get_clusters.return_value = mock_clusters[0]
     mock_kafka_discovery_client.return_value.v1.getClustersAll.return_value. \
         result.return_value = ["test_cluster", "test_cluster_2"]
-    clusters = discovery.get_all_clusters("client-id", "mycluster")
+    clusters = discovery.get_all_clusters("mycluster", "client-id")
     assert get_clusters.call_args_list == [
         mock.call("mycluster", "client-id", "test_cluster"),
         mock.call("mycluster", "client-id", "test_cluster_2"),
@@ -433,7 +433,7 @@ def test_get_kafka_connection(mock_get_cluster):
         autospec=True
     ) as mock_kafka:
         mock_kafka.return_value = mock.sentinel.kafkaclient
-        actual = discovery.get_kafka_connection("yelp-kafka", "mycluster")
+        actual = discovery.get_kafka_connection("mycluster", "yelp-kafka")
         mock_kafka.assert_called_once_with(
             ['mybroker'],
             client_id='yelp-kafka'
@@ -455,7 +455,7 @@ def test_get_kafka_connection_kwargs(mock_get_cluster):
         autospec=True
     ) as mock_kafka:
         mock_kafka.return_value = mock.sentinel.kafkaclient
-        actual = discovery.get_kafka_connection("yelp-kafka", "mycluster", timeout=10)
+        actual = discovery.get_kafka_connection("mycluster", "yelp-kafka", timeout=10)
         mock_kafka.assert_called_once_with(
             ['mybroker'], client_id='yelp-kafka', timeout=10,
         )
@@ -477,7 +477,7 @@ def test_get_kafka_connection_error(mock_get_cluster):
     ) as mock_kafka:
         mock_kafka.side_effect = Exception("Boom!")
         with pytest.raises(DiscoveryError):
-            discovery.get_kafka_connection("yelp-kafka", "mycluster")
+            discovery.get_kafka_connection("mycluster", "yelp-kafka")
         mock_kafka.assert_called_once_with(
             ['mybroker'],
             client_id='yelp-kafka'
@@ -492,7 +492,7 @@ def test_get_all_kafka_connections(mock_get_clusters, mock_clusters):
         autospec=True
     ) as mock_kafka:
         mock_kafka.return_value = mock.sentinel.kafkaclient
-        actual = discovery.get_all_kafka_connections("yelp-kafka", "mycluster", timeout=10)
+        actual = discovery.get_all_kafka_connections("mycluster", "yelp-kafka", timeout=10)
         assert mock_kafka.call_args_list == [
             mock.call(['mybroker'], client_id='yelp-kafka', timeout=10),
             mock.call(['mybroker2'], client_id='yelp-kafka', timeout=10)
@@ -511,7 +511,7 @@ def test_get_all_kafka_connections_error(mock_get_clusters, mock_clusters):
         client = mock.MagicMock()
         mock_kafka.side_effect = [client, Exception("Boom!")]
         with pytest.raises(DiscoveryError):
-            discovery.get_all_kafka_connections("yelp-kafka", "mycluster")
+            discovery.get_all_kafka_connections("mycluster", "yelp-kafka")
         client.close.assert_called_once_with()
 
 
@@ -615,7 +615,7 @@ def test_search_topics_in_all_clusters(mock_get_clusters, mock_search):
     actual = discovery.search_topic_in_all_clusters(
         'mycluster', 'topic1'
     )
-    mock_get_clusters.assert_called_once_with(discovery.DEFAULT_CLIENT_ID, 'mycluster')
+    mock_get_clusters.assert_called_once_with('mycluster', discovery.DEFAULT_CLIENT_ID)
     mock_search.assert_called_once_with('topic1', mock.sentinel.clusters)
     assert actual == mock.sentinel.topics
 
@@ -629,7 +629,7 @@ def test_search_topics_no_topics_in_clusters(mock_get_clusters, mock_search):
         discovery.search_topic_in_all_clusters(
             'mycluster', 'topic1'
         )
-    mock_get_clusters.assert_called_once_with(discovery.DEFAULT_CLIENT_ID, 'mycluster')
+    mock_get_clusters.assert_called_once_with('mycluster', discovery.DEFAULT_CLIENT_ID)
     mock_search.assert_called_once_with('topic1', mock.sentinel.clusters)
 
 
@@ -679,7 +679,7 @@ def test_search_topic_by_regex_in_all_clusters(mock_get_clusters, mock_search):
         'mycluster', 'topic1.*'
     )
     mock_search.assert_called_once_with('topic1.*', mock.sentinel.clusters)
-    mock_get_clusters.assert_called_once_with(discovery.DEFAULT_CLIENT_ID, 'mycluster')
+    mock_get_clusters.assert_called_once_with('mycluster', discovery.DEFAULT_CLIENT_ID)
     assert actual == mock.sentinel.topics
 
 
@@ -696,4 +696,4 @@ def test_search_topic_by_regex_in_all_clusters_error(
             'mycluster', 'topic1.*'
         )
     mock_search.assert_called_once_with('topic1.*', mock.sentinel.clusters)
-    mock_get_clusters.assert_called_once_with(discovery.DEFAULT_CLIENT_ID, 'mycluster')
+    mock_get_clusters.assert_called_once_with('mycluster', discovery.DEFAULT_CLIENT_ID)
