@@ -153,7 +153,7 @@ convention ``services.<descriptive_name>`` or ``batch.<descriptive_name>`` to en
           ``auto_offset_reset`` should be set to **smallest** immediately after the first run (after the offsets are committed for the first time).
           When ``auto_offset_reset`` is set to **smallest** no messages are lost when adding new partitions.
           
-Create a consumer for all topics ending with mytopic in the standard Kafka
+Create a consumer for all topics ending with mytopic in the standard local region kafka
 cluster:
 
 .. code-block:: python
@@ -163,7 +163,8 @@ cluster:
    from kafka import KafkaConsumer
 
    # If no topics match the pattern, discovery raises DiscoveryError.
-   topics, cluster = discovery.search_local_topic_by_regex('standard', '.*mytopic')
+   region_cluster = discovery.get_region_cluster('standard', 'my-client-id')
+   topics, cluster = discovery.search_topics_by_regex('.*mytopic', [region_cluster])
    config = KafkaConsumerConfig(group_id='my_app', cluster=cluster, client_id='my-consumer')
    consumer = KafkaConsumer(topics, **config.get_kafka_consumer_config())
    for message in consumer:
@@ -189,20 +190,20 @@ You usually don't need to generate the topic name, since Yelp_Kafka will do that
 
 The use cases below are the most common when you want to tail a scribe log from Kafka.
 
-Tail a scribe log in the local data center using KafkaConsumerGroup
+Tail a scribe log in the local region using KafkaConsumerGroup
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Yelp_Kafka knows what is both the local scribe cluster and the prefix of the local scribe topic.
+Yelp_Kafka knows what is both the local region scribe cluster and the prefix of the local scribe topic.
 In :py:mod:`yelp_kafka.discovery` there are many functions to search for scribe topics in Kafka.
 
-.. note:: The local cluster refers to the scribe cluster your application is currently running.
+.. note:: The local region cluster refers to the scribe cluster for the region your application is currently running.
           We have a separate scribe Kafka cluster for each region (this reflects the scribe logs region).
           However, Paasta unit of deployment is superregion. This means that if a consumer is deployed
           in the norcal-prod Paasta cluster it may consume either logs from uswest1-prod or sfo12-prod.
           It is recommended that consumers that run on Paasta never refer to the local cluster but always
           explicitly configure the name of the cluster they want to read from. 
 
-Create a KafkaConsumerGroup to tail from the local ranger log.
+Create a KafkaConsumerGroup to tail from the local region ranger log.
 
 .. code-block:: python
 
@@ -211,8 +212,8 @@ Create a KafkaConsumerGroup to tail from the local ranger log.
    from yelp_kafka.config import KafkaConsumerConfig
 
    # If the stream does not exist, discovery raises DiscoveryError.
-   topic, cluster = discovery.get_local_scribe_topic('ranger')
-   consumer = KafkaConsumerGroup([topic], KafkaConsumerConfig(
+   [(topics, cluster)] = discovery.get_region_logs_stream('my-client-id', 'ranger')
+   consumer = KafkaConsumerGroup(topics, KafkaConsumerConfig(
        group_id='my_app',
        client_id='my_client_id',
        cluster=cluster,
@@ -221,67 +222,14 @@ Create a KafkaConsumerGroup to tail from the local ranger log.
 
 
 The code above can be run on a devc box and it will consume messages from ranger in devc.
-The same goes for all the other data centers. Using the topic name or data center as part of the consumer group id is not really useful.
+The same goes for all the other regions. Using the topic name or region as part of the consumer group id is not really useful.
 Kafka already uses the topic name to distinguish between consumers of different topics in the same group id.
 See :ref:`consumer_group_example` for more details about the consumer code. 
 
-Tail a scribe log from a specific region
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Tail a scribe log in the local superregion using KafkaConsumerGroup
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-You can use :py:func:`yelp_kafka.discovery.get_scribe_topics` and 
-:py:func:`yelp_kafka.discovery.get_cluster_by_name` to get the scribe topic for
-a specific region.
-
-.. code-block:: python
-
-   from yelp_kafka import discovery
-   from yelp_kafka.consumer_group import KafkaConsumerGroup
-   from yelp_kafka.config import KafkaConsumerConfig
-
-   # If the stream does not exist, discovery raises DiscoveryError.
-   cluster = discovery.get_cluster_by_name('scribe', 'uswest1-prod')
-   # Get the first element because there is only one cluster in the list.
-   topics, cluster = discovery.get_scribe_topics('ranger', [cluster])[0]
-   # get scribe topics returns a list of topics but there may only be a single topic
-   # matching a scribe log for each cluster.
-
-   consumer = KafkaConsumerGroup(topics, KafkaConsumerConfig(
-       group_id='my_app',
-       cluster=cluster,
-   ))
-   # Actual consumer code
-
-Tail a scribe log from a specific data center using KafkaConsumerGroup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-You can use :py:func:`yelp_kafka.discovery.get_scribe_topic_in_datacenter` to get the 
-scribe topic for a specific datacenter.
-
-Create a KafkaConsumerGroup to tail from sfo2 ranger.
-
-.. code-block:: python
-
-   from yelp_kafka import discovery
-   from yelp_kafka.consumer_group import KafkaConsumerGroup
-   from yelp_kafka.config import KafkaConsumerConfig
-
-   # If the stream does not exist, discovery raises DiscoveryError.
-   topic, cluster = discovery.get_scribe_topic_in_datacenter('ranger', 'sfo2')
-   consumer = KafkaConsumerGroup([topic], KafkaConsumerConfig(
-       group_id='my_app',
-       cluster=cluster,
-   ))
-   # Actual consumer code
-
-The code above creates a consumer for the ranger log coming from sfo2.
-
-.. note:: The data center has to be available from your current runtime env.
-
-Tail a scribe log from all the data centers using KafkaConsumerGroup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-In order to tail a scribe stream from all the data centers in the current runtime env
-we need to create a different consumer for each topic.
+Create KafkaConsumerGroup(s) to tail from the local superregion ranger log.
 
 .. code-block:: python
 
@@ -291,26 +239,73 @@ we need to create a different consumer for each topic.
    from yelp_kafka.config import KafkaConsumerConfig
 
    # If the stream does not exist, discovery raises DiscoveryError.
-   topics_cluster = discovery.get_scribe_topics('ranger')
-   consumers = [KafkaConsumerGroup(topic, KafkaConsumerConfig(
+   topics_cluster = discovery.get_superregion_logs_stream('my-client-id', 'ranger')
+   consumers = [KafkaConsumerGroup(topics, KafkaConsumerConfig(
        group_id='my_app',
+       client_id='my_client_id',
        cluster=cluster,
-   )) for topics, cluster in topics]
-
+   )) for topics, cluster in topics_cluster.items()]
    with contextlib.nested(*consumers):
        while True:
            # Iterate over the list of consumers to consume messages
 
-If the code above is run in prod it creates a consumer for each Kafka cluster and consumes
-from all of them in a single process.
 
-.. note:: Consuming from big streams is not very efficient when done in a single process. 
-          You usually want to have consumers running in parallel on different instances or processes.
-          You can still increase the parallelism by consuming from different partitions in 
-          different processes by using :ref:`consumer_group`.
+
+Tail a scribe log from a specific region
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: python
+
+   from yelp_kafka import discovery
+   from yelp_kafka.consumer_group import KafkaConsumerGroup
+   from yelp_kafka.config import KafkaConsumerConfig
+
+   # If the stream does not exist, discovery raises DiscoveryError.
+   [(topics, cluster)] = discovery.get_region_logs_stream('my-client-id', 'ranger', 'uswest1-prod')
+   # get scribe topics returns a list of topics but there may only be a single topic
+   # matching a scribe log for each cluster.
+
+   consumer = KafkaConsumerGroup(topics, KafkaConsumerConfig(
+       group_id='my_app',
+       cluster=cluster,
+   ))
+   # Actual consumer code
+
+Tail a scribe log from a specific superregion using KafkaConsumerGroup
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Create a KafkaConsumerGroup(s) to tail from sfo12-prod ranger.
+
+.. code-block:: python
+
+   import contextlib
+   from yelp_kafka import discovery
+   from yelp_kafka.consumer_group import KafkaConsumerGroup
+   from yelp_kafka.config import KafkaConsumerConfig
+
+   # If the stream does not exist, discovery raises DiscoveryError.
+   topics_cluster  = discovery.get_superregion_logs_stream('my-client-id', 'ranger', 'sfo12-prod')
+   consumers = [KafkaConsumerGroup(topics, KafkaConsumerConfig(
+       group_id='my_app',
+       cluster=cluster,
+   )) for topics, cluster in topics_cluster.items()]
+   with contextlib.nested(*consumers):
+      while True:
+          # Iterate over the list of consumers to consume messages
+
+The code above creates consumer(s) for the ranger log coming from sfo12-prod.
+
+.. note:: The superregion has to be available from your current runtime env.
+
+Tail a scribe log from all the data centers using KafkaConsumerGroup
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Most likely you shouldn't ever have to do this. If you do and have a good reason
+please ask in #kafka or come to dist-sys office hours for guidance
 
 .. warning:: Consuming from multiple clusters within the same process is safe when there
-             is only one consumer instance running for the same consumer group.
+             is only one consumer instance running for the same consumer group. Please place
+             distsys_streaming on any code review
 
 
 Other consumer groups
