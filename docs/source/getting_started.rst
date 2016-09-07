@@ -212,7 +212,7 @@ Create a KafkaConsumerGroup to tail from the local region ranger log.
    from yelp_kafka.config import KafkaConsumerConfig
 
    # If the stream does not exist, discovery raises DiscoveryError.
-   topics, cluster = discovery.get_region_logs_stream('my-client-id', 'ranger')
+   [(topics, cluster)] = discovery.get_region_logs_stream('my-client-id', 'ranger')
    consumer = KafkaConsumerGroup(topics, KafkaConsumerConfig(
        group_id='my_app',
        client_id='my_client_id',
@@ -261,7 +261,7 @@ Tail a scribe log from a specific region
    from yelp_kafka.config import KafkaConsumerConfig
 
    # If the stream does not exist, discovery raises DiscoveryError.
-   topics, cluster = discovery.get_region_logs_stream('my-client-id', 'ranger', 'uswest1-prod')
+   [(topics, cluster)] = discovery.get_region_logs_stream('my-client-id', 'ranger', 'uswest1-prod')
    # get scribe topics returns a list of topics but there may only be a single topic
    # matching a scribe log for each cluster.
 
