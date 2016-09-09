@@ -381,19 +381,19 @@ def test_get_superregion_logs_regex_invalid(
 
 @mock.patch("yelp_kafka.discovery.get_kafka_cluster", autospec=True)
 def test_get_all_clusters(
-    get_clusters,
+    get_cluster,
     mock_kafka_discovery_client,
     mock_clusters,
 ):
-    get_clusters.return_value = mock_clusters[0]
+    get_cluster.side_effect = mock_clusters
     mock_kafka_discovery_client.return_value.v1.getClustersAll.return_value. \
         result.return_value = ["test_cluster", "test_cluster_2"]
-    clusters = discovery.get_all_clusters("mycluster", "client-id")
-    assert get_clusters.call_args_list == [
-        mock.call("mycluster", "client-id", "test_cluster"),
-        mock.call("mycluster", "client-id", "test_cluster_2"),
+    clusters = discovery.get_all_clusters("mycluster_type", "client-id")
+    assert get_cluster.call_args_list == [
+        mock.call("mycluster_type", "client-id", "test_cluster"),
+        mock.call("mycluster_type", "client-id", "test_cluster_2"),
     ]
-    assert clusters == [mock_clusters[0], mock_clusters[0]]
+    assert clusters == mock_clusters
 
 
 @mock.patch("yelp_kafka.discovery.get_region_cluster", autospec=True)
