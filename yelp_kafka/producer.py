@@ -5,6 +5,7 @@ import yelp_meteorite
 from kafka import KeyedProducer
 from kafka import SimpleProducer
 from kafka.common import KafkaError
+from py_zipkin.zipkin import zipkin_span
 
 from yelp_kafka import metrics
 from yelp_kafka.error import YelpKafkaError
@@ -90,6 +91,7 @@ class YelpKafkaSimpleProducer(SimpleProducer):
         log = logging.getLogger(self.__class__.__name__)
         self.metrics = YelpKafkaProducerMetrics(cluster_config, report_metrics, self.client, log)
 
+    @zipkin_span(service_name='yelp_kafka', span_name='send_messages_simple_producer')
     def send_messages(self, topic, *msg):
         try:
             super(YelpKafkaSimpleProducer, self).send_messages(topic, *msg)
@@ -120,6 +122,7 @@ class YelpKafkaKeyedProducer(KeyedProducer):
         log = logging.getLogger(self.__class__.__name__)
         self.metrics = YelpKafkaProducerMetrics(cluster_config, report_metrics, self.client, log)
 
+    @zipkin_span(service_name='yelp_kafka', span_name='send_messages_keyed_producer')
     def send_messages(self, topic, *msg):
         try:
             super(YelpKafkaKeyedProducer, self).send_messages(topic, *msg)

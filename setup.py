@@ -48,6 +48,7 @@ setup(
         'kafka-python==0.9.5.post6',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
+        'py_zipkin',
         'requests',
         'setproctitle>=1.1.8',
         'simplejson',
