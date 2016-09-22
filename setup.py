@@ -44,7 +44,7 @@ setup(
     packages=find_packages(exclude=["tests*"]),
     install_requires=[
         'bravado',
-        'bravado_decorators',
+        'bravado_decorators>=0.10.0',
         'kafka-python==0.9.5.post6',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
@@ -53,6 +53,7 @@ setup(
         'setproctitle>=1.1.8',
         'simplejson',
         'six',
+        'swagger_zipkin',
         'yelp-lib',
         'yelp_meteorite',
     ],
