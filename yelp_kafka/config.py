@@ -12,10 +12,10 @@ from bravado.client import SwaggerClient
 from bravado.requests_client import RequestsClient
 from bravado_decorators.retry import SmartStackClient
 from bravado_decorators.retry import UserFacingRetryConfig
-from bravado_decorators.zipkin_decorator import ZipkinClientDecorator
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
+from swagger_zipkin.zipkin_decorator import ZipkinClientDecorator
 from yelp_lib.decorators import memoized
 
 from yelp_kafka.error import ConfigurationError
