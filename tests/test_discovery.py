@@ -76,7 +76,6 @@ def mock_response_logs_obj(mock_response_obj):
 
 @pytest.fixture
 def mock_http_err():
-    # This is done for HTTPError response object (e) to be access e.response.text
     return HTTPError(
         mock.MagicMock(
             spec=IncomingResponse,
