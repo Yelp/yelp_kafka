@@ -25,6 +25,7 @@ TIME_METRIC_NAMES = set([
     'offset_request_timer',
     'offset_commit_request_timer',
     'offset_fetch_request_timer',
+    'offset_fetch_request_timer_kafka',
     'consumer_metadata_request_timer',
     'offset_commit_request_timer_kafka',
 ])
