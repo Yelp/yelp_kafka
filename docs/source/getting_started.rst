@@ -359,3 +359,43 @@ through the `report_metrics` parameter. This defaults to True but can be turned 
 
   `metrics_reporter` is only used by KafkaConsumerGroup. At the moment, no other
   class uses this option.
+
+Integration tests using kafka discovery
+---------------------------------------
+
+If you are using :py:mod:`yelp_kafka.discovery` and wish to do integration tests, you will need
+to set up docker containers for the Kafka discovery service which is utilized to extract both
+cluster and log information.
+
+Add the following to your docker-compose.yml and link kafkadiscovery for your build
+
+.. code-block:: yaml
+
+    kafkadiscovery:
+      image: docker-dev.yelpcorp.com/kafka-discovery-testing:latest
+      expose:
+       - "8888"
+      volumes_from:
+       - kafkadiscoveryconfigs
+      links:
+       - kafka
+       - zookeeper
+
+    kafkadiscoveryconfigs:
+      image: docker-dev.yelpcorp.com/kafka-discovery-configs-testing:latest
+
+    zookeeper:
+      image: docker-dev.yelpcorp.com/zookeeper-testing:latest
+      expose:
+        - "2181"
+
+    kafka:
+      image: docker-dev.yelpcorp.com/kafka-testing:latest
+      expose:
+        - "9092"
+      links:
+        - zookeeper
+
+The kafka-cluster available will be called `local_cluster` and the default superregion is
+`acceptance_test_superregion`, default region is `acceptance_test_region`. These will be
+obtained by default by the discovery functions. All cluster types are available for discovery.
