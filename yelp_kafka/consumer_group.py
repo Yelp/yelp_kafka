@@ -10,14 +10,11 @@ import traceback
 from multiprocessing import Event
 from multiprocessing import Lock
 from multiprocessing import Process
-from threading import Thread
 
 import six
-import yelp_meteorite
 from kafka import KafkaConsumer
 from kafka.common import ConsumerTimeout
 from kafka.common import KafkaUnavailableError
-from six.moves.queue import Queue
 from yelp_lib.decorators import retry
 
 from yelp_kafka import metrics
@@ -194,7 +191,7 @@ class KafkaConsumerGroup(object):
     committed before repartitioning. To commit messages immediately, you can
     call `commit()`.
 
-    If metrics_reporter is enabled in config, the metrics prefix in SignalFx
+    If metrics_reporter is enabled in config, the metrics prefix in
     will be: "yelp_kafka.KafkaConsumerGroup."
 
     .. warning::
@@ -216,7 +213,7 @@ class KafkaConsumerGroup(object):
 
     METRIC_PREFIX = 'yelp_kafka.KafkaConsumerGroup'
 
-    def __init__(self, topics, config):
+    def __init__(self, topics, config, metric_reporter=None):
         assert isinstance(topics, list), "Topics must be a list"
 
         self.log = logging.getLogger(self.__class__.__name__)
@@ -228,8 +225,7 @@ class KafkaConsumerGroup(object):
             self._release
         )
         self.consumer = None
-        self.metrics_queue = Queue()
-        self.metrics_reporter = None
+        self.metrics_reporter = metric_reporter
 
         consumer_config = config.get_kafka_consumer_config()
         self.log.debug(
@@ -237,11 +233,8 @@ class KafkaConsumerGroup(object):
             consumer_config,
         )
 
-        if config.metrics_reporter == 'signalfx':
-            self._setup_signalfx_reporter(config)
-            consumer_config['metrics_responder'] = self._add_to_metrics_queue
-        elif config.metrics_reporter == 'yelp_meteorite':
-            self._setup_meteorite_reporter(config)
+        if self.metrics_reporter:
+            self._setup_metrics_reporter(config)
             consumer_config['metrics_responder'] = self._send_to_yelp_meteorite
 
         self.pre_rebalance_callback = config.pre_rebalance_callback
@@ -253,30 +246,19 @@ class KafkaConsumerGroup(object):
         consumer_config['consumer_timeout_ms'] = CONSUMER_GROUP_INTERNAL_TIMEOUT
         self.config = consumer_config
 
-    def _setup_signalfx_reporter(self, config):
-        self.metrics_reporter = metrics.MetricsReporter(
-            self.METRIC_PREFIX,
-            self.metrics_queue,
-            config
-        )
-        Thread(target=self.metrics_reporter.main_loop).start()
-
-    def _setup_meteorite_reporter(self, config):
-        extra_dimensions = config.signalfx_dimensions
+    def _setup_metrics_reporter(self, config):
+        extra_dimensions = config.metrics_dimensions
         self.timers = {}
         for name in metrics.TIME_METRIC_NAMES:
             topic_name = self.METRIC_PREFIX + '.' + name
-            timer = yelp_meteorite.create_timer(topic_name, extra_dimensions)
+            timer = self.metrics_reporter.get_timer_emitter(topic_name, extra_dimensions)
             self.timers[name] = timer
 
         self.counters = {}
         for name in metrics.FAILURE_COUNT_METRIC_NAMES:
             topic_name = self.METRIC_PREFIX + '.' + name
-            counter = yelp_meteorite.create_counter(topic_name, extra_dimensions)
+            counter = self.metrics_reporter.get_counter_emitter(topic_name, extra_dimensions)
             self.counters[name] = counter
-
-    def _add_to_metrics_queue(self, key, value):
-        self.metrics_queue.put((key, value))
 
     def _send_to_yelp_meteorite(self, key, value):
         if key in self.timers:

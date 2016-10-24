@@ -2,6 +2,9 @@
 """
 Tests for `yelp_kafka.producer` module.
 """
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import mock
 import pytest
 from kafka import SimpleProducer
@@ -18,9 +21,9 @@ def mock_yelp_meteorite():
     def generate_mock(*args, **kwargs):
         return mock.MagicMock()
 
-    with mock.patch('yelp_kafka.producer.yelp_meteorite', autospec=True) as mock_meteorite:
+    with mock.patch('yelp_kafka.metrics_reporter.MetricReporter', autospec=True) as mock_meteorite:
         # Different mock for each timer creation
-        mock_meteorite.create_timer.side_effect = generate_mock
+        mock_meteorite.get_timer_emitter.side_effect = generate_mock
         yield mock_meteorite
 
 
@@ -50,7 +53,11 @@ def mock_kafka_producer(
     mock_kafka_send_messages,
     mock_cluster_config,
 ):
-    return YelpKafkaSimpleProducer(client=mock_kafka_client, cluster_config=mock_cluster_config)
+    return YelpKafkaSimpleProducer(
+        client=mock_kafka_client,
+        cluster_config=mock_cluster_config,
+        metrics_reporter=mock_yelp_meteorite
+    )
 
 
 @pytest.fixture
@@ -63,7 +70,7 @@ def mock_producer_metrics(
         client=mock_kafka_client,
         cluster_config=mock_cluster_config,
         report_metrics=True,
-        log=mock.Mock()
+        metrics_reporter=mock_yelp_meteorite
     )
 
 
@@ -77,9 +84,9 @@ def test_setup_metrics(
         client=mock_kafka_client,
         cluster_config=mock_cluster_config,
         report_metrics=True,
-        log=mock.Mock()
+        metrics_reporter=mock_yelp_meteorite
     )
-    assert mock_yelp_meteorite.create_timer.call_count == len(metrics.TIME_METRIC_NAMES)
+    assert mock_yelp_meteorite.get_timer_emitter.call_count == len(metrics.TIME_METRIC_NAMES)
 
 
 def test_send_kafka_metrics(mock_producer_metrics):

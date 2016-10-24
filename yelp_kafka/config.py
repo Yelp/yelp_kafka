@@ -40,7 +40,6 @@ DEFAULT_CLIENT_ID = 'yelp-kafka'
 AUTO_COMMIT_MSG_COUNT = None
 AUTO_COMMIT_INTERVAL_SECS = 1
 
-DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
 DEFAULT_KAFKA_DISCOVERY_SERVICE_PATH = '/nail/etc/services/services.yaml'
 
 RESPONSE_TIMEOUT = 2.0  # Response timeout (2 sec) for kafka cluster-endpoints
@@ -248,16 +247,10 @@ class KafkaConsumerConfig(object):
         * **max_termination_timeout_secs**: Used by MultiprocessinConsumerGroup
           time to wait for a consumer to terminate. Default 10 secs.
         * **metrics_reporter**: Used by
-          :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` to send
-          metrics data from kafka-python to SignalFx.
-          Valid options are ``yelp_meteorite`` (which uses meteorite) and
-          ``signalfx`` (deprecated). Defaults to yelp_meteorite
-        * **signalfx_dimensions**: Additional dimensions to send to SignalFx.
-          Both 'signalfx' and 'yelp_meteorite' use this.
-        * **signalfx_send_metrics_interval**: How often to send metrics to
-          SignalFx. Only used if metrics_reporter is 'signalfx'.
-        * **signalfx_token**: Authentication token to send to SignalFx. Only
-          used if metrics_reporter is 'signalfx'.
+          :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` to emit
+          metrics data. Please pass in an instance of
+          :py:class:`yelp_kafka.metrics_reporter.MetricReporter`
+        * **metrics_dimensions**: Additional metrics dimensions.
         * **pre_rebalance_callback**: Optional callback which is passed a
           dict of topics/partitions which will be discarded in a repartition.
           This is called directly prior to the actual discarding of the topics.
@@ -478,25 +471,14 @@ class KafkaConsumerConfig(object):
         return self._config.get('metrics_reporter', 'yelp_meteorite')
 
     @property
-    def signalfx_dimensions(self):
-        dimensions = self._config.get('signalfx_dimensions', {})
+    def metrics_dimensions(self):
+        dimensions = self._config.get('metrics_dimensions', {})
         dimensions.update({
             'group_id': self.group_id,
             'cluster_name': self.cluster.name,
             'cluster_type': self.cluster.type,
         })
         return dimensions
-
-    @property
-    def signalfx_send_metrics_interval(self):
-        return self._config.get(
-            'signalfx_send_metrics_interval',
-            DEFAULT_SIGNALFX_METRICS_INTERVAL
-        )
-
-    @property
-    def signalfx_token(self):
-        return self._config.get('signalfx_token', None)
 
     @property
     def pre_rebalance_callback(self):
