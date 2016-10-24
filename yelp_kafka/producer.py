@@ -11,6 +11,7 @@ from py_zipkin.zipkin import zipkin_span
 
 from yelp_kafka import metrics
 from yelp_kafka.error import YelpKafkaError
+from yelp_kafka.metrics_reporter import MetricReporter
 
 METRIC_PREFIX = 'yelp_kafka.YelpKafkaProducer.'
 
@@ -39,6 +40,8 @@ class YelpKafkaProducerMetrics(object):
         self.timers = {}
         self.metrics_reporter = metrics_reporter
         if self.metrics_reporter:
+            if not isinstance(self.metrics_reporter, MetricReporter):
+                raise Exception("Metric Reporter is not of type yelp_kafka.metrics_reporter.MetricReporter")
             self.setup_metrics()
 
     def get_kafka_dimensions(self):
