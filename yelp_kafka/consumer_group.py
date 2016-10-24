@@ -235,7 +235,7 @@ class KafkaConsumerGroup(object):
 
         if self.metrics_reporter:
             self._setup_metrics_reporter(config)
-            consumer_config['metrics_responder'] = self._send_to_yelp_meteorite
+            consumer_config['metrics_responder'] = self._send_to_metric_reporter
 
         self.pre_rebalance_callback = config.pre_rebalance_callback
         self.post_rebalance_callback = config.post_rebalance_callback
@@ -260,7 +260,7 @@ class KafkaConsumerGroup(object):
             counter = self.metrics_reporter.get_counter_emitter(topic_name, extra_dimensions)
             self.counters[name] = counter
 
-    def _send_to_yelp_meteorite(self, key, value):
+    def _send_to_metric_reporter(self, key, value):
         if key in self.timers:
             # kafka-python emits time in seconds, but yelp_meteorite wants
             # milliseconds
