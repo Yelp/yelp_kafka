@@ -24,21 +24,19 @@ class YelpKafkaProducerMetrics(object):
                 :py:class:`yelp_kafka.config.ClusterConfig`
             report_metrics(Boolean): Flag to enable reporting metrics. Defaults to False.
             client: Kafka client for which metrics are to be reported
-            metrics_reporter:
+            metrics_reporter: A metrics reporter instance to report metrics
     """
 
     def __init__(
             self,
             cluster_config,
             client,
-            report_metrics=False,
             metrics_reporter=None
     ):
         self.log = logging.getLogger(self.__class__.__name__)
         self.cluster_config = cluster_config
         self.client = client
         self.timers = {}
-        self.report_metrics = report_metrics
         self.metrics_reporter = metrics_reporter
         if self.metrics_reporter:
             self.setup_metrics()
@@ -51,9 +49,7 @@ class YelpKafkaProducerMetrics(object):
         }
 
     def setup_metrics(self):
-        if self.report_metrics:
-            if not self.metrics_reporter:
-                raise Exception("report_metrics is True, but no metrics_reporter provided.")
+        if self.metrics_reporter:
             self.client.metrics_responder = self._send_kafka_metrics
             kafka_dimensions = self.get_kafka_dimensions()
             self.kafka_enqueue_exception_count = self.metrics_reporter.get_counter_emitter(
@@ -68,7 +64,7 @@ class YelpKafkaProducerMetrics(object):
             # kafka-python emits time in seconds, but yelp_meteorite wants
             # milliseconds
             time_in_ms = value * 1000
-            self._get_timer(key).record(time_in_ms, )
+            self.metrics_reporter.record(self._get_timer(key), time_in_ms)
         else:
             self.log.warn("Unknown metric: {0}".format(key))
 
@@ -116,17 +112,18 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     ):
         super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
 
-        if report_metrics and not metrics_reporter:
+        if not metrics_reporter:
             try:
                 from yelp_kafka.yelp_metrics_reporter import MeteoriteMetrics
-                metrics_reporter = MeteoriteMetrics
+                metrics_reporter = MeteoriteMetrics()
             except ImportError:
-                logging.error("No yelp_meteorite is found and no metric reporter instance is provided")
-                report_metrics = False
+                logging.error("yelp_meteorite is not present")
+
+        if not report_metrics:
+            metrics_reporter = None
 
         self.metrics = YelpKafkaProducerMetrics(
             cluster_config=cluster_config,
-            report_metrics=report_metrics,
             client=self.client,
             metrics_reporter=metrics_reporter
         )
@@ -136,8 +133,8 @@ class YelpKafkaSimpleProducer(SimpleProducer):
         try:
             super(YelpKafkaSimpleProducer, self).send_messages(topic, *msg)
         except (YelpKafkaError, KafkaError):
-            if self.metrics.report_metrics:
-                self.metrics.kafka_enqueue_exception_count.count(1)
+            if self.metrics.metrics_reporter:
+                self.metrics.metrics_reporter.record(self.metrics.kafka_enqueue_exception_count, 1)
             raise
 
 
@@ -173,11 +170,9 @@ class YelpKafkaKeyedProducer(KeyedProducer):
                 metrics_reporter = MetricReporter
             except ImportError:
                 logging.error("No yelp_meteorite is found and no metric reporter instance is provided")
-                report_metrics = False
 
         self.metrics = YelpKafkaProducerMetrics(
             cluster_config,
-            report_metrics,
             self.client,
             metrics_reporter
         )
@@ -187,6 +182,6 @@ class YelpKafkaKeyedProducer(KeyedProducer):
         try:
             super(YelpKafkaKeyedProducer, self).send_messages(topic, *msg)
         except (YelpKafkaError, KafkaError):
-            if self.metrics.report_metrics:
-                self.metrics.kafka_enqueue_exception_count.count(1)
+            if self.metrics.metrics_reporter:
+                self.metrics.metrics_reporter.record(self.metrics.kafka_enqueue_exception_count, 1)
             raise
