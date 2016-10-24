@@ -12,7 +12,6 @@ from py_zipkin.zipkin import zipkin_span
 from yelp_kafka import metrics
 from yelp_kafka.error import YelpKafkaError
 
-
 METRIC_PREFIX = 'yelp_kafka.YelpKafkaProducer.'
 
 
@@ -69,7 +68,7 @@ class YelpKafkaProducerMetrics(object):
             # kafka-python emits time in seconds, but yelp_meteorite wants
             # milliseconds
             time_in_ms = value * 1000
-            self._get_timer(key).record(time_in_ms)
+            self._get_timer(key).record(time_in_ms, )
         else:
             self.log.warn("Unknown metric: {0}".format(key))
 
@@ -116,6 +115,15 @@ class YelpKafkaSimpleProducer(SimpleProducer):
             *args, **kwargs
     ):
         super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
+
+        if report_metrics and not metrics_reporter:
+            try:
+                from yelp_kafka.yelp_metrics_reporter import MeteoriteMetrics
+                metrics_reporter = MeteoriteMetrics
+            except ImportError:
+                logging.error("No yelp_meteorite is found and no metric reporter instance is provided")
+                report_metrics = False
+
         self.metrics = YelpKafkaProducerMetrics(
             cluster_config=cluster_config,
             report_metrics=report_metrics,
@@ -158,6 +166,15 @@ class YelpKafkaKeyedProducer(KeyedProducer):
             **kwargs
     ):
         super(YelpKafkaKeyedProducer, self).__init__(*args, **kwargs)
+
+        if report_metrics and not metrics_reporter:
+            try:
+                from yelp_kafka.metrics_reporter import MetricReporter
+                metrics_reporter = MetricReporter
+            except ImportError:
+                logging.error("No yelp_meteorite is found and no metric reporter instance is provided")
+                report_metrics = False
+
         self.metrics = YelpKafkaProducerMetrics(
             cluster_config,
             report_metrics,

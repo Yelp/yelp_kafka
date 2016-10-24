@@ -265,7 +265,7 @@ class KafkaConsumerGroup(object):
             # kafka-python emits time in seconds, but yelp_meteorite wants
             # milliseconds
             time_in_ms = value * 1000
-            self.timers[key].record(time_in_ms)
+            self.timers[key].record(time_in_ms, )
         elif key in self.counters:
             self.counters[key].count()
         else:
