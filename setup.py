@@ -54,6 +54,7 @@ setup(
         'simplejson',
         'six',
         'swagger_zipkin',
+        'retrying',
         'yelp-lib',
         'yelp_meteorite',
     ],

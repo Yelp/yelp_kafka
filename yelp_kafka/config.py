@@ -16,9 +16,9 @@ from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
 from swagger_zipkin.zipkin_decorator import ZipkinClientDecorator
-from yelp_lib.decorators import memoized
 
 from yelp_kafka.error import ConfigurationError
+from yelp_kafka.utils import memoized
 
 
 DEFAULT_KAFKA_TOPOLOGY_BASE_PATH = '/nail/etc/kafka_discovery'
