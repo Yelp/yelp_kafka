@@ -67,6 +67,11 @@ def extract_stream_name(topic_name):
 
 
 def retry_if_kafka_unavailable_error(exception):
+    """Returns true if the exception is of type KafkaUnavailableError
+
+    :param: exception: the exception to be checked
+    :returns boolean
+    """
     return isinstance(exception, KafkaUnavailableError)
 
 
