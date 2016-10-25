@@ -55,7 +55,6 @@ setup(
         'six',
         'swagger_zipkin',
         'retrying',
-        'yelp-lib',
         'yelp_meteorite',
     ],
     cmdclass={
