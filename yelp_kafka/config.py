@@ -14,6 +14,7 @@ from bravado_decorators.retry import SmartStackClient
 from bravado_decorators.retry import UserFacingRetryConfig
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
+from kafka.util import kafka_bytestring
 from swagger_zipkin.zipkin_decorator import ZipkinClientDecorator
 from yelp_lib.decorators import memoized
 
@@ -247,9 +248,8 @@ class KafkaConsumerConfig(object):
           time to wait for a consumer to terminate. Default 10 secs.
         * **metrics_reporter**: Used by
           :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` to emit
-          metrics data.
-          Valid option is ``yelp_meteorite`` (which uses meteorite).
-          Defaults to yelp_meteorite
+          metrics data. Please pass in an instance of
+          :py:class:`yelp_kafka.metrics_reporter.MetricReporter`
         * **metrics_dimensions**: Additional metrics dimensions.
         * **pre_rebalance_callback**: Optional callback which is passed a
           dict of topics/partitions which will be discarded in a repartition.
@@ -354,7 +354,7 @@ class KafkaConsumerConfig(object):
         self.log = logging.getLogger(self.__class__.__name__)
         self._config = config
         self.cluster = cluster
-        self.group_id = group_id
+        self.group_id = kafka_bytestring(group_id)
 
     def __eq__(self, other):
         return all([
@@ -434,7 +434,7 @@ class KafkaConsumerConfig(object):
 
         config['group_id'] = self.group_id
         config['bootstrap_servers'] = self.cluster.broker_list
-
+        self._remove_offset_storage(config)
         return config
 
     def _remove_offset_storage(self, config):
@@ -457,7 +457,7 @@ class KafkaConsumerConfig(object):
     def group_path(self):
         return '{zk_base}/{group_id}'.format(
             zk_base=ZOOKEEPER_BASE_PATH,
-            group_id=self.group_id,
+            group_id=self.group_id.decode(),
         )
 
     @property

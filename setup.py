@@ -49,7 +49,6 @@ setup(
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
         'py_zipkin',
-        'requests',
         'setproctitle>=1.1.8',
         'simplejson',
         'six',

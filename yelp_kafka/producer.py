@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 
-import yelp_meteorite
 from kafka import KeyedProducer
 from kafka import SimpleProducer
 from kafka.common import KafkaError
@@ -9,20 +11,38 @@ from py_zipkin.zipkin import zipkin_span
 
 from yelp_kafka import metrics
 from yelp_kafka.error import YelpKafkaError
-
+from yelp_kafka.metrics_reporter import MetricReporter
 
 METRIC_PREFIX = 'yelp_kafka.YelpKafkaProducer.'
 
 
 class YelpKafkaProducerMetrics(object):
+    """
+        Used to setup and report producer metrics
 
-    def __init__(self, cluster_config, report_metrics, client, log):
-        self.log = log
+         Args:
+            cluster_config(Object) : this the kafka cluster config. The structure is present in
+                :py:class:`yelp_kafka.config.ClusterConfig`
+            report_metrics(Boolean): Flag to enable reporting metrics. Defaults to False.
+            client: Kafka client for which metrics are to be reported
+            metrics_reporter: A metrics reporter instance to report metrics
+    """
+
+    def __init__(
+        self,
+        cluster_config,
+        client,
+        metrics_reporter=None
+    ):
+        self.log = logging.getLogger(self.__class__.__name__)
         self.cluster_config = cluster_config
         self.client = client
         self.timers = {}
-        self.report_metrics = report_metrics
-        self.setup_metrics()
+        self.metrics_reporter = metrics_reporter
+        if self.metrics_reporter:
+            if not isinstance(self.metrics_reporter, MetricReporter):
+                raise Exception("Metric Reporter is not of type yelp_kafka.metrics_reporter.MetricReporter")
+            self.setup_metrics()
 
     def get_kafka_dimensions(self):
         return {
@@ -32,10 +52,10 @@ class YelpKafkaProducerMetrics(object):
         }
 
     def setup_metrics(self):
-        if self.report_metrics:
+        if self.metrics_reporter:
             self.client.metrics_responder = self._send_kafka_metrics
             kafka_dimensions = self.get_kafka_dimensions()
-            self.kafka_enqueue_exception_count = yelp_meteorite.create_counter(
+            self.kafka_enqueue_exception_count = self.metrics_reporter.get_counter_emitter(
                 METRIC_PREFIX + metrics.PRODUCE_EXCEPTION_COUNT,
                 kafka_dimensions
             )
@@ -47,7 +67,7 @@ class YelpKafkaProducerMetrics(object):
             # kafka-python emits time in seconds, but yelp_meteorite wants
             # milliseconds
             time_in_ms = value * 1000
-            self._get_timer(key).record(time_in_ms)
+            self.metrics_reporter.record(self._get_timer(key), time_in_ms)
         else:
             self.log.warn("Unknown metric: {0}".format(key))
 
@@ -55,7 +75,7 @@ class YelpKafkaProducerMetrics(object):
         if dimensions is None:
             dimensions = {}
         new_name = METRIC_PREFIX + name
-        self.timers[new_name] = yelp_meteorite.create_timer(
+        self.timers[new_name] = self.metrics_reporter.get_timer_emitter(
             new_name,
             default_dimensions=dimensions
         )
@@ -86,18 +106,37 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     .. _SimpleProducer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.producer.html
     """
 
-    def __init__(self, cluster_config=None, report_metrics=True, *args, **kwargs):
+    def __init__(
+        self,
+        cluster_config=None,
+        report_metrics=True,
+        metrics_reporter=None,
+        *args, **kwargs
+    ):
         super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
-        log = logging.getLogger(self.__class__.__name__)
-        self.metrics = YelpKafkaProducerMetrics(cluster_config, report_metrics, self.client, log)
+
+        if report_metrics and (not metrics_reporter):
+            try:
+                from yelp_kafka.yelp_metrics_reporter import MeteoriteMetrics
+                metrics_reporter = MeteoriteMetrics()
+            except ImportError:
+                logging.error("yelp_meteorite is not present")
+        elif not report_metrics:
+            metrics_reporter = None
+
+        self.metrics = YelpKafkaProducerMetrics(
+            cluster_config=cluster_config,
+            client=self.client,
+            metrics_reporter=metrics_reporter
+        )
 
     @zipkin_span(service_name='yelp_kafka', span_name='send_messages_simple_producer')
     def send_messages(self, topic, *msg):
         try:
             super(YelpKafkaSimpleProducer, self).send_messages(topic, *msg)
         except (YelpKafkaError, KafkaError):
-            if self.metrics.report_metrics:
-                self.metrics.kafka_enqueue_exception_count.count(1)
+            if self.metrics.metrics_reporter:
+                self.metrics.metrics_reporter.record(self.metrics.kafka_enqueue_exception_count, 1)
             raise
 
 
@@ -117,16 +156,36 @@ class YelpKafkaKeyedProducer(KeyedProducer):
     .. _KeyedProducer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.producer.html
     """
 
-    def __init__(self, cluster_config=None, report_metrics=True, *args, **kwargs):
+    def __init__(
+        self,
+        cluster_config=None,
+        report_metrics=True,
+        metrics_reporter=None,
+        *args,
+        **kwargs
+    ):
         super(YelpKafkaKeyedProducer, self).__init__(*args, **kwargs)
-        log = logging.getLogger(self.__class__.__name__)
-        self.metrics = YelpKafkaProducerMetrics(cluster_config, report_metrics, self.client, log)
+
+        if report_metrics and (not metrics_reporter):
+            try:
+                from yelp_kafka.yelp_metrics_reporter import MeteoriteMetrics
+                metrics_reporter = MeteoriteMetrics()
+            except ImportError:
+                logging.error("yelp_meteorite is not present")
+        elif not report_metrics:
+            metrics_reporter = None
+
+        self.metrics = YelpKafkaProducerMetrics(
+            cluster_config,
+            self.client,
+            metrics_reporter
+        )
 
     @zipkin_span(service_name='yelp_kafka', span_name='send_messages_keyed_producer')
     def send_messages(self, topic, *msg):
         try:
             super(YelpKafkaKeyedProducer, self).send_messages(topic, *msg)
         except (YelpKafkaError, KafkaError):
-            if self.metrics.report_metrics:
-                self.metrics.kafka_enqueue_exception_count.count(1)
+            if self.metrics.metrics_reporter:
+                self.metrics.metrics_reporter.record(self.metrics.kafka_enqueue_exception_count, 1)
             raise
