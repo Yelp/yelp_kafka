@@ -29,10 +29,10 @@ class YelpKafkaProducerMetrics(object):
     """
 
     def __init__(
-            self,
-            cluster_config,
-            client,
-            metrics_reporter=None
+        self,
+        cluster_config,
+        client,
+        metrics_reporter=None
     ):
         self.log = logging.getLogger(self.__class__.__name__)
         self.cluster_config = cluster_config
@@ -107,22 +107,21 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     """
 
     def __init__(
-            self,
-            cluster_config=None,
-            report_metrics=True,
-            metrics_reporter=None,
-            *args, **kwargs
+        self,
+        cluster_config=None,
+        report_metrics=True,
+        metrics_reporter=None,
+        *args, **kwargs
     ):
         super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
 
-        if not metrics_reporter:
+        if report_metrics and (not metrics_reporter):
             try:
                 from yelp_kafka.yelp_metrics_reporter import MeteoriteMetrics
                 metrics_reporter = MeteoriteMetrics()
             except ImportError:
                 logging.error("yelp_meteorite is not present")
-
-        if not report_metrics:
+        elif not report_metrics:
             metrics_reporter = None
 
         self.metrics = YelpKafkaProducerMetrics(
@@ -158,21 +157,23 @@ class YelpKafkaKeyedProducer(KeyedProducer):
     """
 
     def __init__(
-            self,
-            cluster_config=None,
-            report_metrics=True,
-            metrics_reporter=None,
-            *args,
-            **kwargs
+        self,
+        cluster_config=None,
+        report_metrics=True,
+        metrics_reporter=None,
+        *args,
+        **kwargs
     ):
         super(YelpKafkaKeyedProducer, self).__init__(*args, **kwargs)
 
-        if report_metrics and not metrics_reporter:
+        if report_metrics and (not metrics_reporter):
             try:
-                from yelp_kafka.metrics_reporter import MetricReporter
-                metrics_reporter = MetricReporter
+                from yelp_kafka.yelp_metrics_reporter import MeteoriteMetrics
+                metrics_reporter = MeteoriteMetrics()
             except ImportError:
-                logging.error("No yelp_meteorite is found and no metric reporter instance is provided")
+                logging.error("yelp_meteorite is not present")
+        elif not report_metrics:
+            metrics_reporter = None
 
         self.metrics = YelpKafkaProducerMetrics(
             cluster_config,
