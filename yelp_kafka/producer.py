@@ -115,7 +115,7 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     ):
         super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
 
-        if report_metrics and (not metrics_reporter):
+        if report_metrics and not metrics_reporter:
             try:
                 from yelp_kafka.yelp_metrics_reporter import MeteoriteMetrics
                 metrics_reporter = MeteoriteMetrics()
