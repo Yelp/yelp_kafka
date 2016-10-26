@@ -332,9 +332,9 @@ Reporting metrics to SignalFx
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you're using :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`, you
-can send metrics on request latency and error counts. This is off by default
+can send metrics on request latency and error counts. This is on by default
 for yelp_kafka and uses an instance of
-:py:class:`yelp_kafka.metrics_reporter.MetricReporter` for reporting metrics
+:py:class:`yelp_kafka.metrics_responder.MetricsResponder` for reporting metrics
 
 Reporting metrics directly from the kafka client is an option that is only
 available in Yelp's fork of kafka-python (which yelp_kafka uses as
@@ -358,8 +358,13 @@ through the `report_metrics` parameter. This defaults to True but can be turned 
 
 .. note::
 
-  `metrics_reporter` is only used by KafkaConsumerGroup. At the moment, no other
-  class uses this option.
+If you want to plug in your own metric reporter module, please use
+:py:class:`yelp_kafka.metrics_responder.MetricsResponder` and pass it in
+:py:class:`yelp_kafka.producer.YelpKafkaSimpleProducer` or
+:py:class:`yelp_kafka.producer.YelpKafkaKeyedProducer` or
+:py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` or
+
+
 
 Integration tests using kafka discovery
 ---------------------------------------

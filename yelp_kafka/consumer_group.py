@@ -24,6 +24,7 @@ from yelp_kafka.error import PartitionerError
 from yelp_kafka.error import PartitionerZookeeperError
 from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.partitioner import Partitioner
+from yelp_kafka.utils import check_if_yelp_meteorite_available
 
 
 DEFAULT_REFRESH_TIMEOUT_IN_SEC = 0.5
@@ -213,7 +214,7 @@ class KafkaConsumerGroup(object):
 
     METRIC_PREFIX = 'yelp_kafka.KafkaConsumerGroup'
 
-    def __init__(self, topics, config, metric_reporter=None):
+    def __init__(self, topics, config, metrics_responder=None):
         assert isinstance(topics, list), "Topics must be a list"
 
         self.log = logging.getLogger(self.__class__.__name__)
@@ -225,7 +226,6 @@ class KafkaConsumerGroup(object):
             self._release
         )
         self.consumer = None
-        self.metrics_reporter = metric_reporter
 
         consumer_config = config.get_kafka_consumer_config()
         self.log.debug(
@@ -233,9 +233,13 @@ class KafkaConsumerGroup(object):
             consumer_config,
         )
 
-        if self.metrics_reporter:
-            self._setup_metrics_reporter(config)
-            consumer_config['metrics_responder'] = self._send_to_metric_reporter
+        self.metrics_responder = check_if_yelp_meteorite_available(
+            True,
+            metrics_responder
+        )
+        if self.metrics_responder:
+            self._setup_metrics_responder(config)
+            consumer_config['metrics_responder'] = self._send_to_metrics_responder
 
         self.pre_rebalance_callback = config.pre_rebalance_callback
         self.post_rebalance_callback = config.post_rebalance_callback
@@ -246,28 +250,28 @@ class KafkaConsumerGroup(object):
         consumer_config['consumer_timeout_ms'] = CONSUMER_GROUP_INTERNAL_TIMEOUT
         self.config = consumer_config
 
-    def _setup_metrics_reporter(self, config):
+    def _setup_metrics_responder(self, config):
         extra_dimensions = config.metrics_dimensions
         self.timers = {}
         for name in metrics.TIME_METRIC_NAMES:
             topic_name = self.METRIC_PREFIX + '.' + name
-            timer = self.metrics_reporter.get_timer_emitter(topic_name, extra_dimensions)
+            timer = self.metrics_responder.get_timer_emitter(topic_name, extra_dimensions)
             self.timers[name] = timer
 
         self.counters = {}
         for name in metrics.FAILURE_COUNT_METRIC_NAMES:
             topic_name = self.METRIC_PREFIX + '.' + name
-            counter = self.metrics_reporter.get_counter_emitter(topic_name, extra_dimensions)
+            counter = self.metrics_responder.get_counter_emitter(topic_name, extra_dimensions)
             self.counters[name] = counter
 
-    def _send_to_metric_reporter(self, key, value):
+    def _send_to_metrics_responder(self, key, value):
         if key in self.timers:
             # kafka-python emits time in seconds, but yelp_meteorite wants
             # milliseconds
             time_in_ms = value * 1000
-            self.metrics_reporter.record(self.timers[key], time_in_ms)
+            self.metrics_responder.record(self.timers[key], time_in_ms)
         elif key in self.counters:
-            self.metrics_reporter.record(self.counters[key], 1)
+            self.metrics_responder.record(self.counters[key], 1)
         else:
             self.log.warn("Unknown metric: {0}".format(key))
 
@@ -278,8 +282,8 @@ class KafkaConsumerGroup(object):
         self.partitioner.stop()
         self.consumer.close()
 
-        if self.metrics_reporter:
-            self.metrics_reporter.die_event.set()
+        if self.metrics_responder:
+            self.metrics_responder.die_event.set()
 
     def next(self):
         start_time = time.time()

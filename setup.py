@@ -55,8 +55,8 @@ setup(
         'swagger_zipkin',
         'yelp-lib',
     ],
-    extra_requires={
-        'extras': ['yelp_meteorite']
+    extras_require={
+        'internal': ['yelp_meteorite']
     },
     cmdclass={
         'test': Tox,

@@ -5,7 +5,7 @@ import abc
 import logging
 
 
-class MetricReporter(object):
+class MetricsResponder(object):
     """
         Used for publishing metrics with a metric reporter instance
     """

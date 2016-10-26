@@ -6,7 +6,6 @@ import logging
 
 from kafka.common import KafkaUnavailableError
 
-
 log = logging.getLogger(__name__)
 
 
@@ -62,3 +61,14 @@ def extract_stream_name(topic_name):
                format: "scribe.<datacenter>.<stream name>"
     """
     return _split_topic_name(topic_name)[2]
+
+
+def check_if_yelp_meteorite_available(report_metrics, metrics_responder):
+    if report_metrics and (not metrics_responder):
+        try:
+            from yelp_kafka.yelp_metrics_responder import MeteoriteMetrics
+            return MeteoriteMetrics()
+        except ImportError:
+            logging.error("yelp_meteorite is not present")
+    elif not report_metrics:
+        return

@@ -467,10 +467,6 @@ class KafkaConsumerConfig(object):
         return self._config.get('client_id', DEFAULT_CLIENT_ID)
 
     @property
-    def metrics_reporter(self):
-        return self._config.get('metrics_reporter', 'yelp_meteorite')
-
-    @property
     def metrics_dimensions(self):
         dimensions = self._config.get('metrics_dimensions', {})
         dimensions.update({

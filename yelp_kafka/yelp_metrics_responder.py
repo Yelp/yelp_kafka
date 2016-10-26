@@ -5,10 +5,10 @@ import logging
 
 import yelp_meteorite
 
-from yelp_kafka.metrics_reporter import MetricReporter
+from yelp_kafka.metrics_responder import MetricsResponder
 
 
-class MeteoriteMetrics(MetricReporter):
+class MeteoriteMetrics(MetricsResponder):
     """
         Used for publishing metrics with a metric reporter instance
     """
