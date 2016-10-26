@@ -54,8 +54,10 @@ setup(
         'six',
         'swagger_zipkin',
         'yelp-lib',
-        'yelp_meteorite',
     ],
+    extra_requires={
+        'extras': ['yelp_meteorite']
+    },
     cmdclass={
         'test': Tox,
         'coverage': Coverage

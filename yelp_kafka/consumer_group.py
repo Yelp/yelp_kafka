@@ -267,7 +267,6 @@ class KafkaConsumerGroup(object):
             time_in_ms = value * 1000
             self.metrics_reporter.record(self.timers[key], time_in_ms)
         elif key in self.counters:
-            self.counters[key].count()
             self.metrics_reporter.record(self.counters[key], 1)
         else:
             self.log.warn("Unknown metric: {0}".format(key))
