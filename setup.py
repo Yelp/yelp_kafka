@@ -56,7 +56,7 @@ setup(
         'yelp-lib',
     ],
     extra_requires={
-        'meteorite': ['yelp_meteorite']
+        'extras': ['yelp_meteorite']
     },
     cmdclass={
         'test': Tox,
