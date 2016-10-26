@@ -39,7 +39,7 @@ class YelpKafkaProducerMetrics(object):
         self.client = client
         self.timers = {}
         self.metrics_responder = metrics_responder
-        if metrics_responder:
+        if self.metrics_responder:
             if not isinstance(metrics_responder, MetricsResponder):
                 raise ValueError("Metric Reporter is not of type yelp_kafka.metrics_responder.MetricsResponder")
             self.setup_metrics()

@@ -358,11 +358,11 @@ through the `report_metrics` parameter. This defaults to True but can be turned 
 
 .. note::
 
-If you want to plug in your own metric reporter module, please use
+If you want to plug in your own metric responder module, please use
 :py:class:`yelp_kafka.metrics_responder.MetricsResponder` and pass it in
 :py:class:`yelp_kafka.producer.YelpKafkaSimpleProducer` or
 :py:class:`yelp_kafka.producer.YelpKafkaKeyedProducer` or
-:py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` or
+:py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`.
 
 
 

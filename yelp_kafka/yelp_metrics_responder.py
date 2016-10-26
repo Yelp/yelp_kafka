@@ -9,9 +9,7 @@ from yelp_kafka.metrics_responder import MetricsResponder
 
 
 class MeteoriteMetrics(MetricsResponder):
-    """
-        Used for publishing metrics with a metric reporter instance
-    """
+    """Used for publishing metrics with a metric responder instance."""
 
     def __init__(self):
         super(MeteoriteMetrics, self).__init__()

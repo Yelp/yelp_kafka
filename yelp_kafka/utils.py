@@ -64,7 +64,7 @@ def extract_stream_name(topic_name):
 
 
 def check_if_yelp_meteorite_available(report_metrics, metrics_responder):
-    if report_metrics and (not metrics_responder):
+    if report_metrics and not metrics_responder:
         try:
             from yelp_kafka.yelp_metrics_responder import MeteoriteMetrics
             return MeteoriteMetrics()

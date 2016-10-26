@@ -7,7 +7,7 @@ import logging
 
 class MetricsResponder(object):
     """
-        Used for publishing metrics with a metric reporter instance
+        Used for publishing metrics with a metric responder instance
     """
 
     def __init__(self):
@@ -20,7 +20,7 @@ class MetricsResponder(object):
 
         :param metric: the name of the metric
         :param default_dimensions: the extra dimensions provided for the metric
-        :return: an instance of reporter for recording counter based metrics
+        :return: an instance of responder for recording counter based metrics
         """
 
         raise NotImplementedError
@@ -33,7 +33,7 @@ class MetricsResponder(object):
 
         :param metric: the name of the metric
         :param default_dimensions: the extra dimensions provided for the metric
-        :return: an instance of reporter for recording timer based metrics
+        :return: an instance of responder for recording timer based metrics
         """
 
         raise NotImplementedError
