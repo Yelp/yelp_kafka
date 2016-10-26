@@ -6,6 +6,8 @@ import logging
 
 from kafka.common import KafkaUnavailableError
 
+from yelp_kafka.metrics_responder import MetricsResponder
+
 log = logging.getLogger(__name__)
 
 
@@ -64,7 +66,7 @@ def extract_stream_name(topic_name):
 
 
 def check_if_yelp_meteorite_available(report_metrics, metrics_responder):
-    if report_metrics and not metrics_responder:
+    if report_metrics and (not metrics_responder):
         try:
             from yelp_kafka.yelp_metrics_responder import MeteoriteMetrics
             return MeteoriteMetrics()
@@ -72,3 +74,5 @@ def check_if_yelp_meteorite_available(report_metrics, metrics_responder):
             logging.error("yelp_meteorite is not present")
     elif not report_metrics:
         return
+    if not isinstance(metrics_responder, MetricsResponder):
+        raise ValueError("Metric Reporter is not of type yelp_kafka.metrics_responder.MetricsResponder")
