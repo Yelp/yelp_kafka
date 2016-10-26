@@ -303,6 +303,23 @@ def get_all_clusters(cluster_type, client_id):
     ]
 
 
+def get_all_logs_regions(client_id):
+    """Get a list of all regions that have logs.
+
+    :param client_id: name of the client making the request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_id: string
+    :returns: list of strings
+    """
+    client = get_kafka_discovery_client(client_id)
+    try:
+        regions = client.v1.getLogsRegions().result()
+    except HTTPError as e:
+        log.exception("Failure while fetching list of all logs' regions")
+        raise DiscoveryError(e.response.text)
+    return regions
+
+
 def get_consumer_config(cluster_type, group_id, **extra):
     """Get a :py:class:`yelp_kafka.config.KafkaConsumerConfig`
     for the local region kafka cluster.
