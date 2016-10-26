@@ -381,6 +381,14 @@ def test_get_superregion_logs_regex_invalid(
         )
 
 
+def test_get_all_logs_regions(mock_kafka_discovery_client):
+    expected = ["test_region", "test_region_2"]
+    mock_kafka_discovery_client.return_value.v1.getLogsRegions.return_value. \
+        result.return_value = expected
+    regions = discovery.get_all_logs_regions("client-id")
+    assert regions == expected
+
+
 @mock.patch("yelp_kafka.discovery.get_kafka_cluster", autospec=True)
 def test_get_all_clusters(
     get_cluster,
