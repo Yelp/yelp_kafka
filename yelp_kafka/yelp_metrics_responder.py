@@ -8,11 +8,13 @@ import yelp_meteorite
 from yelp_kafka.metrics_responder import MetricsResponder
 
 
-class MeteoriteMetrics(MetricsResponder):
-    """Used for publishing metrics with a metric responder instance."""
+class MeteoriteMetricsResponder(MetricsResponder):
+    """
+        Used for publishing metrics with a metric reporter instance
+    """
 
     def __init__(self):
-        super(MeteoriteMetrics, self).__init__()
+        super(MeteoriteMetricsResponder, self).__init__()
         self.log = logging.getLogger(self.__class__.__name__)
 
     def get_counter_emitter(self, metric, default_dimensions=None):

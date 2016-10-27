@@ -65,14 +65,22 @@ def extract_stream_name(topic_name):
     return _split_topic_name(topic_name)[2]
 
 
-def check_if_yelp_meteorite_available(report_metrics, metrics_responder):
-    if report_metrics and (not metrics_responder):
-        try:
-            from yelp_kafka.yelp_metrics_responder import MeteoriteMetrics
-            return MeteoriteMetrics()
-        except ImportError:
-            logging.error("yelp_meteorite is not present")
-    elif not report_metrics:
+def get_default_responder_if_available():
+    try:
+        from yelp_kafka.yelp_metrics_responder import MeteoriteMetricsResponder
+        return MeteoriteMetricsResponder()
+    except ImportError:
+        logging.error("yelp_meteorite is not present")
         return
-    if not isinstance(metrics_responder, MetricsResponder):
-        raise ValueError("Metric Reporter is not of type yelp_kafka.metrics_responder.MetricsResponder")
+
+
+def validate_and_set_metrics_responder(report_metrics, metrics_responder):
+    if report_metrics and metrics_responder:
+        if not isinstance(metrics_responder, MetricsResponder):
+            raise ValueError("Metrics Responder is not of type yelp_kafka.metrics_responder.MetricsResponder")
+        else:
+            return report_metrics
+    elif report_metrics and not metrics_responder:
+        return get_default_responder_if_available()
+    else:
+        return

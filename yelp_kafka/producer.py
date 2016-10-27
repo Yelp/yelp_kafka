@@ -11,7 +11,8 @@ from py_zipkin.zipkin import zipkin_span
 
 from yelp_kafka import metrics
 from yelp_kafka.error import YelpKafkaError
-from yelp_kafka.utils import check_if_yelp_meteorite_available
+from yelp_kafka.metrics_responder import MetricsResponder
+from yelp_kafka.utils import validate_and_set_metrics_responder
 METRIC_PREFIX = 'yelp_kafka.YelpKafkaProducer.'
 
 
@@ -38,7 +39,9 @@ class YelpKafkaProducerMetrics(object):
         self.client = client
         self.timers = {}
         self.metrics_responder = metrics_responder
-        if self.metrics_responder:
+        if metrics_responder:
+            if not isinstance(metrics_responder, MetricsResponder):
+                raise ValueError("Metric Reporter is not of type yelp_kafka.metrics_responder.MetricsResponder")
             self.setup_metrics()
 
     def get_kafka_dimensions(self):
@@ -111,7 +114,7 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     ):
         super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
 
-        self.metrics_responder = check_if_yelp_meteorite_available(
+        self.metrics_responder = validate_and_set_metrics_responder(
             report_metrics,
             metrics_responder
         )
@@ -158,7 +161,7 @@ class YelpKafkaKeyedProducer(KeyedProducer):
     ):
         super(YelpKafkaKeyedProducer, self).__init__(*args, **kwargs)
 
-        metrics_responder = check_if_yelp_meteorite_available(
+        metrics_responder = validate_and_set_metrics_responder(
             report_metrics,
             metrics_responder
         )
