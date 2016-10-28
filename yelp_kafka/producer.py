@@ -21,11 +21,15 @@ class YelpKafkaProducerMetrics(object):
         Used to setup and report producer metrics
 
          Args:
-            cluster_config(Object) : this the kafka cluster config. The structure is present in
-                :py:class:`yelp_kafka.config.ClusterConfig`
-            report_metrics(Boolean): Flag to enable reporting metrics. Defaults to False.
-            client: Kafka client for which metrics are to be reported
-            metrics_reporter: A metrics reporter instance to report metrics
+            :param cluster_config: producer cluster configuration
+            :type cluster_config: config.ClusterConfig
+            :param client: Kafka client for which metrics are to be reported
+            :type kafka.KafkaClient
+            :param metrics_responder: A metric responder to report metrics, defaults to
+                use :py:class:`yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder`, if
+                the import of yelp_meteorite is successful. Please note, this is only active if
+                report_metrics is True.
+            :type class which implements metric_responder.MetricsResponder
     """
 
     def __init__(
