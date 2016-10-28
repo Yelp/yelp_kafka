@@ -97,6 +97,10 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     :type cluster_config: config.ClusterConfig
     :param report_metrics: whether or not to report kafka production metrics. Defaults to True
     :type report_metrics: bool
+    :param metrics_responder: A metric responder to report metrics, defaults to
+     use :py:class:`yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder`.
+    Please note, this is only active if report_metrics is True.
+    :type class which implements metric_responder.MetricsResponder
 
     Additionally all kafka.SimpleProducer params are usable here. See `_SimpleProducer`_.
 
@@ -146,6 +150,10 @@ class YelpKafkaKeyedProducer(KeyedProducer):
     :type cluster_config: config.ClusterConfig
     :param report_metrics: whether or not to report kafka production metrics. Defaults to True
     :type report_metrics: bool
+    :param metrics_responder: A metric responder to report metrics, defaults to
+     use :py:class:`yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder`.
+    Please note, this is only active if report_metrics is True.
+    :type class which implements metric_responder.MetricsResponder
 
     Additionally all kafka.KeyedProducer params are usable here. See `_KeyedProducer`_.
 
