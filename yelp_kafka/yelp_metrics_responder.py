@@ -30,7 +30,7 @@ class MeteoriteMetricsResponder(MetricsResponder):
         )
 
     def record(self, registered_reporter, value, timestamp=None):
-        if isinstance(registered_reporter, yelp_meteorite.metrics.Count):
+        if isinstance(registered_reporter, yelp_meteorite.metrics.Counter):
             registered_reporter.count(value)
         if isinstance(registered_reporter, yelp_meteorite.metrics.Timer):
             registered_reporter.record(value)

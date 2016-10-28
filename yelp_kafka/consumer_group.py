@@ -286,9 +286,6 @@ class KafkaConsumerGroup(object):
         self.partitioner.stop()
         self.consumer.close()
 
-        if self.metrics_responder:
-            self.metrics_responder.die_event.set()
-
     def next(self):
         start_time = time.time()
         while self._should_keep_trying(start_time):
