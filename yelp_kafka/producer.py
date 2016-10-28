@@ -117,8 +117,7 @@ class YelpKafkaSimpleProducer(SimpleProducer):
         super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
 
         if report_metrics:
-            if not metrics_responder:
-                self.metrics_responder = get_default_responder_if_available()
+            self.metrics_responder = metrics_responder or get_default_responder_if_available()
             assert not metrics_responder or isinstance(metrics_responder, MetricsResponder), \
                 "Metric Reporter is not of type yelp_kafka.metrics_responder.MetricsResponder"
         else:
@@ -172,8 +171,7 @@ class YelpKafkaKeyedProducer(KeyedProducer):
         super(YelpKafkaKeyedProducer, self).__init__(*args, **kwargs)
 
         if report_metrics:
-            if not metrics_responder:
-                self.metrics_responder = get_default_responder_if_available()
+            self.metrics_responder = metrics_responder or get_default_responder_if_available()
             assert not metrics_responder or isinstance(metrics_responder, MetricsResponder), \
                 "Metric Reporter is not of type yelp_kafka.metrics_responder.MetricsResponder"
         else:

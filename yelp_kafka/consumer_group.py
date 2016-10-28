@@ -238,8 +238,7 @@ class KafkaConsumerGroup(object):
             consumer_config,
         )
 
-        if not metrics_responder:
-            self.metrics_responder = get_default_responder_if_available()
+        self.metrics_responder = metrics_responder or get_default_responder_if_available()
         assert not metrics_responder or isinstance(metrics_responder, MetricsResponder), \
             "Metric Reporter is not of type yelp_kafka.metrics_responder.MetricsResponder"
 
