@@ -127,8 +127,25 @@ class TestKafkaSimpleConsumer(object):
                 topic_partitions,
             )
 
+    def test_commit_message_default(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            consumer = KafkaSimpleConsumer('test_topic', config)
+            consumer.connect()
+
+            actual = consumer.commit_message(
+                Message(0, 100, 'mykey', 'myvalue'),
+            )
+
+            assert actual is True
+            mock_client.return_value.send_offset_commit_request \
+                .assert_called_once_with(
+                    'test_group'.encode(),
+                    [OffsetCommitRequest('test_topic'.encode(), 0, 100, None)],
+                )
+
     def test_commit_message_zk(self, config):
         with mock_kafka() as (mock_client, mock_consumer):
+            config._config['offset_storage'] = 'zookeeper'
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
 

@@ -175,7 +175,7 @@ class KafkaSimpleConsumer(object):
         ]
 
         try:
-            if self.config.offset_storage in ['zookeeper', 'dual']:
+            if self.config.offset_storage in [None, 'zookeeper', 'dual']:
                 self.client.send_offset_commit_request(self.config.group_id, reqs)
             if self.config.offset_storage in ['kafka', 'dual']:
                 self.client.send_offset_commit_request_kafka(self.config.group_id, reqs)

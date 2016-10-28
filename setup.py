@@ -45,7 +45,7 @@ setup(
     install_requires=[
         'bravado',
         'bravado_decorators>=0.10.0',
-        'kafka-python==0.9.5.post6',
+        'kafka-python<1.0.0',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
         'py_zipkin',

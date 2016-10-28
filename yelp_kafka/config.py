@@ -32,7 +32,7 @@ PARTITIONER_COOLDOWN = 30
 MAX_TERMINATION_TIMEOUT_SECS = 10
 MAX_ITERATOR_TIMEOUT_SECS = 0.1
 DEFAULT_OFFSET_RESET = 'largest'
-DEFAULT_OFFSET_STORAGE = 'zookeeper'
+DEFAULT_OFFSET_STORAGE = None
 DEFAULT_CLIENT_ID = 'yelp-kafka'
 
 # The default has been changed from 100 to None.
@@ -265,9 +265,12 @@ class KafkaConsumerConfig(object):
           pre_rebalance_callback and this callback. Currently this only
           applies to consumer groups.
         * **offset_storage**: Specifies the storage that will be used for the
-          consumer offset. Valid values are 'zookeeper', 'kafka', and 'dual'.
+          consumer offset. Valid values are None, 'zookeeper', 'kafka', and 'dual'.
           Kafka based storage (enabled with 'kafka' and 'dual') is only
-          available from Kafka 0.9.
+          available from Kafka 0.9. This is used for offset_storage configuration option,
+          available in the yelp fork of kafka-python to allow offset commits to kafka,
+          zookeeper or both. Default of None is not passed to consumer for
+          backwards compatibility.
 
     Yelp_kafka overrides some kafka-python default settings:
 
@@ -387,6 +390,7 @@ class KafkaConsumerConfig(object):
                     args[key] = default
 
         args['group'] = self.group_id
+        self._remove_offset_storage(args)
         return args
 
     def get_kafka_consumer_config(self):
@@ -430,7 +434,12 @@ class KafkaConsumerConfig(object):
 
         config['group_id'] = self.group_id
         config['bootstrap_servers'] = self.cluster.broker_list
+        self._remove_offset_storage(config)
         return config
+
+    def _remove_offset_storage(self, config):
+        if 'offset_storage' in config and config['offset_storage'] is None:
+            del config['offset_storage']
 
     @property
     def broker_list(self):
