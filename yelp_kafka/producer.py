@@ -24,12 +24,12 @@ class YelpKafkaProducerMetrics(object):
             :param cluster_config: producer cluster configuration
             :type cluster_config: config.ClusterConfig
             :param client: Kafka client for which metrics are to be reported
-            :type kafka.KafkaClient
+            :type client: kafka.KafkaClient
             :param metrics_responder: A metric responder to report metrics, defaults to
                 use :py:class:`yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder`, if
                 the import of yelp_meteorite is successful. Please note, this is only active if
                 report_metrics is True.
-            :type class which implements metric_responder.MetricsResponder
+            :type metrics_responder: class which implements metric_responder.MetricsResponder
     """
 
     def __init__(
@@ -105,7 +105,7 @@ class YelpKafkaSimpleProducer(SimpleProducer):
         use :py:class:`yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder`, if
         the import of yelp_meteorite is successful. Please note, this is only active if
         report_metrics is True.
-    :type class which implements metric_responder.MetricsResponder
+    :type metrics_responder: class which implements metric_responder.MetricsResponder
 
     Additionally all kafka.SimpleProducer params are usable here. See `_SimpleProducer`_.
 
@@ -159,7 +159,7 @@ class YelpKafkaKeyedProducer(KeyedProducer):
         use :py:class:`yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder`, if
         the import of yelp_meteorite is successful. Please note, this is only active if
         report_metrics is True.
-    :type class which implements metric_responder.MetricsResponder
+    :type metrics_responder: class which implements metric_responder.MetricsResponder
 
     Additionally all kafka.KeyedProducer params are usable here. See `_KeyedProducer`_.
 
