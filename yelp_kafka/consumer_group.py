@@ -23,8 +23,9 @@ from yelp_kafka.error import ConsumerGroupError
 from yelp_kafka.error import PartitionerError
 from yelp_kafka.error import PartitionerZookeeperError
 from yelp_kafka.error import ProcessMessageError
+from yelp_kafka.metrics_responder import MetricsResponder
 from yelp_kafka.partitioner import Partitioner
-from yelp_kafka.utils import validate_and_set_metrics_responder
+from yelp_kafka.utils import get_default_responder_if_available
 
 
 DEFAULT_REFRESH_TIMEOUT_IN_SEC = 0.5
@@ -233,10 +234,11 @@ class KafkaConsumerGroup(object):
             consumer_config,
         )
 
-        self.metrics_responder = validate_and_set_metrics_responder(
-            True,
-            metrics_responder
-        )
+        if not metrics_responder:
+            self.metrics_responder = get_default_responder_if_available()
+        assert not metrics_responder or isinstance(metrics_responder, MetricsResponder), \
+            "Metric Reporter is not of type yelp_kafka.metrics_responder.MetricsResponder"
+
         if self.metrics_responder:
             self._setup_metrics_responder(config)
             consumer_config['metrics_responder'] = self._send_to_metrics_responder

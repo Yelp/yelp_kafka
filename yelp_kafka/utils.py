@@ -6,7 +6,6 @@ import logging
 
 from kafka.common import KafkaUnavailableError
 
-from yelp_kafka.metrics_responder import MetricsResponder
 
 log = logging.getLogger(__name__)
 
@@ -71,16 +70,3 @@ def get_default_responder_if_available():
         return MeteoriteMetricsResponder()
     except ImportError:
         logging.error("yelp_meteorite is not present")
-        return
-
-
-def validate_and_set_metrics_responder(report_metrics, metrics_responder):
-    if report_metrics and metrics_responder:
-        if not isinstance(metrics_responder, MetricsResponder):
-            raise ValueError("Metrics Responder is not of type yelp_kafka.metrics_responder.MetricsResponder")
-        else:
-            return report_metrics
-    elif report_metrics and not metrics_responder:
-        return get_default_responder_if_available()
-    else:
-        return

@@ -11,7 +11,8 @@ from py_zipkin.zipkin import zipkin_span
 
 from yelp_kafka import metrics
 from yelp_kafka.error import YelpKafkaError
-from yelp_kafka.utils import validate_and_set_metrics_responder
+from yelp_kafka.metrics_responder import MetricsResponder
+from yelp_kafka.utils import get_default_responder_if_available
 METRIC_PREFIX = 'yelp_kafka.YelpKafkaProducer.'
 
 
@@ -111,10 +112,13 @@ class YelpKafkaSimpleProducer(SimpleProducer):
     ):
         super(YelpKafkaSimpleProducer, self).__init__(*args, **kwargs)
 
-        self.metrics_responder = validate_and_set_metrics_responder(
-            report_metrics,
-            metrics_responder
-        )
+        if report_metrics:
+            if not metrics_responder:
+                self.metrics_responder = get_default_responder_if_available()
+            assert not metrics_responder or isinstance(metrics_responder, MetricsResponder), \
+                "Metric Reporter is not of type yelp_kafka.metrics_responder.MetricsResponder"
+        else:
+            self.metrics_responder = None
 
         self.metrics = YelpKafkaProducerMetrics(
             cluster_config=cluster_config,
@@ -158,10 +162,13 @@ class YelpKafkaKeyedProducer(KeyedProducer):
     ):
         super(YelpKafkaKeyedProducer, self).__init__(*args, **kwargs)
 
-        metrics_responder = validate_and_set_metrics_responder(
-            report_metrics,
-            metrics_responder
-        )
+        if report_metrics:
+            if not metrics_responder:
+                self.metrics_responder = get_default_responder_if_available()
+            assert not metrics_responder or isinstance(metrics_responder, MetricsResponder), \
+                "Metric Reporter is not of type yelp_kafka.metrics_responder.MetricsResponder"
+        else:
+            self.metrics_responder = None
 
         self.metrics = YelpKafkaProducerMetrics(
             cluster_config,
