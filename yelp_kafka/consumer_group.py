@@ -211,6 +211,10 @@ class KafkaConsumerGroup(object):
     :type topics: list
     :param config: yelp_kakfa consumer config.
     :type config: :py:class:`yelp_kafka.config.KafkaConsumerConfig`
+    :param metrics_responder: A metric responder to report metrics, defaults to
+        use :py:class:`yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder`, if
+        the import of yelp_meteorite is successful.
+    :type metrics_responder: class which implements metric_responder.MetricsResponder
     """
 
     METRIC_PREFIX = 'yelp_kafka.KafkaConsumerGroup'

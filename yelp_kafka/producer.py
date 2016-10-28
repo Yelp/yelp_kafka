@@ -25,10 +25,7 @@ class YelpKafkaProducerMetrics(object):
             :type cluster_config: config.ClusterConfig
             :param client: Kafka client for which metrics are to be reported
             :type client: kafka.KafkaClient
-            :param metrics_responder: A metric responder to report metrics, defaults to
-                use :py:class:`yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder`, if
-                the import of yelp_meteorite is successful. Please note, this is only active if
-                report_metrics is True.
+            :param metrics_responder: A metric responder to report metrics
             :type metrics_responder: class which implements metric_responder.MetricsResponder
     """
 
