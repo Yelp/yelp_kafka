@@ -14,8 +14,7 @@ from multiprocessing import Process
 import six
 from kafka import KafkaConsumer
 from kafka.common import ConsumerTimeout
-from kafka.common import KafkaUnavailableError
-from yelp_lib.decorators import retry
+from retrying import retry
 
 from yelp_kafka import metrics
 from yelp_kafka.consumer import KafkaSimpleConsumer
@@ -26,7 +25,7 @@ from yelp_kafka.error import ProcessMessageError
 from yelp_kafka.metrics_responder import MetricsResponder
 from yelp_kafka.partitioner import Partitioner
 from yelp_kafka.utils import get_default_responder_if_available
-
+from yelp_kafka.utils import retry_if_kafka_unavailable_error
 
 DEFAULT_REFRESH_TIMEOUT_IN_SEC = 0.5
 CONSUMER_GROUP_INTERNAL_TIMEOUT = 100  # milliseconds
@@ -325,7 +324,7 @@ class KafkaConsumerGroup(object):
 
     # set_topic_partitions causes a metadata request, which may fail on the
     # first try.
-    @retry(2, exceptions=(KafkaUnavailableError,))
+    @retry(stop_max_attempt_number=2, retry_on_exception=retry_if_kafka_unavailable_error)
     def _release(self, partitions):
         if self.pre_rebalance_callback:
             self.pre_rebalance_callback(partitions)

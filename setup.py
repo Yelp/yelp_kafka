@@ -53,7 +53,7 @@ setup(
         'simplejson',
         'six',
         'swagger_zipkin',
-        'yelp-lib',
+        'retrying',
     ],
     extras_require={
         'internal': ['yelp_meteorite']
