@@ -1,4 +1,17 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -301,6 +314,23 @@ def get_all_clusters(cluster_type, client_id):
         get_kafka_cluster(cluster_type, client_id, cluster_name)
         for cluster_name in cluster_names
     ]
+
+
+def get_all_logs_regions(client_id):
+    """Get a list of all regions that have logs.
+
+    :param client_id: name of the client making the request. Usually
+        the same client id used to create the Kafka connection.
+    :type client_id: string
+    :returns: list of strings
+    """
+    client = get_kafka_discovery_client(client_id)
+    try:
+        regions = client.v1.getLogsRegions().result()
+    except HTTPError as e:
+        log.exception("Failure while fetching list of all logs' regions")
+        raise DiscoveryError(e.response.text)
+    return regions
 
 
 def get_consumer_config(cluster_type, group_id, **extra):
