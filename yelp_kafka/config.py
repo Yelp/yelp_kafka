@@ -269,8 +269,8 @@ class KafkaConsumerConfig(object):
           Kafka based storage (enabled with 'kafka' and 'dual') is only
           available from Kafka 0.9. This is used for offset_storage configuration option,
           available in the yelp fork of kafka-python to allow offset commits to kafka,
-          zookeeper or both. Default of None is not passed to consumer for
-          backwards compatibility.
+          zookeeper or both. Default of None uses zookeeper offset storage and is not
+          passed to consumer for backwards compatibility.
 
     Yelp_kafka overrides some kafka-python default settings:
 
