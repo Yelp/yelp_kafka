@@ -17,16 +17,14 @@ METRIC_PREFIX = 'yelp_kafka.YelpKafkaProducer.'
 
 
 class YelpKafkaProducerMetrics(object):
-    """
-        Used to setup and report producer metrics
+    """Used to setup and report producer metrics
 
-         Args:
-            :param cluster_config: producer cluster configuration
-            :type cluster_config: config.ClusterConfig
-            :param client: Kafka client for which metrics are to be reported
-            :type client: kafka.KafkaClient
-            :param metrics_responder: A metric responder to report metrics
-            :type metrics_responder: class which implements metric_responder.MetricsResponder
+    :param cluster_config: producer cluster configuration
+    :type cluster_config: config.ClusterConfig
+    :param client: Kafka client for which metrics are to be reported
+    :type client: kafka.KafkaClient
+    :param metrics_responder: A metric responder to report metrics
+    :type metrics_responder: class which implements metric_responder.MetricsResponder
     """
 
     def __init__(
