@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 
 import yelp_meteorite
@@ -123,9 +126,9 @@ class YelpKafkaKeyedProducer(KeyedProducer):
         self.metrics = YelpKafkaProducerMetrics(cluster_config, report_metrics, self.client, log)
 
     @zipkin_span(service_name='yelp_kafka', span_name='send_messages_keyed_producer')
-    def send_messages(self, topic, *msg):
+    def send_messages(self, topic, key, *msg):
         try:
-            super(YelpKafkaKeyedProducer, self).send_messages(topic, *msg)
+            super(YelpKafkaKeyedProducer, self).send_messages(topic, key, *msg)
         except (YelpKafkaError, KafkaError):
             if self.metrics.report_metrics:
                 self.metrics.kafka_enqueue_exception_count.count(1)
