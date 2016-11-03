@@ -98,21 +98,6 @@ def search_topics_by_regex(pattern, clusters=None):
     return matches
 
 
-"""The functions below are very Yelp specific and may not be applicable in
-your use case. You can instead create your cluster configuration by:
-
-
-from yelp_kafka.config import ClusterConfig
-cluster_config = ClusterConfig(
-    type="service",
-    name="cluster",
-    broker_list=["cluster-elb-1:9092"],
-    zookeeper="11.11.11.111:2181,11.11.11.112:2181,11.11.11.113:2181/kafka-1",
-)
-
-"""
-
-
 def _get_local_region():
     """Get name of the region at Yelp where yelp_kafka instance is running (caller)
     from region-file path."""
@@ -141,7 +126,7 @@ def _get_local_superregion():
         raise
 
 
-def parse_as_scribe_topics(logs_result):
+def parse_as_logs_topics(logs_result):
     """Parse response topic configuration from kafka-discovery to desired type.
 
     :returns: [([topics], cluster)]
@@ -298,7 +283,7 @@ def get_region_logs_regex(client_id, regex, region=None):
     client = get_kafka_discovery_client(client_id)
     try:
         result = client.v1.getLogsForRegionWithRegex(region=region, regex=regex).result()
-        return parse_as_scribe_topics(result)
+        return parse_as_logs_topics(result)
     except HTTPError as e:
         log.exception(
             "Failure while fetching logs for region:{region}".format(region=region),
@@ -349,7 +334,7 @@ def get_superregion_logs_regex(client_id, regex, superregion=None):
             superregion=superregion,
             regex=regex,
         ).result()
-        return parse_as_scribe_topics(result)
+        return parse_as_logs_topics(result)
     except HTTPError as e:
         log.exception(
             "Failure while fetching logs for superregion:{superregion}"

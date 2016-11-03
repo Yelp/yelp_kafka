@@ -2,8 +2,7 @@
 
 yelp_kafka.discovery
 ====================
-Most of these functions are very Yelp specific and may not be applicable in
-your use case. You can instead create your cluster configuration by:
+Most of discovery functions are Yelp specific. Custom cluster configuration can be created by:
 
 .. code-block:: python
 

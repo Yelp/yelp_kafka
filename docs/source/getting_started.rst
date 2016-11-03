@@ -145,7 +145,7 @@ Consumer
 
 See :ref:`producer_example` for more information about the exceptions to retry.
 See :ref:`consumer_group_example` for more information about using KafkaConsumerGroup.
-The ``group_id`` should represent the application/service that consumer belongs to.
+The ``group_id`` should represent the application/service the consumer belongs to.
 
 .. seealso:: :ref:`config` for all the available configuration options.
 
@@ -181,6 +181,28 @@ This example makes use of the `KafkaConsumer`_ from kafka-python. This consumer
 class should be considered deprecated and should not be used anymore. 
 
 .. _KafkaConsumer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.consumer.html#module-kafka.consumer.kafka
+
+
+Reporting Metrics
+^^^^^^^^^^^^^^^^^
+
+If you're using :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`, you
+can send metrics on request latency and error counts. This is on by default
+for yelp_kafka and uses an instance of
+:py:class:`yelp_kafka.metrics_responder.MetricsResponder` for reporting metrics
+
+Reporting metrics directly from the kafka client is an option that is only
+available in Yelp's fork of kafka-python: https://github.com/Yelp/kafka-python
+
+Producer metrics can also be reported and are reported by default by the YelpKafkaSimpleProducer
+through the `report_metrics` parameter. This defaults to True but can be turned off
+
+
+If you want to plug in your own metric responder module, please use
+:py:class:`yelp_kafka.metrics_responder.MetricsResponder` and pass it in
+:py:class:`yelp_kafka.producer.YelpKafkaSimpleProducer` or
+:py:class:`yelp_kafka.producer.YelpKafkaKeyedProducer` or
+:py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`.
 
 
 Other consumer groups
