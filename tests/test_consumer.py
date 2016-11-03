@@ -214,8 +214,10 @@ class TestKafkaConsumer(object):
                     consumer.terminate()
                     consumer.run()
                     assert consumer.initialize.call_count == 1
-                    # process should have been called 3 times
-                    assert consumer.process.call_count == 3
+                    # process should have been called 0 times
+                    # termination flag is checked before the first
+                    # message is pulled.
+                    assert consumer.process.call_count == 0
                     # check just last call arguments
                     consumer.process.calls_args_list([
                         Message(1, 12347, 'key1', 'value3'),
