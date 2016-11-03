@@ -197,9 +197,9 @@ class YelpKafkaKeyedProducer(KeyedProducer):
         )
 
     @zipkin_span(service_name='yelp_kafka', span_name='send_messages_keyed_producer')
-    def send_messages(self, topic, *msg):
+    def send_messages(self, topic, key, *msg):
         try:
-            super(YelpKafkaKeyedProducer, self).send_messages(topic, *msg)
+            super(YelpKafkaKeyedProducer, self).send_messages(topic, key, *msg)
         except (YelpKafkaError, KafkaError):
             if self.metrics.metrics_responder:
                 self.metrics.metrics_responder.record(self.metrics.kafka_enqueue_exception_count, 1)
