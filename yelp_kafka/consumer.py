@@ -265,7 +265,7 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
                 self.config
             )
             raise
-        while True:
+        while not self.termination_flag.is_set():
             for message in self:
                 try:
                     self.process(message)
@@ -275,9 +275,12 @@ class KafkaConsumerBase(KafkaSimpleConsumer):
                         "Error processing message: %s",
                         message,
                     )
-            if self.termination_flag.is_set():
-                self._terminate()
-                break
+                # Early termination in the event we are stuck in infinite message iteration
+                # from kafka-python consumer: https://github.com/dpkp/kafka-python/blob/
+                # 99d4a3a8b1dbae514b1c6d367908010b65fc8d0c/kafka/consumer/simple.py#L348
+                if self.termination_flag.is_set():
+                    break
+        self._terminate()
 
     def _terminate(self):
         """Commit offsets and terminate the consumer.
