@@ -51,8 +51,7 @@ Create a producer for my_topic.
 
 
 
-This example makes use of the [YelpKafkaSimpleProducer](https://github.com/Yelp/yelp_kafka/blob/master/yelp_kafka/producer.py#L96)
-class from yelp_kafka.
+This example makes use of the `YelpKafkaSimpleProducer`_ class from yelp_kafka.
 
 ``client_id`` identifies the client connection in Kafka and it is used by Kafka 0.9.0 to enforce
 quota limit per client. We recommend to use a ``client_id`` that represents the application.
