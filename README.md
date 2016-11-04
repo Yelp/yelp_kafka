@@ -183,7 +183,7 @@ for yelp_kafka and uses an instance of
 `yelp_kafka.metrics_responder.MetricsResponder` for reporting metrics
 
 Reporting metrics directly from the kafka client is an option that is only
-available in Yelp's fork of kafka-python: https://github.com/Yelp/kafka-python
+available in Yelp's fork of [kafka-python](https://github.com/Yelp/kafka-python)
 
 Producer metrics can also be reported and are reported by default by the YelpKafkaSimpleProducer
 through the `report_metrics` parameter. This defaults to True but can be turned off
