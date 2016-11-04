@@ -1,5 +1,4 @@
 # Yelp Kafka
-===============
 
 ## Producer
 
@@ -50,8 +49,8 @@ Create a producer for my_topic.
 This example makes use of the [YelpKafkaSimpleProducer](yelp_kafka/producer.py) 
 from yelp_kafka.
 
-**client_id** identifies the client connection in Kafka and it is used by Kafka 0.9.0 to enforce
-quota limit per client. We recommend to use a **client_id** that represents the application.
+__client_id__ identifies the client connection in Kafka and it is used by Kafka 0.9.0 to enforce
+quota limit per client. We recommend to use a __client_id__ that represents the application.
 
 In the example there are some exceptions that usually should be safe to just retry.
 
@@ -69,12 +68,8 @@ Usually an application should retry for a limited amount of time and then consid
 Finally, **FailedPayloadsError** may happen in many cases, for example when a leader is missing
 or the connection fails in the middle of a request. Metadata is automatically refreshed for this exception as well.
 
-.. seealso:: kafka-python `usage examples`_
+See Also: [kafka-python](http://kafka-python.readthedocs.org/en/v0.9.5/usage.html) and [SimpleProducer](http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.producer.html)
 
-.. _usage examples: http://kafka-python.readthedocs.org/en/v0.9.5/usage.html
-.. _SimpleProducer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.producer.html
-
-.. _consumer_group_example:
 
 
 ## Consumer
@@ -141,14 +136,11 @@ or the connection fails in the middle of a request. Metadata is automatically re
            pass
 ```
 
-See :ref:`producer_example` for more information about the exceptions to retry.
-See :ref:`consumer_group_example` for more information about using KafkaConsumerGroup.
-The **group_id** should represent the application/service the consumer belongs to.
-
-.. seealso:: :ref:`config` for all the available configuration options.
+See __producer_example__ above for more information about the exceptions to retry.
+The __group_id__ should represent the application/service the consumer belongs to.
 
 
-.. note:: When bootstrapping a new consumer group it is usually recommended to set ``auto_offset_reset`` to **largest**.
+**Note** When bootstrapping a new consumer group it is usually recommended to set ``auto_offset_reset`` to **largest**.
           It assures that a huge amount of past messages are not consumed the first time a consumer is launched.
           ``auto_offset_reset`` should be set to **smallest** immediately after the first run (after the offsets are committed for the first time).
           When ``auto_offset_reset`` is set to **smallest** no messages are lost when adding new partitions.
@@ -179,16 +171,16 @@ Create a consumer for all topics ending with mytopic:
 This example makes use of the KafkaConsumer from kafka-python. This consumer
 class should be considered deprecated and should not be used anymore. 
 
-.. _KafkaConsumer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.consumer.html#module-kafka.consumer.kafka
+See Also: [KafkaConsumer](http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.consumer.html#module-kafka.consumer.kafka)
 
 
 ## Reporting Metrics
 
 
-If you're using :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`, you
+If you're using `yelp_kafka.consumer_group.KafkaConsumerGroup`, you
 can send metrics on request latency and error counts. This is on by default
 for yelp_kafka and uses an instance of
-:py:class:`yelp_kafka.metrics_responder.MetricsResponder` for reporting metrics
+`yelp_kafka.metrics_responder.MetricsResponder` for reporting metrics
 
 Reporting metrics directly from the kafka client is an option that is only
 available in Yelp's fork of kafka-python: https://github.com/Yelp/kafka-python
@@ -198,10 +190,10 @@ through the `report_metrics` parameter. This defaults to True but can be turned 
 
 
 If you want to plug in your own metric responder module, please use
-:py:class:`yelp_kafka.metrics_responder.MetricsResponder` and pass it in
-:py:class:`yelp_kafka.producer.YelpKafkaSimpleProducer` or
-:py:class:`yelp_kafka.producer.YelpKafkaKeyedProducer` or
-:py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`.
+`yelp_kafka.metrics_responder.MetricsResponder` and pass it in
+`yelp_kafka.producer.YelpKafkaSimpleProducer` or
+`yelp_kafka.producer.YelpKafkaKeyedProducer` or
+`yelp_kafka.consumer_group.KafkaConsumerGroup`.
 
 
 ## Other consumer groups
@@ -210,16 +202,16 @@ If you want to plug in your own metric responder module, please use
 Yelp_Kafka currently provides three *consumer group* interfaces for consuming
 from Kafka.
 
-- :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` is the recommended
+- `yelp_kafka.consumer_group.KafkaConsumerGroup` is the recommended
   class to use if you want start multiple instances of your consumer. You may
   start as many instances as you wish (balancing partitions will happen
   automatically), and you can control when to mark messages as processed (via
-  `task_done` and `commit`).
+  __task_done__ and __commit__).
 
-- :py:class:`yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for
+- 'yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for
   consuming from high volume topics since it starts as many consumer processes as topic
   partitions. It also handles process monitoring and restart upon failures.
 
-- :py:class:`yelp_kafka.consumer_group.ConsumerGroup` provides the same set of
+- `yelp_kafka.consumer_group.ConsumerGroup` provides the same set of
   features as KafkaConsumerGroup, but with a less convenient interface.
   This class is considered deprecated.
