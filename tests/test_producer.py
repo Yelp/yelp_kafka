@@ -1,7 +1,23 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 """
 Tests for `yelp_kafka.producer` module.
 """
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import mock
 import pytest
 from kafka import SimpleProducer
@@ -14,13 +30,13 @@ from yelp_kafka.producer import YelpKafkaSimpleProducer
 
 
 @pytest.yield_fixture
-def mock_yelp_meteorite():
+def mock_metrics_responder():
     def generate_mock(*args, **kwargs):
         return mock.MagicMock()
 
-    with mock.patch('yelp_kafka.producer.yelp_meteorite', autospec=True) as mock_meteorite:
+    with mock.patch('yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder', autospec=True) as mock_meteorite:
         # Different mock for each timer creation
-        mock_meteorite.create_timer.side_effect = generate_mock
+        mock_meteorite.get_timer_emitter.side_effect = generate_mock
         yield mock_meteorite
 
 
@@ -46,47 +62,52 @@ def mock_cluster_config():
 @pytest.fixture
 def mock_kafka_producer(
     mock_kafka_client,
-    mock_yelp_meteorite,
+    mock_metrics_responder,
     mock_kafka_send_messages,
     mock_cluster_config,
 ):
-    return YelpKafkaSimpleProducer(client=mock_kafka_client, cluster_config=mock_cluster_config)
+    return YelpKafkaSimpleProducer(
+        client=mock_kafka_client,
+        cluster_config=mock_cluster_config,
+        metrics_responder=mock_metrics_responder
+    )
 
 
 @pytest.fixture
 def mock_producer_metrics(
     mock_kafka_client,
-    mock_yelp_meteorite,
+    mock_metrics_responder,
     mock_cluster_config,
 ):
     return YelpKafkaProducerMetrics(
         client=mock_kafka_client,
         cluster_config=mock_cluster_config,
-        report_metrics=True,
-        log=mock.Mock()
+        metrics_responder=mock_metrics_responder
     )
 
 
 def test_setup_metrics(
     mock_kafka_client,
-    mock_yelp_meteorite,
+    mock_metrics_responder,
     mock_cluster_config,
 ):
     # setup metrics called at init
     YelpKafkaProducerMetrics(
         client=mock_kafka_client,
         cluster_config=mock_cluster_config,
-        report_metrics=True,
-        log=mock.Mock()
+        metrics_responder=mock_metrics_responder
     )
-    assert mock_yelp_meteorite.create_timer.call_count == len(metrics.TIME_METRIC_NAMES)
+    assert mock_metrics_responder.get_timer_emitter.call_count == len(metrics.TIME_METRIC_NAMES)
 
 
 def test_send_kafka_metrics(mock_producer_metrics):
     # Test sending a time metrics
     metric = next(iter(metrics.TIME_METRIC_NAMES))
     mock_producer_metrics._send_kafka_metrics(metric, 10)
-    mock_producer_metrics._get_timer(metric).record.assert_called_once_with(10000)
+    mock_producer_metrics.metrics_responder.record.assert_called_once_with(
+        mock_producer_metrics. _get_timer(metric),
+        10000
+    )
 
     # Create unknown metric timer
     mock_producer_metrics._create_timer('unknown_metric')
@@ -105,6 +126,7 @@ def test_send_msg_to_kafka_success(
 
 def test_send_task_to_kafka_failure(
     mock_kafka_producer,
+    mock_metrics_responder,
     mock_kafka_send_messages,
 ):
     mock_msg = mock.Mock()
@@ -114,4 +136,7 @@ def test_send_task_to_kafka_failure(
         mock_kafka_producer.send_messages('test_topic', mock_msg)
 
     mock_kafka_send_messages.assert_called_once_with('test_topic', mock_msg)
-    mock_kafka_producer.metrics.kafka_enqueue_exception_count.count.assert_called_once_with(1)
+    mock_kafka_producer.metrics.metrics_responder.record.assert_called_once_with(
+        mock_kafka_producer.metrics.kafka_enqueue_exception_count,
+        1
+    )

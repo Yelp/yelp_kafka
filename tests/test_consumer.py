@@ -1,4 +1,17 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -127,8 +140,25 @@ class TestKafkaSimpleConsumer(object):
                 topic_partitions,
             )
 
+    def test_commit_message_default(self, config):
+        with mock_kafka() as (mock_client, mock_consumer):
+            consumer = KafkaSimpleConsumer('test_topic', config)
+            consumer.connect()
+
+            actual = consumer.commit_message(
+                Message(0, 100, 'mykey', 'myvalue'),
+            )
+
+            assert actual is True
+            mock_client.return_value.send_offset_commit_request \
+                .assert_called_once_with(
+                    'test_group'.encode(),
+                    [OffsetCommitRequest('test_topic'.encode(), 0, 100, None)],
+                )
+
     def test_commit_message_zk(self, config):
         with mock_kafka() as (mock_client, mock_consumer):
+            config._config['offset_storage'] = 'zookeeper'
             consumer = KafkaSimpleConsumer('test_topic', config)
             consumer.connect()
 

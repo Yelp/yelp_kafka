@@ -1,8 +1,8 @@
 Yelp_Kafka v\ |version|
 ***********************
 
-Yelp_Kafka is a library to interact with Kafka at Yelp. Before reading about Yelp_Kafka, you should know the basics of Kafka. If topic and topic partition are obscure concepts to you, we recommend you to read the introduction of `Kafka documentation`_.
-Yelp_Kafka is a wrapper around kafka-python that provides some Yelp specific functions for cluster discovery.
+Yelp_Kafka is a library to interact with Kafka. Before reading about Yelp_Kafka, you should know the basics of Kafka. If topic and topic partition are obscure concepts to you, we recommend you to read the introduction of `Kafka documentation`_.
+Yelp_Kafka is a wrapper around kafka-python that provides some Yelp specific functions for cluster discovery in addition to custom consumers and producers.
 Yelp_Kafka supports consumer groups and multiprocessing consumer groups, that allow multiple
 consumer instances to coordinate with each other while consuming messages from different Kafka partitions (see :ref:`consumer_group`).
 

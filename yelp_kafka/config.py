@@ -1,4 +1,17 @@
 # -*- coding: utf-8 -*-
+# Copyright 2016 Yelp Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 from __future__ import absolute_import
 from __future__ import unicode_literals
 
@@ -16,9 +29,9 @@ from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
 from swagger_zipkin.zipkin_decorator import ZipkinClientDecorator
-from yelp_lib.decorators import memoized
 
 from yelp_kafka.error import ConfigurationError
+from yelp_kafka.utils import memoized
 
 
 DEFAULT_KAFKA_TOPOLOGY_BASE_PATH = '/nail/etc/kafka_discovery'
@@ -32,7 +45,7 @@ PARTITIONER_COOLDOWN = 30
 MAX_TERMINATION_TIMEOUT_SECS = 10
 MAX_ITERATOR_TIMEOUT_SECS = 0.1
 DEFAULT_OFFSET_RESET = 'largest'
-DEFAULT_OFFSET_STORAGE = 'zookeeper'
+DEFAULT_OFFSET_STORAGE = None
 DEFAULT_CLIENT_ID = 'yelp-kafka'
 
 # The default has been changed from 100 to None.
@@ -40,7 +53,6 @@ DEFAULT_CLIENT_ID = 'yelp-kafka'
 AUTO_COMMIT_MSG_COUNT = None
 AUTO_COMMIT_INTERVAL_SECS = 1
 
-DEFAULT_SIGNALFX_METRICS_INTERVAL = 60  # seconds
 DEFAULT_KAFKA_DISCOVERY_SERVICE_PATH = '/nail/etc/services/services.yaml'
 
 RESPONSE_TIMEOUT = 2.0  # Response timeout (2 sec) for kafka cluster-endpoints
@@ -72,6 +84,7 @@ class ClusterConfig(
     ),
 ):
     """Cluster configuration.
+    :param type: type of the cluster; additional identifier for cluster
     :param name: cluster name
     :param broker_list: list of kafka brokers
     :param zookeeper: zookeeper connection string
@@ -248,16 +261,10 @@ class KafkaConsumerConfig(object):
         * **max_termination_timeout_secs**: Used by MultiprocessinConsumerGroup
           time to wait for a consumer to terminate. Default 10 secs.
         * **metrics_reporter**: Used by
-          :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` to send
-          metrics data from kafka-python to SignalFx.
-          Valid options are ``yelp_meteorite`` (which uses meteorite) and
-          ``signalfx`` (deprecated). Defaults to yelp_meteorite
-        * **signalfx_dimensions**: Additional dimensions to send to SignalFx.
-          Both 'signalfx' and 'yelp_meteorite' use this.
-        * **signalfx_send_metrics_interval**: How often to send metrics to
-          SignalFx. Only used if metrics_reporter is 'signalfx'.
-        * **signalfx_token**: Authentication token to send to SignalFx. Only
-          used if metrics_reporter is 'signalfx'.
+          :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup` to emit
+          metrics data. Please pass in an instance of
+          :py:class:`yelp_kafka.metrics_reporter.MetricReporter`
+        * **metrics_dimensions**: Additional metrics dimensions.
         * **pre_rebalance_callback**: Optional callback which is passed a
           dict of topics/partitions which will be discarded in a repartition.
           This is called directly prior to the actual discarding of the topics.
@@ -272,9 +279,12 @@ class KafkaConsumerConfig(object):
           pre_rebalance_callback and this callback. Currently this only
           applies to consumer groups.
         * **offset_storage**: Specifies the storage that will be used for the
-          consumer offset. Valid values are 'zookeeper', 'kafka', and 'dual'.
+          consumer offset. Valid values are None, 'zookeeper', 'kafka', and 'dual'.
           Kafka based storage (enabled with 'kafka' and 'dual') is only
-          available from Kafka 0.9.
+          available from Kafka 0.9. This is used for offset_storage configuration option,
+          available in the yelp fork of kafka-python to allow offset commits to kafka,
+          zookeeper or both. Default of None uses zookeeper offset storage and is not
+          passed to consumer for backwards compatibility.
 
     Yelp_kafka overrides some kafka-python default settings:
 
@@ -394,6 +404,7 @@ class KafkaConsumerConfig(object):
                     args[key] = default
 
         args['group'] = self.group_id
+        self._remove_offset_storage(args)
         return args
 
     def get_kafka_consumer_config(self):
@@ -437,7 +448,12 @@ class KafkaConsumerConfig(object):
 
         config['group_id'] = self.group_id
         config['bootstrap_servers'] = self.cluster.broker_list
+        self._remove_offset_storage(config)
         return config
+
+    def _remove_offset_storage(self, config):
+        if 'offset_storage' in config and config['offset_storage'] is None:
+            del config['offset_storage']
 
     @property
     def broker_list(self):
@@ -474,29 +490,14 @@ class KafkaConsumerConfig(object):
         return self._config.get('client_id', DEFAULT_CLIENT_ID)
 
     @property
-    def metrics_reporter(self):
-        return self._config.get('metrics_reporter', 'yelp_meteorite')
-
-    @property
-    def signalfx_dimensions(self):
-        dimensions = self._config.get('signalfx_dimensions', {})
+    def metrics_dimensions(self):
+        dimensions = self._config.get('metrics_dimensions', {})
         dimensions.update({
             'group_id': self.group_id,
             'cluster_name': self.cluster.name,
             'cluster_type': self.cluster.type,
         })
         return dimensions
-
-    @property
-    def signalfx_send_metrics_interval(self):
-        return self._config.get(
-            'signalfx_send_metrics_interval',
-            DEFAULT_SIGNALFX_METRICS_INTERVAL
-        )
-
-    @property
-    def signalfx_token(self):
-        return self._config.get('signalfx_token', None)
 
     @property
     def pre_rebalance_callback(self):
