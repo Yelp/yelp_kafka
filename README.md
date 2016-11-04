@@ -49,8 +49,8 @@ Create a producer for my_topic.
 This example makes use of the [YelpKafkaSimpleProducer](yelp_kafka/producer.py) 
 from yelp_kafka.
 
-__client_id__ identifies the client connection in Kafka and it is used by Kafka 0.9.0 to enforce
-quota limit per client. We recommend to use a __client_id__ that represents the application.
+_client_id_ identifies the client connection in Kafka and it is used by Kafka 0.9.0 to enforce
+quota limit per client. We recommend to use a _client_id_ that represents the application.
 
 In the example there are some exceptions that usually should be safe to just retry.
 
@@ -140,7 +140,7 @@ See __producer_example__ above for more information about the exceptions to retr
 The __group_id__ should represent the application/service the consumer belongs to.
 
 
-**Note** When bootstrapping a new consumer group it is usually recommended to set ``auto_offset_reset`` to **largest**.
+**Note**: When bootstrapping a new consumer group it is usually recommended to set ``auto_offset_reset`` to **largest**.
           It assures that a huge amount of past messages are not consumed the first time a consumer is launched.
           ``auto_offset_reset`` should be set to **smallest** immediately after the first run (after the offsets are committed for the first time).
           When ``auto_offset_reset`` is set to **smallest** no messages are lost when adding new partitions.
@@ -208,7 +208,7 @@ from Kafka.
   automatically), and you can control when to mark messages as processed (via
   __task_done__ and __commit__).
 
-- 'yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for
+- `yelp_kafka.consumer_group.MultiprocessingConsumerGroup` is for
   consuming from high volume topics since it starts as many consumer processes as topic
   partitions. It also handles process monitoring and restart upon failures.
 
