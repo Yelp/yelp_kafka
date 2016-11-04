@@ -1,15 +1,11 @@
-Getting Started
+# Yelp Kafka
 ===============
 
-
-.. _producer_example:
-
-Producer
-^^^^^^^^
+## Producer
 
 Create a producer for my_topic.
 
-.. code-block:: python
+```python
 
    from yelp_kafka import discovery
    from yelp_kafka.config import ClusterConfig
@@ -49,19 +45,20 @@ Create a producer for my_topic.
        # Usually we want to retry a certain number of times when encountering these exceptions
        pass
 
+```
 
+This example makes use of the [YelpKafkaSimpleProducer](yelp_kafka/producer.py) 
+from yelp_kafka.
 
-This example makes use of the `YelpKafkaSimpleProducer`_ class from yelp_kafka.
-
-``client_id`` identifies the client connection in Kafka and it is used by Kafka 0.9.0 to enforce
-quota limit per client. We recommend to use a ``client_id`` that represents the application.
+**client_id** identifies the client connection in Kafka and it is used by Kafka 0.9.0 to enforce
+quota limit per client. We recommend to use a **client_id** that represents the application.
 
 In the example there are some exceptions that usually should be safe to just retry.
 
-``KafkaUnavailableError`` can happen when the metadata request to Kafka fails, this
+**KafkaUnavailableError** can happen when the metadata request to Kafka fails, this
 request is broker unaware so a simple retry would pick another broker of the cluster and possibly succeed.
 
-``LeaderNotAvailableError`` and ``NotLeaderForPartitionError`` may happen during a cluster
+**LeaderNotAvailableError** and **NotLeaderForPartitionError** may happen during a cluster
 rolling restart or upon broker failure. In this case a new leader will be elected, kafka-python
 by default refreshes the metadata when encountering these errors, thus upon retry it would
 hopefully use a new leader and succeed. However, Kafka doesn't give us any guarantee on how quickly
@@ -69,7 +66,7 @@ a new leader will be elected. We measured that for small clusters the elections 
 of hundreds of ms but for large clusters it can take up to several seconds.
 Usually an application should retry for a limited amount of time and then consider the request failed and react accordingly.
 
-Finally, ``FailedPayloadsError`` may happen in many cases, for example when a leader is missing
+Finally, **FailedPayloadsError** may happen in many cases, for example when a leader is missing
 or the connection fails in the middle of a request. Metadata is automatically refreshed for this exception as well.
 
 .. seealso:: kafka-python `usage examples`_
@@ -79,10 +76,10 @@ or the connection fails in the middle of a request. Metadata is automatically re
 
 .. _consumer_group_example:
 
-Consumer
-^^^^^^^^
 
-.. code-block:: python
+## Consumer
+
+```python
 
    from yelp_kafka import discovery
    from yelp_kafka.consumer_group import KafkaConsumerGroup
@@ -142,10 +139,11 @@ Consumer
            # We can either fail the application or re-initialize the consumer connection as
            # done in this example.
            pass
+```
 
 See :ref:`producer_example` for more information about the exceptions to retry.
 See :ref:`consumer_group_example` for more information about using KafkaConsumerGroup.
-The ``group_id`` should represent the application/service the consumer belongs to.
+The **group_id** should represent the application/service the consumer belongs to.
 
 .. seealso:: :ref:`config` for all the available configuration options.
 
@@ -157,7 +155,7 @@ The ``group_id`` should represent the application/service the consumer belongs t
           
 Create a consumer for all topics ending with mytopic:
 
-.. code-block:: python
+```python
 
    from yelp_kafka import discovery
    from yelp_kafka.config import ClusterConfig
@@ -176,15 +174,16 @@ Create a consumer for all topics ending with mytopic:
    consumer = KafkaConsumer(topics, **config.get_kafka_consumer_config())
    for message in consumer:
        print message
+```
 
-This example makes use of the `KafkaConsumer`_ from kafka-python. This consumer
+This example makes use of the KafkaConsumer from kafka-python. This consumer
 class should be considered deprecated and should not be used anymore. 
 
 .. _KafkaConsumer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.consumer.html#module-kafka.consumer.kafka
 
 
-Reporting Metrics
-^^^^^^^^^^^^^^^^^
+## Reporting Metrics
+
 
 If you're using :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`, you
 can send metrics on request latency and error counts. This is on by default
@@ -205,8 +204,8 @@ If you want to plug in your own metric responder module, please use
 :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`.
 
 
-Other consumer groups
-^^^^^^^^^^^^^^^^^^^^^
+## Other consumer groups
+
 
 Yelp_Kafka currently provides three *consumer group* interfaces for consuming
 from Kafka.
