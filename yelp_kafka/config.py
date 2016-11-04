@@ -84,6 +84,7 @@ class ClusterConfig(
     ),
 ):
     """Cluster configuration.
+    :param type: type of the cluster; additional identifier for cluster
     :param name: cluster name
     :param broker_list: list of kafka brokers
     :param zookeeper: zookeeper connection string

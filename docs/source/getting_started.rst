@@ -1,21 +1,18 @@
 Getting Started
 ===============
 
-Standard clusters
------------------
-
-:py:mod:`yelp_kafka.discovery` provides functions for connecting to any Kafka clusters at Yelp and searching topics on it. While in the scribe Kafka cluster the stream name and datacenter identifies a specific topic, in the other clusters there are currently no conventions for topic naming.
 
 .. _producer_example:
 
 Producer
 ^^^^^^^^
 
-Create a producer for my_topic in the local standard Kafka cluster.
+Create a producer for my_topic.
 
 .. code-block:: python
 
    from yelp_kafka import discovery
+   from yelp_kafka.config import ClusterConfig
    from yelp_kafka.producer import YelpKafkaSimpleProducer
    from kafka import KafkaClient
    from kafka.common import ConsumerTimeout
@@ -25,10 +22,13 @@ Create a producer for my_topic in the local standard Kafka cluster.
    from kafka.common import NotLeaderForPartitionError
    from kafka.common import UnknownTopicOrPartitionError
 
-   # Get cluster configuration (We recommend using the region cluster which
-   # defaults to the region of the caller (can be overridden) but superregion
-   # or name cluster discovery is possible)
-   cluster_config = discovery.get_region_cluster('standard', 'my-client-id')
+   # Cluster configuration
+   cluster_config = ClusterConfig(
+       type="service",
+       name="cluster",
+       broker_list=["cluster-elb-1:9092"],
+       zookeeper="11.11.11.111:2181,11.11.11.112:2181,11.11.11.113:2181/kafka-1",
+   )
    # Create a kafka Client
    client = KafkaClient(cluster_config.broker_list, client_id='my-client-id')
    # Create the producer and send 2 messages
@@ -86,6 +86,7 @@ Consumer
 
    from yelp_kafka import discovery
    from yelp_kafka.consumer_group import KafkaConsumerGroup
+   from yelp_kafka.config import ClusterConfig
    from yelp_kafka.config import KafkaConsumerConfig
    from yelp_kafka.error import PartitionerError
    from kafka.common import ConsumerTimeout
@@ -94,10 +95,13 @@ Consumer
    from kafka.common import LeaderNotAvailableError
    from kafka.common import NotLeaderForPartitionError
 
-   # Get cluster configuration (We recommend using the region cluster which
-   # defaults to the region of the caller (can be overridden) but superregion
-   # or name cluster discovery is possible)
-   cluster_config = discovery.get_region_cluster('standard', 'my-client-id')
+   # Cluster configuration
+   cluster_config = ClusterConfig(
+       type="service",
+       name="cluster",
+       broker_list=["cluster-elb-1:9092"],
+       zookeeper="11.11.11.111:2181,11.11.11.112:2181,11.11.11.113:2181/kafka-1",
+   )
    config = KafkaConsumerConfig(
        'my_group_id',
        cluster_config,
@@ -141,30 +145,33 @@ Consumer
 
 See :ref:`producer_example` for more information about the exceptions to retry.
 See :ref:`consumer_group_example` for more information about using KafkaConsumerGroup.
-The ``group_id`` should represent the application/service that consumer belongs to. It is recommended to follow the naming 
-convention ``services.<descriptive_name>`` or ``batch.<descriptive_name>`` to enable `consumer monitoring`_ in SignalFx.
+The ``group_id`` should represent the application/service the consumer belongs to.
 
 .. seealso:: :ref:`config` for all the available configuration options.
 
-.. _consumer monitoring: https://trac.yelpcorp.com/wiki/Kafka#ConsumerMonitoring
 
 .. note:: When bootstrapping a new consumer group it is usually recommended to set ``auto_offset_reset`` to **largest**.
           It assures that a huge amount of past messages are not consumed the first time a consumer is launched.
           ``auto_offset_reset`` should be set to **smallest** immediately after the first run (after the offsets are committed for the first time).
           When ``auto_offset_reset`` is set to **smallest** no messages are lost when adding new partitions.
           
-Create a consumer for all topics ending with mytopic in the standard local region kafka
-cluster:
+Create a consumer for all topics ending with mytopic:
 
 .. code-block:: python
 
    from yelp_kafka import discovery
+   from yelp_kafka.config import ClusterConfig
    from yelp_kafka.config import KafkaConsumerConfig
    from kafka import KafkaConsumer
 
-   # If no topics match the pattern, discovery raises DiscoveryError.
-   region_cluster = discovery.get_region_cluster('standard', 'my-client-id')
-   topics, cluster = discovery.search_topics_by_regex('.*mytopic', [region_cluster])
+   # Cluster configuration
+   cluster_config = ClusterConfig(
+       type="service",
+       name="cluster",
+       broker_list=["cluster-elb-1:9092"],
+       zookeeper="11.11.11.111:2181,11.11.11.112:2181,11.11.11.113:2181/kafka-1",
+   )
+   topics, cluster = discovery.search_topics_by_regex('.*mytopic', [cluster_config])
    config = KafkaConsumerConfig(group_id='my_app', cluster=cluster, client_id='my-consumer')
    consumer = KafkaConsumer(topics, **config.get_kafka_consumer_config())
    for message in consumer:
@@ -175,137 +182,27 @@ class should be considered deprecated and should not be used anymore.
 
 .. _KafkaConsumer: http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.consumer.html#module-kafka.consumer.kafka
 
-Scribe cluster
---------------
 
-Yelp_Kafka provides some helper functions to interact with the scribe Kafka clusters.
-Scribe Kafka is a dedicated cluster for scribe streams. This cluster contains all the logs from
-our scribe infrastructure. This has to be considered as a readonly cluster. In fact, no producers
-other than Sekretar are allowed to connect to this cluster, create new topics or write messages to it.
-In addition new partitions and topics can be automatically created in the scribe Kafka cluster at any time.
-You should never rely on the number of partitions for a scribe topic.
+Reporting Metrics
+^^^^^^^^^^^^^^^^^
 
-All the topics in the scribe Kafka are named after the scribe stream they represent.
-You usually don't need to generate the topic name, since Yelp_Kafka will do that for you.
+If you're using :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`, you
+can send metrics on request latency and error counts. This is on by default
+for yelp_kafka and uses an instance of
+:py:class:`yelp_kafka.metrics_responder.MetricsResponder` for reporting metrics
 
-The use cases below are the most common when you want to tail a scribe log from Kafka.
+Reporting metrics directly from the kafka client is an option that is only
+available in Yelp's fork of kafka-python: https://github.com/Yelp/kafka-python
 
-Tail a scribe log in the local region using KafkaConsumerGroup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Yelp_Kafka knows what is both the local region scribe cluster and the prefix of the local scribe topic.
-In :py:mod:`yelp_kafka.discovery` there are many functions to search for scribe topics in Kafka.
-
-.. note:: The local region cluster refers to the scribe cluster for the region your application is currently running.
-          We have a separate scribe Kafka cluster for each region (this reflects the scribe logs region).
-          However, Paasta unit of deployment is superregion. This means that if a consumer is deployed
-          in the norcal-prod Paasta cluster it may consume either logs from uswest1-prod or sfo12-prod.
-          It is recommended that consumers that run on Paasta never refer to the local cluster but always
-          explicitly configure the name of the cluster they want to read from. 
-
-Create a KafkaConsumerGroup to tail from the local region ranger log.
-
-.. code-block:: python
-
-   from yelp_kafka import discovery
-   from yelp_kafka.consumer_group import KafkaConsumerGroup
-   from yelp_kafka.config import KafkaConsumerConfig
-
-   # If the stream does not exist, discovery raises DiscoveryError.
-   [(topics, cluster)] = discovery.get_region_logs_stream('my-client-id', 'ranger')
-   consumer = KafkaConsumerGroup(topics, KafkaConsumerConfig(
-       group_id='my_app',
-       client_id='my_client_id',
-       cluster=cluster,
-   ))
-   # Actual consumer code...
+Producer metrics can also be reported and are reported by default by the YelpKafkaSimpleProducer
+through the `report_metrics` parameter. This defaults to True but can be turned off
 
 
-The code above can be run on a devc box and it will consume messages from ranger in devc.
-The same goes for all the other regions. Using the topic name or region as part of the consumer group id is not really useful.
-Kafka already uses the topic name to distinguish between consumers of different topics in the same group id.
-See :ref:`consumer_group_example` for more details about the consumer code. 
-
-Tail a scribe log in the local superregion using KafkaConsumerGroup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Create KafkaConsumerGroup(s) to tail from the local superregion ranger log.
-
-.. code-block:: python
-
-   import contextlib
-   from yelp_kafka import discovery
-   from yelp_kafka.consumer_group import KafkaConsumerGroup
-   from yelp_kafka.config import KafkaConsumerConfig
-
-   # If the stream does not exist, discovery raises DiscoveryError.
-   topics_cluster = discovery.get_superregion_logs_stream('my-client-id', 'ranger')
-   consumers = [KafkaConsumerGroup(topics, KafkaConsumerConfig(
-       group_id='my_app',
-       client_id='my_client_id',
-       cluster=cluster,
-   )) for topics, cluster in topics_cluster.items()]
-   with contextlib.nested(*consumers):
-       while True:
-           # Iterate over the list of consumers to consume messages
-
-
-
-Tail a scribe log from a specific region
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-.. code-block:: python
-
-   from yelp_kafka import discovery
-   from yelp_kafka.consumer_group import KafkaConsumerGroup
-   from yelp_kafka.config import KafkaConsumerConfig
-
-   # If the stream does not exist, discovery raises DiscoveryError.
-   [(topics, cluster)] = discovery.get_region_logs_stream('my-client-id', 'ranger', 'uswest1-prod')
-   # get scribe topics returns a list of topics but there may only be a single topic
-   # matching a scribe log for each cluster.
-
-   consumer = KafkaConsumerGroup(topics, KafkaConsumerConfig(
-       group_id='my_app',
-       cluster=cluster,
-   ))
-   # Actual consumer code
-
-Tail a scribe log from a specific superregion using KafkaConsumerGroup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Create a KafkaConsumerGroup(s) to tail from sfo12-prod ranger.
-
-.. code-block:: python
-
-   import contextlib
-   from yelp_kafka import discovery
-   from yelp_kafka.consumer_group import KafkaConsumerGroup
-   from yelp_kafka.config import KafkaConsumerConfig
-
-   # If the stream does not exist, discovery raises DiscoveryError.
-   topics_cluster  = discovery.get_superregion_logs_stream('my-client-id', 'ranger', 'sfo12-prod')
-   consumers = [KafkaConsumerGroup(topics, KafkaConsumerConfig(
-       group_id='my_app',
-       cluster=cluster,
-   )) for topics, cluster in topics_cluster.items()]
-   with contextlib.nested(*consumers):
-      while True:
-          # Iterate over the list of consumers to consume messages
-
-The code above creates consumer(s) for the ranger log coming from sfo12-prod.
-
-.. note:: The superregion has to be available from your current runtime env.
-
-Tail a scribe log from all the data centers using KafkaConsumerGroup
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Most likely you shouldn't ever have to do this. If you do and have a good reason
-please ask in #kafka or come to dist-sys office hours for guidance
-
-.. warning:: Consuming from multiple clusters within the same process is safe when there
-             is only one consumer instance running for the same consumer group. Please place
-             distsys_streaming on any code review
+If you want to plug in your own metric responder module, please use
+:py:class:`yelp_kafka.metrics_responder.MetricsResponder` and pass it in
+:py:class:`yelp_kafka.producer.YelpKafkaSimpleProducer` or
+:py:class:`yelp_kafka.producer.YelpKafkaKeyedProducer` or
+:py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`.
 
 
 Other consumer groups
@@ -327,81 +224,3 @@ from Kafka.
 - :py:class:`yelp_kafka.consumer_group.ConsumerGroup` provides the same set of
   features as KafkaConsumerGroup, but with a less convenient interface.
   This class is considered deprecated.
-
-Reporting metrics to SignalFx
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-If you're using :py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`, you
-can send metrics on request latency and error counts. This is on by default
-for yelp_kafka and uses an instance of
-:py:class:`yelp_kafka.metrics_responder.MetricsResponder` for reporting metrics
-
-Reporting metrics directly from the kafka client is an option that is only
-available in Yelp's fork of kafka-python (which yelp_kafka uses as
-a dependency).
-
-Producer metrics can also be reported and are reported by default by the YelpKafkaSimpleProducer
-through the `report_metrics` parameter. This defaults to True but can be turned off
-
-.. code-block:: python
-
-   # Get cluster configuration
-   cluster_config = discovery.get_region_cluster('standard', 'my-client-id')
-   # Create a kafka Client
-   client = KafkaClient(cluster_config.broker_list, client_id='my-client-id')
-   # Create the producer and send 2 messages
-   producer = YelpKafkaSimpleProducer(
-       client=client,
-       cluster_config=cluster_config,
-       report_metrics=True,
-   )
-
-.. note::
-
-If you want to plug in your own metric responder module, please use
-:py:class:`yelp_kafka.metrics_responder.MetricsResponder` and pass it in
-:py:class:`yelp_kafka.producer.YelpKafkaSimpleProducer` or
-:py:class:`yelp_kafka.producer.YelpKafkaKeyedProducer` or
-:py:class:`yelp_kafka.consumer_group.KafkaConsumerGroup`.
-
-
-
-Integration tests using kafka discovery
----------------------------------------
-
-If you are using :py:mod:`yelp_kafka.discovery` and wish to do integration tests, you will need
-to set up docker containers for the Kafka discovery service which is utilized to extract both
-cluster and log information.
-
-Add the following to your docker-compose.yml and link kafkadiscovery for your build
-
-.. code-block:: yaml
-
-    kafkadiscovery:
-      image: docker-dev.yelpcorp.com/kafka-discovery-testing:latest
-      expose:
-       - "8888"
-      volumes_from:
-       - kafkadiscoveryconfigs
-      links:
-       - kafka
-       - zookeeper
-
-    kafkadiscoveryconfigs:
-      image: docker-dev.yelpcorp.com/kafka-discovery-configs-testing:latest
-
-    zookeeper:
-      image: docker-dev.yelpcorp.com/zookeeper-testing:latest
-      expose:
-        - "2181"
-
-    kafka:
-      image: docker-dev.yelpcorp.com/kafka-testing:latest
-      expose:
-        - "9092"
-      links:
-        - zookeeper
-
-The kafka-cluster available will be called `local_cluster` and the default superregion is
-`acceptance_test_superregion`, default region is `acceptance_test_region`. These will be
-obtained by default by the discovery functions. All cluster types are available for discovery.
