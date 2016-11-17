@@ -34,10 +34,11 @@ def mock_metrics_responder():
     def generate_mock(*args, **kwargs):
         return mock.MagicMock()
 
-    with mock.patch('yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder', autospec=True) as mock_meteorite:
-        # Different mock for each timer creation
-        mock_meteorite.get_timer_emitter.side_effect = generate_mock
-        yield mock_meteorite
+    with mock.patch.dict('sys.modules', {'yelp_meteorite': mock.MagicMock()}):
+        with mock.patch('yelp_kafka.yelp_metrics_responder.MeteoriteMetricsResponder', autospec=True) as mock_meteorite:
+            # Different mock for each timer creation
+            mock_meteorite.get_timer_emitter.side_effect = generate_mock
+            yield mock_meteorite
 
 
 @pytest.yield_fixture
