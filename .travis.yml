@@ -23,5 +23,4 @@ install:
  - pip install tox
 
 script:
- - tox
- - tox -e integration
+ - tox -e py27
