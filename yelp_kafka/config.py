@@ -22,8 +22,11 @@ from collections import namedtuple
 import six
 import yaml
 from bravado.client import SwaggerClient
-from bravado.requests_client import RequestsClient
-from bravado_decorators.retry import SmartStackClient
+try:
+    from bravado.requests_client import RequestsClient
+    from bravado_decorators.retry import SmartStackClient
+except ImportError:
+    pass
 from bravado_decorators.retry import UserFacingRetryConfig
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
