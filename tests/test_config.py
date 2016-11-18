@@ -85,7 +85,8 @@ MOCK_NO_SCRIBE_YAML = {
 
 
 def test_get_kafka_discovery_client(mock_swagger_yaml):
-    with mock.patch('sys.modules', {'bravado_decorators': mock.MagicMock()}, autospec=True):
+    if getattr(yelp_kafka.config, 'SmartStackClient', None) is None:
+        return
     with mock.patch(
         "yelp_kafka.config.SmartStackClient",
         autospec=True,
