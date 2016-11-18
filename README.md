@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/Yelp/yelp_kafka.svg?branch=master)](https://travis-ci.org/Yelp/yelp_kafka)
+
+
 # Yelp Kafka
 
 ## Producer
@@ -46,7 +49,7 @@ Create a producer for my_topic.
 
 ```
 
-This example makes use of the [YelpKafkaSimpleProducer](yelp_kafka/producer.py) 
+This example makes use of the [YelpKafkaSimpleProducer](yelp_kafka/producer.py)
 from yelp_kafka.
 
 _client_id_ identifies the client connection in Kafka and it is used by Kafka 0.9.0 to enforce
@@ -144,7 +147,7 @@ The __group_id__ should represent the application/service the consumer belongs t
           It assures that a huge amount of past messages are not consumed the first time a consumer is launched.
           ``auto_offset_reset`` should be set to **smallest** immediately after the first run (after the offsets are committed for the first time).
           When ``auto_offset_reset`` is set to **smallest** no messages are lost when adding new partitions.
-          
+
 Create a consumer for all topics ending with mytopic:
 
 ```python
@@ -169,7 +172,7 @@ Create a consumer for all topics ending with mytopic:
 ```
 
 This example makes use of the KafkaConsumer from kafka-python. This consumer
-class should be considered deprecated and should not be used anymore. 
+class should be considered deprecated and should not be used anymore.
 
 See Also: [KafkaConsumer](http://kafka-python.readthedocs.org/en/v0.9.5/apidoc/kafka.consumer.html#module-kafka.consumer.kafka)
 
