@@ -85,6 +85,8 @@ MOCK_NO_SCRIBE_YAML = {
 
 
 def test_get_kafka_discovery_client(mock_swagger_yaml):
+    if getattr(yelp_kafka.config, 'SmartStackClient', None) is None:
+        return
     with mock.patch(
         "yelp_kafka.config.SmartStackClient",
         autospec=True,
@@ -330,22 +332,15 @@ class TestTopologyConfig(object):
         with pytest.raises(ConfigurationError):
             topology.get_cluster_by_name('does-not-exist')
 
-    def test___eq__(self):
-        topology1 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
-        topology2 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
-        assert topology1 == topology2
-
+    def test___eq__(self, mock_yaml):
         topology1 = TopologyConfiguration("scribe")
         topology2 = TopologyConfiguration("scribe")
         assert topology1 == topology2
 
-    def test___ne__(self):
-        topology1 = TopologyConfiguration("standard", "/nail/etc/kafka_discovery")
-        topology2 = TopologyConfiguration("scribe", "/nail/etc/kafka_discovery")
-        assert topology1 != topology2
-
-        topology1 = TopologyConfiguration("standard")
-        topology2 = TopologyConfiguration("spam")
+    def test___ne__(self, mock_yaml):
+        topology1 = TopologyConfiguration("scribe")
+        mock_yaml.return_value = MOCK_NO_SCRIBE_YAML
+        topology2 = TopologyConfiguration("no_scribe")
         assert topology1 != topology2
 
 

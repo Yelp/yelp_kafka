@@ -57,7 +57,6 @@ setup(
     packages=find_packages(exclude=["tests*"]),
     install_requires=[
         'bravado',
-        'bravado_decorators>=0.10.0',
         'kafka-python<1.0.0',
         'kazoo>=2.0.post2',
         'PyYAML>=3.10',
@@ -69,7 +68,7 @@ setup(
         'retrying',
     ],
     extras_require={
-        'internal': ['yelp_meteorite']
+        'internal': ['yelp_meteorite', 'bravado_decorators>=0.10.0']
     },
     cmdclass={
         'test': Tox,

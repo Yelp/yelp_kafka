@@ -23,8 +23,11 @@ import six
 import yaml
 from bravado.client import SwaggerClient
 from bravado.requests_client import RequestsClient
-from bravado_decorators.retry import SmartStackClient
-from bravado_decorators.retry import UserFacingRetryConfig
+try:
+    from bravado_decorators.retry import SmartStackClient
+    from bravado_decorators.retry import UserFacingRetryConfig
+except ImportError:
+    pass
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring

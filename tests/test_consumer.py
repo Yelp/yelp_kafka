@@ -19,6 +19,7 @@ import contextlib
 
 import mock
 import pytest
+from kafka import KafkaClient
 from kafka.common import KafkaError
 from kafka.common import OffsetCommitRequest
 from setproctitle import getproctitle
@@ -157,6 +158,9 @@ class TestKafkaSimpleConsumer(object):
                 )
 
     def test_commit_message_zk(self, config):
+        if getattr(KafkaClient, 'send_offset_commit_request_kafka', None) is None:
+            return
+
         with mock_kafka() as (mock_client, mock_consumer):
             config._config['offset_storage'] = 'zookeeper'
             consumer = KafkaSimpleConsumer('test_topic', config)
@@ -174,6 +178,9 @@ class TestKafkaSimpleConsumer(object):
                 )
 
     def test_commit_message_kafka(self, config):
+        if getattr(KafkaClient, 'send_offset_commit_request_kafka', None) is None:
+            return
+
         with mock_kafka() as (mock_client, mock_consumer):
             config._config['offset_storage'] = 'kafka'
             consumer = KafkaSimpleConsumer('test_topic', config)
@@ -192,6 +199,9 @@ class TestKafkaSimpleConsumer(object):
                 )
 
     def test_commit_message_dual(self, config):
+        if getattr(KafkaClient, 'send_offset_commit_request_kafka', None) is None:
+            return
+
         with mock_kafka() as (mock_client, mock_consumer):
             config._config['offset_storage'] = 'dual'
             consumer = KafkaSimpleConsumer('test_topic', config)
