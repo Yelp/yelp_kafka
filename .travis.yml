@@ -1,26 +1,33 @@
 language: python
 python: 2.7
-
 sudo: required
-
 services:
-  - docker
-
+- docker
 before_install:
-  - sudo sh -c 'echo "deb https://apt.dockerproject.org/repo ubuntu-precise main" > /etc/apt/sources.list.d/docker.list'
-  - sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
-  - sudo apt-get update
-  - sudo apt-key update
-  - sudo apt-get -qqy -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install docker-engine
-  - sudo rm /usr/local/bin/docker-compose
-  - curl -L https://github.com/docker/compose/releases/download/1.7.0/docker-compose-`uname -s`-`uname -m` > docker-compose
-  - chmod +x docker-compose
-  - sudo mv docker-compose /usr/local/bin
-  - docker-compose -v
-  - docker -v
-
+- sudo sh -c 'echo "deb https://apt.dockerproject.org/repo ubuntu-precise main" >
+  /etc/apt/sources.list.d/docker.list'
+- sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
+- sudo apt-get update
+- sudo apt-key update
+- sudo apt-get -qqy -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+  install docker-engine
+- sudo rm /usr/local/bin/docker-compose
+- curl -L https://github.com/docker/compose/releases/download/1.7.0/docker-compose-`uname
+  -s`-`uname -m` > docker-compose
+- chmod +x docker-compose
+- sudo mv docker-compose /usr/local/bin
+- docker-compose -v
+- docker -v
 install:
- - pip install tox
-
+- pip install tox
 script:
- - tox -e py27
+- tox -e py27
+deploy:
+  provider: pypi
+  user: yelplabs
+  password:
+    secure: sUJKXF/1S4+kExU2IAkuW0kXTYVPWIJoBRPVSgVadf9yEh49XZFAt2IeGyrg5T3PrbaeOn8LEuUG0XCIWyU4M1wiEA5nAIddQ3+WyPSSJ0W/Ueajn75/pesjEkKqS6gEMkd60f7LdEiz347YuWerE6poO8JLYsyNRViv1ck63TZDieCY1q3hHO2jvoeDX++qRZmoHccZfUfmoQPldwM6JEQ1AW2gXIc1iNFl/BVM0HOdTyhkNERQk/NmX+AjI0YI8ICwp9NUDNDt4iGs6F00mW6Vg09A07yH0t2HfuphOfxnFElvlI60i7pICqzqfjeKQG5W1818is9eR/yRzpKEAnUCyACaJ2PVRmINRDz+vZWSYns3rm3C2SBuG/YgAQQLFwMt9nLV9AJGpD7fm7qrc8WF5/wCV8OGARbxpkL6GqZuocgjpg6pNsiT+QTT6rMYDTE2vegn/OtjJ/gtr3ytt1N9oUbp/IBVMnipG+aoPTz0FiTMJqMkq0iFbDj5CALG3WWkLd9drUDMOOOq/tVzRrWjqpQ70Mp3itWbNqQEyU5XUF3ZZVPYHgyMIaYSomYJLJRV1ANJzk8ovDP8RHFp0GihZeY5eSeTfytQpHvGWbDm4qOyWAuaTSKP0uYBIz4+zfg823tzzgng/VbiapfMeyL1U1CUrZdLRJSYUHeEXDQ=
+  on:
+    tags: true
+    distributions: sdist bdist_wheel
+    repo: Yelp/yelp_kafka
