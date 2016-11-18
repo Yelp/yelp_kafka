@@ -22,12 +22,13 @@ from collections import namedtuple
 import six
 import yaml
 from bravado.client import SwaggerClient
+from bravado.requests_client import RequestsClient
 try:
-    from bravado.requests_client import RequestsClient
     from bravado_decorators.retry import SmartStackClient
     from bravado_decorators.retry import UserFacingRetryConfig
 except ImportError:
     pass
+from kafka import KafkaClient
 from kafka.consumer.base import FETCH_MIN_BYTES
 from kafka.consumer.kafka import DEFAULT_CONSUMER_CONFIG
 from kafka.util import kafka_bytestring
@@ -455,7 +456,9 @@ class KafkaConsumerConfig(object):
         return config
 
     def _remove_offset_storage(self, config):
-        if 'offset_storage' in config and config['offset_storage'] is None:
+        if getattr(KafkaClient, 'send_offset_commit_request_kafka', None) is None:
+            del config['offset_storage']
+        elif 'offset_storage' in config and config['offset_storage'] is None:
             del config['offset_storage']
 
     @property
