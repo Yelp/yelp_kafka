@@ -40,7 +40,7 @@ from yelp_kafka.utils import memoized
 DEFAULT_KAFKA_TOPOLOGY_BASE_PATH = '/nail/srv/configs/kafka_discovery_configs'
 # Use /etc/kafka_discovery if /nail/srv/configs/kafka_discovery does not exist
 if not os.path.isdir(DEFAULT_KAFKA_TOPOLOGY_BASE_PATH):
-    DEFAULT_KAFKA_TOPOLOGY_BASE_PATH = '/etc/kafka_discovery'
+    DEFAULT_KAFKA_TOPOLOGY_BASE_PATH = '/nail/etc/kafka_discovery'
 
 # This is fixed to 2MiB, which is twice as much as the max message size
 # configured by default in our Kafka clusters.
