@@ -1,3 +1,10 @@
+**Deprecation Warning**
+
+Please note that this repo is not maintained in the open source community. The code and examples
+contained in this repository are for demonstration purposes only.
+
+You can read the latest from Yelp Engineering on our [tech blog](https://engineeringblog.yelp.com/).
+
 [![Build Status](https://travis-ci.org/Yelp/yelp_kafka.svg?branch=master)](https://travis-ci.org/Yelp/yelp_kafka)
 
 
